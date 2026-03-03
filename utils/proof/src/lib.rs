@@ -111,22 +111,40 @@ fn to_proto_proof_mode(mode: SP1ProofMode) -> ProofMode {
     }
 }
 
+/// Generate a proof via a self-hosted SP1 cluster (blocking: waits for completion).
+async fn cluster_proof_blocking(
+    timeout_secs: u64,
+    mode: ProofMode,
+    elf: &[u8],
+    stdin: SP1Stdin,
+    label: &str,
+) -> Result<SP1ProofWithPublicValues> {
+    tracing::info!("Generating {label} proof via cluster");
+    let timeout_hours = timeout_secs.div_ceil(3600).max(1);
+    let cluster_elf = ClusterElf::NewElf(elf.to_vec());
+    let ProofRequestResults { proof, .. } = tokio::time::timeout(
+        std::time::Duration::from_secs(timeout_secs),
+        request_proof_from_env(mode, timeout_hours, cluster_elf, stdin),
+    )
+    .await
+    .map_err(|_| anyhow::anyhow!("cluster {label} proof timed out after {timeout_secs}s"))?
+    .map_err(|e| anyhow::anyhow!("cluster {label} proof failed: {e}"))?;
+    Ok(SP1ProofWithPublicValues::from(proof))
+}
+
 /// Generate a compressed range proof via a self-hosted SP1 cluster.
 pub async fn cluster_range_proof(
     timeout_secs: u64,
     stdin: SP1Stdin,
 ) -> Result<SP1ProofWithPublicValues> {
-    tracing::info!("Generating range proof via cluster");
-    let timeout_hours = timeout_secs.div_ceil(3600).max(1);
-    let cluster_elf = ClusterElf::NewElf(get_range_elf_embedded().to_vec());
-    let ProofRequestResults { proof, .. } = tokio::time::timeout(
-        std::time::Duration::from_secs(timeout_secs),
-        request_proof_from_env(ProofMode::Compressed, timeout_hours, cluster_elf, stdin),
+    cluster_proof_blocking(
+        timeout_secs,
+        ProofMode::Compressed,
+        get_range_elf_embedded(),
+        stdin,
+        "range",
     )
     .await
-    .map_err(|_| anyhow::anyhow!("cluster range proof timed out after {timeout_secs}s"))?
-    .map_err(|e| anyhow::anyhow!("cluster range proof failed: {e}"))?;
-    Ok(SP1ProofWithPublicValues::from(proof))
 }
 
 /// Generate an aggregation proof via a self-hosted SP1 cluster.
@@ -135,18 +153,14 @@ pub async fn cluster_agg_proof(
     agg_mode: SP1ProofMode,
     stdin: SP1Stdin,
 ) -> Result<SP1ProofWithPublicValues> {
-    tracing::info!("Generating aggregation proof via cluster");
-    let timeout_hours = timeout_secs.div_ceil(3600).max(1);
-    let proto_mode = to_proto_proof_mode(agg_mode);
-    let cluster_elf = ClusterElf::NewElf(AGGREGATION_ELF.to_vec());
-    let ProofRequestResults { proof, .. } = tokio::time::timeout(
-        std::time::Duration::from_secs(timeout_secs),
-        request_proof_from_env(proto_mode, timeout_hours, cluster_elf, stdin),
+    cluster_proof_blocking(
+        timeout_secs,
+        to_proto_proof_mode(agg_mode),
+        AGGREGATION_ELF,
+        stdin,
+        "aggregation",
     )
     .await
-    .map_err(|_| anyhow::anyhow!("cluster agg proof timed out after {timeout_secs}s"))?
-    .map_err(|e| anyhow::anyhow!("cluster agg proof failed: {e}"))?;
-    Ok(SP1ProofWithPublicValues::from(proof))
 }
 
 // ---------------------------------------------------------------------------
@@ -160,6 +174,33 @@ pub async fn cluster_agg_proof(
 pub enum ClusterArtifactStore {
     Redis(RedisArtifactClient),
     S3(S3ArtifactClient),
+}
+
+impl ClusterArtifactStore {
+    async fn create_request(
+        &self,
+        elf: ClusterElf,
+        stdin: SP1Stdin,
+        config: &ProofRequestConfig,
+    ) -> Result<ProofRequest> {
+        match self {
+            Self::Redis(c) => create_request(c.clone(), elf, stdin, config).await,
+            Self::S3(c) => create_request(c.clone(), elf, stdin, config).await,
+        }
+        .map_err(|e| anyhow::anyhow!("cluster proof submit failed: {e}"))
+    }
+
+    async fn check_proof_status(
+        &self,
+        proof_request: ProofRequest,
+        service_client: &ClusterServiceClient,
+    ) -> Result<Option<ProofRequestResults>> {
+        match self {
+            Self::Redis(c) => check_proof_status(c.clone(), proof_request, service_client).await,
+            Self::S3(c) => check_proof_status(c.clone(), proof_request, service_client).await,
+        }
+        .map_err(|e| anyhow::anyhow!("cluster proof poll failed: {e}"))
+    }
 }
 
 /// Shared cluster configuration constructed once at startup.
@@ -257,19 +298,7 @@ pub async fn cluster_submit_range_proof(
     tracing::info!("Submitting range proof to cluster");
     let req_config = config.build_request_config(ProofMode::Compressed, timeout_secs);
     let cluster_elf = ClusterElf::NewElf(get_range_elf_embedded().to_vec());
-
-    match &config.artifact_store {
-        ClusterArtifactStore::Redis(client) => {
-            create_request(client.clone(), cluster_elf, stdin, &req_config)
-                .await
-                .map_err(|e| anyhow::anyhow!("cluster range proof submit failed: {e}"))
-        }
-        ClusterArtifactStore::S3(client) => {
-            create_request(client.clone(), cluster_elf, stdin, &req_config)
-                .await
-                .map_err(|e| anyhow::anyhow!("cluster range proof submit failed: {e}"))
-        }
-    }
+    config.artifact_store.create_request(cluster_elf, stdin, &req_config).await
 }
 
 /// Submit an aggregation proof to the cluster. Returns immediately with a `ProofRequest` handle.
@@ -283,19 +312,7 @@ pub async fn cluster_submit_agg_proof(
     let proto_mode = to_proto_proof_mode(agg_mode);
     let req_config = config.build_request_config(proto_mode, timeout_secs);
     let cluster_elf = ClusterElf::NewElf(AGGREGATION_ELF.to_vec());
-
-    match &config.artifact_store {
-        ClusterArtifactStore::Redis(client) => {
-            create_request(client.clone(), cluster_elf, stdin, &req_config)
-                .await
-                .map_err(|e| anyhow::anyhow!("cluster agg proof submit failed: {e}"))
-        }
-        ClusterArtifactStore::S3(client) => {
-            create_request(client.clone(), cluster_elf, stdin, &req_config)
-                .await
-                .map_err(|e| anyhow::anyhow!("cluster agg proof submit failed: {e}"))
-        }
-    }
+    config.artifact_store.create_request(cluster_elf, stdin, &req_config).await
 }
 
 /// Poll the status of a cluster proof. Returns `Ok(Some(results))` if complete,
@@ -304,18 +321,10 @@ pub async fn cluster_poll_proof(
     config: &ClusterProofConfig,
     proof_request: ProofRequest,
 ) -> Result<Option<ProofRequestResults>> {
-    match &config.artifact_store {
-        ClusterArtifactStore::Redis(client) => {
-            check_proof_status(client.clone(), proof_request, &config.service_client)
-                .await
-                .map_err(|e| anyhow::anyhow!("cluster proof poll failed: {e}"))
-        }
-        ClusterArtifactStore::S3(client) => {
-            check_proof_status(client.clone(), proof_request, &config.service_client)
-                .await
-                .map_err(|e| anyhow::anyhow!("cluster proof poll failed: {e}"))
-        }
-    }
+    config
+        .artifact_store
+        .check_proof_status(proof_request, &config.service_client)
+        .await
 }
 
 /// Reconstruct a `ProofRequest` from DB-persisted JSON data and timing information.

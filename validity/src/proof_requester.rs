@@ -116,6 +116,42 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         self.mock
     }
 
+    /// Submit a proof to the cluster, persist the handle, and store it in memory for polling.
+    async fn submit_cluster_proof(
+        &self,
+        request: &OPSuccinctRequest,
+        submit_result: Result<sp1_cluster_utils::ProofRequest>,
+        error_gauge: ValidityGauge,
+        label: &str,
+    ) -> Result<()> {
+        let proof_request = match submit_result {
+            Ok(pr) => pr,
+            Err(e) => {
+                error_gauge.increment(1.0);
+                return Err(e);
+            }
+        };
+
+        let handle_json = serde_json::to_value(ClusterProofHandleJson {
+            proof_id: proof_request.proof_id.clone(),
+            proof_output_id: proof_request.proof_output_id.clone().to_id(),
+        })?;
+        self.db_client.update_request_to_prove_cluster(request.id, handle_json).await?;
+
+        self.cluster_handles.lock().await.insert(
+            request.id,
+            ClusterProofHandle { proof_request, consecutive_poll_failures: 0 },
+        );
+
+        info!(
+            request_id = request.id,
+            start_block = request.start_block,
+            end_block = request.end_block,
+            "{label} submitted to cluster"
+        );
+        Ok(())
+    }
+
     /// Generates the witness for a range proof.
     pub async fn range_proof_witnessgen(&self, request: &OPSuccinctRequest) -> Result<SP1Stdin> {
         let host_args = self
@@ -559,41 +595,16 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                         .cluster_config
                         .as_ref()
                         .context("cluster_config required for cluster range proof")?;
-
-                    // Submit to cluster — returns immediately.
-                    let proof_request = match cluster_submit_range_proof(
-                        cluster_config,
-                        self.proving_timeout,
-                        stdin,
+                    let result =
+                        cluster_submit_range_proof(cluster_config, self.proving_timeout, stdin)
+                            .await;
+                    self.submit_cluster_proof(
+                        &request,
+                        result,
+                        ValidityGauge::RangeProofRequestErrorCount,
+                        "Range proof",
                     )
-                    .await
-                    {
-                        Ok(pr) => pr,
-                        Err(e) => {
-                            ValidityGauge::RangeProofRequestErrorCount.increment(1.0);
-                            return Err(e);
-                        }
-                    };
-
-                    // DB update AFTER successful submit: set Prove + store handle JSON.
-                    let handle_json = serde_json::to_value(ClusterProofHandleJson {
-                        proof_id: proof_request.proof_id.clone(),
-                        proof_output_id: proof_request.proof_output_id.clone().to_id(),
-                    })?;
-                    self.db_client.update_request_to_prove_cluster(request.id, handle_json).await?;
-
-                    // Store in-memory handle for polling.
-                    self.cluster_handles.lock().await.insert(
-                        request.id,
-                        ClusterProofHandle { proof_request, consecutive_poll_failures: 0 },
-                    );
-
-                    info!(
-                        request_id = request.id,
-                        start_block = request.start_block,
-                        end_block = request.end_block,
-                        "Range proof submitted to cluster"
-                    );
+                    .await?;
                 } else {
                     let proof_id = self.request_range_proof(stdin).await?;
                     self.db_client.update_request_to_prove(request.id, proof_id).await?;
@@ -621,42 +632,20 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                         .cluster_config
                         .as_ref()
                         .context("cluster_config required for cluster agg proof")?;
-
-                    // Submit to cluster — returns immediately.
-                    let proof_request = match cluster_submit_agg_proof(
+                    let result = cluster_submit_agg_proof(
                         cluster_config,
                         self.proving_timeout,
                         self.agg_mode,
                         stdin,
                     )
-                    .await
-                    {
-                        Ok(pr) => pr,
-                        Err(e) => {
-                            ValidityGauge::AggProofRequestErrorCount.increment(1.0);
-                            return Err(e);
-                        }
-                    };
-
-                    // DB update AFTER successful submit: set Prove + store handle JSON.
-                    let handle_json = serde_json::to_value(ClusterProofHandleJson {
-                        proof_id: proof_request.proof_id.clone(),
-                        proof_output_id: proof_request.proof_output_id.clone().to_id(),
-                    })?;
-                    self.db_client.update_request_to_prove_cluster(request.id, handle_json).await?;
-
-                    // Store in-memory handle for polling.
-                    self.cluster_handles.lock().await.insert(
-                        request.id,
-                        ClusterProofHandle { proof_request, consecutive_poll_failures: 0 },
-                    );
-
-                    info!(
-                        request_id = request.id,
-                        start_block = request.start_block,
-                        end_block = request.end_block,
-                        "Aggregation proof submitted to cluster"
-                    );
+                    .await;
+                    self.submit_cluster_proof(
+                        &request,
+                        result,
+                        ValidityGauge::AggProofRequestErrorCount,
+                        "Aggregation proof",
+                    )
+                    .await?;
                 } else {
                     let proof_id = self.request_agg_proof(stdin).await?;
                     self.db_client.update_request_to_prove(request.id, proof_id).await?;

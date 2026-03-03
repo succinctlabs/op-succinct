@@ -41,7 +41,7 @@ type WitnessExecutor = EigenDAWitnessExecutor<
 /// separate thread to avoid nested tokio runtime panics.
 static CANOE_VK: LazyLock<SP1VerifyingKey> = LazyLock::new(|| {
     std::thread::spawn(|| {
-        let client = sp1_sdk::blocking::ProverClient::from_env();
+        let client = sp1_sdk::blocking::CpuProver::new();
         let pk =
             client.setup(Elf::Static(canoe_sp1_cc_host::ELF)).expect("Failed to setup canoe ELF");
         pk.verifying_key().clone()
