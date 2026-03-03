@@ -598,12 +598,12 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                     let result =
                         cluster_submit_range_proof(cluster_config, self.proving_timeout, stdin)
                             .await;
-                    self.submit_cluster_proof(
+                    Box::pin(self.submit_cluster_proof(
                         &request,
                         result,
                         ValidityGauge::RangeProofRequestErrorCount,
                         "Range proof",
-                    )
+                    ))
                     .await?;
                 } else {
                     let proof_id = self.request_range_proof(stdin).await?;
@@ -639,12 +639,12 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                         stdin,
                     )
                     .await;
-                    self.submit_cluster_proof(
+                    Box::pin(self.submit_cluster_proof(
                         &request,
                         result,
                         ValidityGauge::AggProofRequestErrorCount,
                         "Aggregation proof",
-                    )
+                    ))
                     .await?;
                 } else {
                     let proof_id = self.request_agg_proof(stdin).await?;

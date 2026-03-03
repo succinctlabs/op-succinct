@@ -1,5 +1,3 @@
-#![recursion_limit = "256"]
-
 use alloy_provider::{Provider, ProviderBuilder};
 use anyhow::Result;
 use op_succinct_host_utils::{
