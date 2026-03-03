@@ -4,6 +4,7 @@ use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::{network::ReceiptResponse, Provider};
 use anyhow::{anyhow, Context, Result};
+use chrono::Local;
 use futures_util::{stream, StreamExt, TryStreamExt};
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
@@ -15,7 +16,10 @@ use op_succinct_host_utils::{
     DisputeGameFactory::DisputeGameFactoryInstance as DisputeGameFactoryContract,
     OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
 };
-use op_succinct_proof_utils::{cluster_setup_keys, get_range_elf_embedded, is_cluster_mode};
+use op_succinct_proof_utils::{
+    cluster_poll_proof, cluster_setup_keys, get_range_elf_embedded, is_cluster_mode,
+    reconstruct_proof_request, ClusterProofConfig, ClusterProofHandle, ClusterProofHandleJson,
+};
 use op_succinct_signer_utils::SignerLock;
 use sp1_sdk::{
     network::{
@@ -93,6 +97,11 @@ where
 
         let is_cluster = is_cluster_mode();
 
+        let cluster_config =
+            if is_cluster { Some(Arc::new(ClusterProofConfig::from_env().await?)) } else { None };
+        let cluster_handles: Arc<Mutex<HashMap<i64, ClusterProofHandle>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+
         let (range_pk, range_vk, agg_pk, agg_vk, network_prover) = if is_cluster {
             let (range_pk, range_vk, agg_pk, agg_vk) = cluster_setup_keys().await?;
             (range_pk, range_vk, agg_pk, agg_vk, None)
@@ -146,6 +155,8 @@ where
             program_config.clone(),
             requester_config.mock,
             is_cluster,
+            cluster_config,
+            cluster_handles,
             requester_config.range_proof_strategy,
             requester_config.agg_proof_strategy,
             requester_config.agg_proof_mode,
@@ -324,8 +335,9 @@ where
 
     /// Handle all proof requests in the Prove state.
     ///
-    /// No-op in cluster and mock modes: those modes store proofs directly during
-    /// `make_proof_request` and never enter the Prove state, so there is nothing to poll.
+    /// No-op in mock mode (proofs are generated synchronously).
+    /// In cluster mode, polls each request via `process_cluster_proof_status`.
+    /// In network mode, polls each request via `process_proof_request_status`.
     #[tracing::instrument(name = "proposer.handle_proving_requests", skip(self))]
     pub async fn handle_proving_requests(&self) -> Result<()> {
         if self.proof_requester.is_synchronous_proving() {
@@ -344,7 +356,15 @@ where
             .await?;
 
         for request in prove_requests {
-            self.process_proof_request_status(request).await?;
+            if self.proof_requester.cluster {
+                // Cluster mode: catch errors per-request so a single failed poll doesn't
+                // abort processing of remaining Prove requests.
+                if let Err(e) = self.process_cluster_proof_status(request).await {
+                    warn!(error = ?e, "Error processing cluster proof status");
+                }
+            } else {
+                self.process_proof_request_status(request).await?;
+            }
         }
 
         Ok(())
@@ -558,6 +578,232 @@ where
         } else {
             // There should never be a proof request in Prove status without a proof request id.
             tracing::warn!(id = request.id, start_block = request.start_block, end_block = request.end_block, req_type = ?request.req_type, "Request has no proof request id");
+        }
+
+        Ok(())
+    }
+
+    /// Process a single cluster proof request's status by polling the cluster.
+    ///
+    /// Handles:
+    /// - Handle lookup from in-memory map, or reconstruction from DB on restart
+    /// - Wall-clock timeout via `proof_request_time`
+    /// - Proof completion (serialize and store)
+    /// - Transient vs permanent poll errors (3 consecutive failures = permanent)
+    #[tracing::instrument(name = "proposer.process_cluster_proof_status", skip(self, request))]
+    async fn process_cluster_proof_status(&self, request: OPSuccinctRequest) -> Result<()> {
+        let cluster_config = self
+            .proof_requester
+            .cluster_config
+            .as_ref()
+            .context("cluster_config required for cluster proof polling")?;
+
+        // 1. Look up or reconstruct the proof handle.
+        let proof_request = {
+            let mut handles = self.proof_requester.cluster_handles.lock().await;
+            if let Some(handle) = handles.get(&request.id) {
+                handle.proof_request.clone()
+            } else {
+                // Reconstruct from DB (restart recovery).
+                let handle_json_value = request.cluster_proof_handle.as_ref().ok_or_else(|| {
+                    anyhow!(
+                        "Cluster proof request {} in Prove status has no cluster_proof_handle",
+                        request.id
+                    )
+                })?;
+                let handle_json: ClusterProofHandleJson =
+                    serde_json::from_value(handle_json_value.clone())?;
+
+                let proof_request_time = request.proof_request_time.ok_or_else(|| {
+                    anyhow!(
+                        "Cluster proof request {} in Prove status has no proof_request_time",
+                        request.id
+                    )
+                })?;
+
+                let elapsed = Local::now().naive_local() - proof_request_time;
+                let total_timeout = Duration::from_secs(self.proof_requester.proving_timeout);
+                let remaining = total_timeout
+                    .checked_sub(Duration::from_secs(elapsed.num_seconds().max(0) as u64))
+                    .unwrap_or(Duration::ZERO);
+
+                let proof_request = reconstruct_proof_request(&handle_json, remaining);
+
+                handles.insert(
+                    request.id,
+                    ClusterProofHandle {
+                        proof_request: proof_request.clone(),
+                        consecutive_poll_failures: 0,
+                    },
+                );
+
+                info!(
+                    request_id = request.id,
+                    start_block = request.start_block,
+                    end_block = request.end_block,
+                    remaining_timeout_secs = remaining.as_secs(),
+                    "Reconstructed cluster proof handle from DB"
+                );
+
+                proof_request
+            }
+        };
+
+        // 2. Wall-clock timeout check using proof_request_time.
+        if let Some(proof_request_time) = request.proof_request_time {
+            let elapsed = Local::now().naive_local() - proof_request_time;
+            if elapsed.num_seconds() > self.proof_requester.proving_timeout as i64 {
+                warn!(
+                    request_id = request.id,
+                    start_block = request.start_block,
+                    end_block = request.end_block,
+                    req_type = ?request.req_type,
+                    elapsed_secs = elapsed.num_seconds(),
+                    proving_timeout = self.proof_requester.proving_timeout,
+                    "Cluster proof exceeded wall-clock timeout"
+                );
+
+                match request.req_type {
+                    RequestType::Range => ValidityGauge::RangeProofRequestErrorCount.increment(1.0),
+                    RequestType::Aggregation => {
+                        ValidityGauge::AggProofRequestErrorCount.increment(1.0)
+                    }
+                }
+
+                match self
+                    .proof_requester
+                    .handle_failed_request(
+                        request.clone(),
+                        ExecutionStatus::UnspecifiedExecutionStatus as i32,
+                    )
+                    .await
+                {
+                    Ok(_) => ValidityGauge::ProofRequestRetryCount.increment(1.0),
+                    Err(e) => {
+                        ValidityGauge::RetryErrorCount.increment(1.0);
+                        return Err(e);
+                    }
+                }
+
+                ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
+                self.proof_requester.cluster_handles.lock().await.remove(&request.id);
+
+                return Ok(());
+            }
+        }
+
+        // 3. Poll the cluster for proof status.
+        match cluster_poll_proof(cluster_config, proof_request).await {
+            Ok(Some(results)) => {
+                // Proof complete — convert and store.
+                let proof = SP1ProofWithPublicValues::from(results.proof);
+
+                let proof_bytes = match proof.proof {
+                    SP1Proof::Compressed(_) => bincode::serialize(&proof)?,
+                    SP1Proof::Groth16(_) | SP1Proof::Plonk(_) => proof.bytes(),
+                    SP1Proof::Core(_) => return Err(anyhow!("Core proofs are not supported.")),
+                };
+
+                self.driver_config
+                    .driver_db_client
+                    .update_proof_to_complete(request.id, &proof_bytes)
+                    .await?;
+                self.driver_config.driver_db_client.update_prove_duration(request.id).await?;
+
+                match request.req_type {
+                    RequestType::Range => {
+                        info!(
+                            request_id = request.id,
+                            start_block = request.start_block,
+                            end_block = request.end_block,
+                            proof_request_time = ?request.proof_request_time,
+                            total_tx_fees = %request.total_tx_fees,
+                            total_transactions = request.total_nb_transactions,
+                            witnessgen_duration_s = request.witnessgen_duration,
+                            total_eth_gas_used = request.total_eth_gas_used,
+                            total_l1_fees = %request.total_l1_fees,
+                            "Range proof completed via cluster"
+                        );
+                    }
+                    RequestType::Aggregation => {
+                        info!(
+                            request_id = request.id,
+                            start_block = request.start_block,
+                            end_block = request.end_block,
+                            proof_request_time = ?request.proof_request_time,
+                            witnessgen_duration_s = request.witnessgen_duration,
+                            "Aggregation proof completed via cluster"
+                        );
+                    }
+                }
+
+                self.proof_requester.cluster_handles.lock().await.remove(&request.id);
+            }
+            Ok(None) => {
+                // Still pending — reset failure counter.
+                let mut handles = self.proof_requester.cluster_handles.lock().await;
+                if let Some(handle) = handles.get_mut(&request.id) {
+                    handle.consecutive_poll_failures = 0;
+                }
+            }
+            Err(e) => {
+                // Poll error — distinguish transient vs permanent.
+                let should_fail = {
+                    let mut handles = self.proof_requester.cluster_handles.lock().await;
+                    if let Some(handle) = handles.get_mut(&request.id) {
+                        handle.consecutive_poll_failures += 1;
+                        handle.consecutive_poll_failures >= 3
+                    } else {
+                        true
+                    }
+                };
+
+                if should_fail {
+                    warn!(
+                        request_id = request.id,
+                        start_block = request.start_block,
+                        end_block = request.end_block,
+                        req_type = ?request.req_type,
+                        error = %e,
+                        "Cluster proof poll failed permanently"
+                    );
+
+                    match request.req_type {
+                        RequestType::Range => {
+                            ValidityGauge::RangeProofRequestErrorCount.increment(1.0)
+                        }
+                        RequestType::Aggregation => {
+                            ValidityGauge::AggProofRequestErrorCount.increment(1.0)
+                        }
+                    }
+
+                    match self
+                        .proof_requester
+                        .handle_failed_request(
+                            request.clone(),
+                            ExecutionStatus::UnspecifiedExecutionStatus as i32,
+                        )
+                        .await
+                    {
+                        Ok(_) => ValidityGauge::ProofRequestRetryCount.increment(1.0),
+                        Err(e) => {
+                            ValidityGauge::RetryErrorCount.increment(1.0);
+                            return Err(e);
+                        }
+                    }
+
+                    self.proof_requester.cluster_handles.lock().await.remove(&request.id);
+                } else {
+                    warn!(
+                        request_id = request.id,
+                        start_block = request.start_block,
+                        end_block = request.end_block,
+                        req_type = ?request.req_type,
+                        error = %e,
+                        "Cluster proof poll failed transiently, will retry next iteration"
+                    );
+                }
+            }
         }
 
         Ok(())

@@ -1,3 +1,9 @@
+use std::{
+    collections::HashMap,
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
 use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
 use anyhow::{Context, Result};
@@ -6,16 +12,16 @@ use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, host::OPSuccinctHost,
     metrics::MetricsGauge, witness_generation::WitnessGenerator,
 };
-use op_succinct_proof_utils::{cluster_agg_proof, cluster_range_proof, get_range_elf_embedded};
+use op_succinct_proof_utils::{
+    cluster_submit_agg_proof, cluster_submit_range_proof, get_range_elf_embedded,
+    ClusterProofConfig, ClusterProofHandle, ClusterProofHandleJson,
+};
 use sp1_sdk::{
     network::{proto::types::ExecutionStatus, FulfillmentStrategy},
     Elf, NetworkProver, ProveRequest, Prover, SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin,
     SP1_CIRCUIT_VERSION,
 };
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use tokio::sync::Mutex;
 use tracing::{info, warn};
 
 use crate::{
@@ -31,6 +37,8 @@ pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
     pub program_config: ProgramConfig,
     pub mock: bool,
     pub cluster: bool,
+    pub cluster_config: Option<Arc<ClusterProofConfig>>,
+    pub cluster_handles: Arc<Mutex<HashMap<i64, ClusterProofHandle>>>,
     pub range_strategy: FulfillmentStrategy,
     pub agg_strategy: FulfillmentStrategy,
     pub agg_mode: SP1ProofMode,
@@ -56,6 +64,8 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         program_config: ProgramConfig,
         mock: bool,
         cluster: bool,
+        cluster_config: Option<Arc<ClusterProofConfig>>,
+        cluster_handles: Arc<Mutex<HashMap<i64, ClusterProofHandle>>>,
         range_strategy: FulfillmentStrategy,
         agg_strategy: FulfillmentStrategy,
         agg_mode: SP1ProofMode,
@@ -82,6 +92,8 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             program_config,
             mock,
             cluster,
+            cluster_config,
+            cluster_handles,
             range_strategy,
             agg_strategy,
             agg_mode,
@@ -98,10 +110,10 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         })
     }
 
-    /// Returns true if proofs are generated synchronously (mock or cluster mode)
-    /// and never enter the Prove state for network polling.
+    /// Returns true if proofs are generated synchronously (mock mode only).
+    /// Cluster mode now uses async submit-then-poll and enters the Prove state.
     pub fn is_synchronous_proving(&self) -> bool {
-        self.mock || self.cluster
+        self.mock
     }
 
     /// Generates the witness for a range proof.
@@ -534,8 +546,6 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
         if self.mock {
             self.db_client.update_request_status(request.id, RequestStatus::Execution).await?;
-        } else if self.cluster {
-            self.db_client.update_request_status(request.id, RequestStatus::Prove).await?;
         }
 
         match request.req_type {
@@ -545,21 +555,44 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                     let proof_bytes = bincode::serialize(&proof)?;
                     self.db_client.update_proof_to_complete(request.id, &proof_bytes).await?;
                 } else if self.cluster {
-                    let proof = match cluster_range_proof(self.proving_timeout, stdin).await {
-                        Ok(proof) => proof,
+                    let cluster_config = self
+                        .cluster_config
+                        .as_ref()
+                        .context("cluster_config required for cluster range proof")?;
+
+                    // Submit to cluster — returns immediately.
+                    let proof_request = match cluster_submit_range_proof(
+                        cluster_config,
+                        self.proving_timeout,
+                        stdin,
+                    )
+                    .await
+                    {
+                        Ok(pr) => pr,
                         Err(e) => {
                             ValidityGauge::RangeProofRequestErrorCount.increment(1.0);
                             return Err(e);
                         }
                     };
-                    let proof_bytes = bincode::serialize(&proof)?;
-                    self.db_client.update_proof_to_complete(request.id, &proof_bytes).await?;
+
+                    // DB update AFTER successful submit: set Prove + store handle JSON.
+                    let handle_json = serde_json::to_value(ClusterProofHandleJson {
+                        proof_id: proof_request.proof_id.clone(),
+                        proof_output_id: proof_request.proof_output_id.clone().to_id(),
+                    })?;
+                    self.db_client.update_request_to_prove_cluster(request.id, handle_json).await?;
+
+                    // Store in-memory handle for polling.
+                    self.cluster_handles.lock().await.insert(
+                        request.id,
+                        ClusterProofHandle { proof_request, consecutive_poll_failures: 0 },
+                    );
 
                     info!(
                         request_id = request.id,
                         start_block = request.start_block,
                         end_block = request.end_block,
-                        "Range proof completed via cluster"
+                        "Range proof submitted to cluster"
                     );
                 } else {
                     let proof_id = self.request_range_proof(stdin).await?;
@@ -584,21 +617,45 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                     let proof = self.generate_mock_agg_proof(&request, stdin).await?;
                     self.db_client.update_proof_to_complete(request.id, &proof.bytes()).await?;
                 } else if self.cluster {
-                    let proof =
-                        match cluster_agg_proof(self.proving_timeout, self.agg_mode, stdin).await {
-                            Ok(proof) => proof,
-                            Err(e) => {
-                                ValidityGauge::AggProofRequestErrorCount.increment(1.0);
-                                return Err(e);
-                            }
-                        };
-                    self.db_client.update_proof_to_complete(request.id, &proof.bytes()).await?;
+                    let cluster_config = self
+                        .cluster_config
+                        .as_ref()
+                        .context("cluster_config required for cluster agg proof")?;
+
+                    // Submit to cluster — returns immediately.
+                    let proof_request = match cluster_submit_agg_proof(
+                        cluster_config,
+                        self.proving_timeout,
+                        self.agg_mode,
+                        stdin,
+                    )
+                    .await
+                    {
+                        Ok(pr) => pr,
+                        Err(e) => {
+                            ValidityGauge::AggProofRequestErrorCount.increment(1.0);
+                            return Err(e);
+                        }
+                    };
+
+                    // DB update AFTER successful submit: set Prove + store handle JSON.
+                    let handle_json = serde_json::to_value(ClusterProofHandleJson {
+                        proof_id: proof_request.proof_id.clone(),
+                        proof_output_id: proof_request.proof_output_id.clone().to_id(),
+                    })?;
+                    self.db_client.update_request_to_prove_cluster(request.id, handle_json).await?;
+
+                    // Store in-memory handle for polling.
+                    self.cluster_handles.lock().await.insert(
+                        request.id,
+                        ClusterProofHandle { proof_request, consecutive_poll_failures: 0 },
+                    );
 
                     info!(
                         request_id = request.id,
                         start_block = request.start_block,
                         end_block = request.end_block,
-                        "Aggregation proof completed via cluster"
+                        "Aggregation proof submitted to cluster"
                     );
                 } else {
                     let proof_id = self.request_agg_proof(stdin).await?;

@@ -1,9 +1,22 @@
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::{Instant, SystemTime},
+};
 
 use anyhow::{Context, Result};
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
-use sp1_cluster_utils::{request_proof_from_env, ClusterElf, ProofRequestResults};
+use serde::{Deserialize, Serialize};
+use sp1_cluster_artifact::{
+    redis::RedisArtifactClient,
+    s3::{S3ArtifactClient, S3DownloadMode},
+};
+use sp1_cluster_common::client::ClusterServiceClient;
+use sp1_cluster_utils::{
+    check_proof_status, create_request, request_config_from_env, request_proof_from_env,
+    ArtifactStoreConfig, ClusterElf, ProofRequest, ProofRequestConfig, ProofRequestResults,
+};
+use sp1_prover_types::Artifact;
 use sp1_sdk::{
     blocking::{CpuProver, Prover as BlockingProver},
     network::proto::types::ProofMode,
@@ -134,4 +147,189 @@ pub async fn cluster_agg_proof(
     .map_err(|_| anyhow::anyhow!("cluster agg proof timed out after {timeout_secs}s"))?
     .map_err(|e| anyhow::anyhow!("cluster agg proof failed: {e}"))?;
     Ok(SP1ProofWithPublicValues::from(proof))
+}
+
+// ---------------------------------------------------------------------------
+// Async (non-blocking) cluster proving API
+// ---------------------------------------------------------------------------
+
+/// Enum dispatching over concrete artifact client types since `ArtifactClient` uses RPITIT
+/// (`-> impl Future<...> + Send`) and is NOT object-safe.
+/// Matches the pattern in `request_proof_with_config()`.
+#[derive(Clone)]
+pub enum ClusterArtifactStore {
+    Redis(RedisArtifactClient),
+    S3(S3ArtifactClient),
+}
+
+/// Shared cluster configuration constructed once at startup.
+/// Always stored behind `Arc` — no `Clone` needed (and `ArtifactStoreConfig` is not `Clone`).
+pub struct ClusterProofConfig {
+    pub cluster_rpc: String,
+    pub artifact_store: ClusterArtifactStore,
+    /// The raw `ArtifactStoreConfig` from `request_config_from_env()`, used to construct
+    /// per-call `ProofRequestConfig`. We pass the real value rather than a dummy to avoid
+    /// breakage if upstream `create_request` ever starts reading this field.
+    pub artifact_store_config: ArtifactStoreConfig,
+    /// Cached gRPC client for polling only. `create_request()` constructs its own internally.
+    pub service_client: ClusterServiceClient,
+}
+
+/// In-memory handle for a cluster proof in progress.
+pub struct ClusterProofHandle {
+    pub proof_request: ProofRequest,
+    pub consecutive_poll_failures: u32,
+}
+
+/// JSON representation stored in the `cluster_proof_handle` JSONB column.
+#[derive(Serialize, Deserialize)]
+pub struct ClusterProofHandleJson {
+    pub proof_id: String,
+    pub proof_output_id: String,
+}
+
+impl ClusterProofConfig {
+    /// Construct cluster config from environment variables by calling `request_config_from_env()`
+    /// once and decomposing the result. The `mode` and `timeout_hours` are per-call parameters
+    /// and are ignored here (we pass dummy values).
+    pub async fn from_env() -> Result<Self> {
+        // Use dummy mode/timeout — these are per-call and only matter for `create_request`.
+        let config = request_config_from_env(ProofMode::Compressed, 1);
+        let cluster_rpc = config.cluster_rpc.clone();
+
+        let artifact_store = match &config.artifact_store {
+            ArtifactStoreConfig::Redis { nodes } => {
+                tracing::info!("Cluster using Redis artifact store");
+                ClusterArtifactStore::Redis(RedisArtifactClient::new(nodes.clone(), 16))
+            }
+            ArtifactStoreConfig::S3 { bucket, region } => {
+                tracing::info!("Cluster using S3 artifact store");
+                let s3_client = S3ArtifactClient::new(
+                    region.clone(),
+                    bucket.clone(),
+                    32,
+                    S3DownloadMode::AwsSDK(
+                        S3ArtifactClient::create_s3_sdk_download_client(region.clone()).await,
+                    ),
+                )
+                .await;
+                ClusterArtifactStore::S3(s3_client)
+            }
+        };
+
+        let service_client = ClusterServiceClient::new(cluster_rpc.clone())
+            .await
+            .map_err(|e| anyhow::anyhow!("failed to create cluster service client: {e}"))?;
+
+        Ok(Self {
+            cluster_rpc,
+            artifact_store,
+            artifact_store_config: config.artifact_store,
+            service_client,
+        })
+    }
+
+    /// Build a per-call `ProofRequestConfig` with the specified mode and timeout.
+    fn build_request_config(&self, mode: ProofMode, timeout_secs: u64) -> ProofRequestConfig {
+        let timeout_hours = timeout_secs.div_ceil(3600).max(1);
+        ProofRequestConfig {
+            cluster_rpc: self.cluster_rpc.clone(),
+            mode,
+            timeout_hours,
+            artifact_store: match &self.artifact_store_config {
+                ArtifactStoreConfig::Redis { nodes } => {
+                    ArtifactStoreConfig::Redis { nodes: nodes.clone() }
+                }
+                ArtifactStoreConfig::S3 { bucket, region } => {
+                    ArtifactStoreConfig::S3 { bucket: bucket.clone(), region: region.clone() }
+                }
+            },
+        }
+    }
+}
+
+/// Submit a range proof to the cluster. Returns immediately with a `ProofRequest` handle.
+pub async fn cluster_submit_range_proof(
+    config: &ClusterProofConfig,
+    timeout_secs: u64,
+    stdin: SP1Stdin,
+) -> Result<ProofRequest> {
+    tracing::info!("Submitting range proof to cluster");
+    let req_config = config.build_request_config(ProofMode::Compressed, timeout_secs);
+    let cluster_elf = ClusterElf::NewElf(get_range_elf_embedded().to_vec());
+
+    match &config.artifact_store {
+        ClusterArtifactStore::Redis(client) => {
+            create_request(client.clone(), cluster_elf, stdin, &req_config)
+                .await
+                .map_err(|e| anyhow::anyhow!("cluster range proof submit failed: {e}"))
+        }
+        ClusterArtifactStore::S3(client) => {
+            create_request(client.clone(), cluster_elf, stdin, &req_config)
+                .await
+                .map_err(|e| anyhow::anyhow!("cluster range proof submit failed: {e}"))
+        }
+    }
+}
+
+/// Submit an aggregation proof to the cluster. Returns immediately with a `ProofRequest` handle.
+pub async fn cluster_submit_agg_proof(
+    config: &ClusterProofConfig,
+    timeout_secs: u64,
+    agg_mode: SP1ProofMode,
+    stdin: SP1Stdin,
+) -> Result<ProofRequest> {
+    tracing::info!("Submitting aggregation proof to cluster");
+    let proto_mode = to_proto_proof_mode(agg_mode);
+    let req_config = config.build_request_config(proto_mode, timeout_secs);
+    let cluster_elf = ClusterElf::NewElf(AGGREGATION_ELF.to_vec());
+
+    match &config.artifact_store {
+        ClusterArtifactStore::Redis(client) => {
+            create_request(client.clone(), cluster_elf, stdin, &req_config)
+                .await
+                .map_err(|e| anyhow::anyhow!("cluster agg proof submit failed: {e}"))
+        }
+        ClusterArtifactStore::S3(client) => {
+            create_request(client.clone(), cluster_elf, stdin, &req_config)
+                .await
+                .map_err(|e| anyhow::anyhow!("cluster agg proof submit failed: {e}"))
+        }
+    }
+}
+
+/// Poll the status of a cluster proof. Returns `Ok(Some(results))` if complete,
+/// `Ok(None)` if still pending, or `Err` for failures (deadline exceeded, cancelled, etc.).
+pub async fn cluster_poll_proof(
+    config: &ClusterProofConfig,
+    proof_request: ProofRequest,
+) -> Result<Option<ProofRequestResults>> {
+    match &config.artifact_store {
+        ClusterArtifactStore::Redis(client) => {
+            check_proof_status(client.clone(), proof_request, &config.service_client)
+                .await
+                .map_err(|e| anyhow::anyhow!("cluster proof poll failed: {e}"))
+        }
+        ClusterArtifactStore::S3(client) => {
+            check_proof_status(client.clone(), proof_request, &config.service_client)
+                .await
+                .map_err(|e| anyhow::anyhow!("cluster proof poll failed: {e}"))
+        }
+    }
+}
+
+/// Reconstruct a `ProofRequest` from DB-persisted JSON data and timing information.
+/// Used to recover in-flight cluster proofs after proposer restart.
+pub fn reconstruct_proof_request(
+    handle_json: &ClusterProofHandleJson,
+    remaining_timeout: std::time::Duration,
+) -> ProofRequest {
+    ProofRequest {
+        proof_id: handle_json.proof_id.clone(),
+        proof_output_id: Artifact::from(handle_json.proof_output_id.clone()),
+        // Fresh Instant — only used for elapsed-time logging in check_proof_status,
+        // so slightly inaccurate elapsed times after restart are harmless.
+        start_time: Instant::now(),
+        deadline: SystemTime::now() + remaining_timeout,
+    }
 }
