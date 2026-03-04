@@ -625,11 +625,19 @@ where
             .as_ref()
             .context("cluster_config required for cluster proof polling")?;
 
-        // 1. Look up or reconstruct the proof handle.
+        // 1. Look up or reconstruct the proof handle. Lock is acquired narrowly: once for the
+        //    lookup, and (on miss) once more for insert.
         let proof_request = {
-            let mut handles = self.proof_requester.cluster_handles.lock().await;
-            if let Some(handle) = handles.get(&request.id) {
-                handle.proof_request.clone()
+            let cached = self
+                .proof_requester
+                .cluster_handles
+                .lock()
+                .await
+                .get(&request.id)
+                .map(|h| h.proof_request.clone());
+
+            if let Some(pr) = cached {
+                pr
             } else {
                 // Reconstruct from DB (restart recovery).
                 let handle_json_value = request.cluster_proof_handle.as_ref().ok_or_else(|| {
@@ -656,7 +664,7 @@ where
 
                 let proof_request = reconstruct_proof_request(&handle_json, remaining);
 
-                handles.insert(
+                self.proof_requester.cluster_handles.lock().await.insert(
                     request.id,
                     ClusterProofHandle {
                         proof_request: proof_request.clone(),

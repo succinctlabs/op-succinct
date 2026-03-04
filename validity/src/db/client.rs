@@ -1,5 +1,6 @@
 use alloy_primitives::{Address, B256};
 use anyhow::Result;
+use op_succinct_proof_utils::ClusterProofHandleJson;
 use serde_json::Value;
 use sqlx::{
     postgres::{types::PgInterval, PgQueryResult},
@@ -552,8 +553,10 @@ impl DriverDBClient {
     pub async fn update_request_to_prove_cluster(
         &self,
         id: i64,
-        cluster_handle: serde_json::Value,
+        cluster_handle: &ClusterProofHandleJson,
     ) -> Result<PgQueryResult, Error> {
+        let handle_value =
+            serde_json::to_value(cluster_handle).map_err(|e| Error::Protocol(e.to_string()))?;
         sqlx::query!(
             r#"
             UPDATE requests
@@ -561,7 +564,7 @@ impl DriverDBClient {
             WHERE id = $3
             "#,
             RequestStatus::Prove as i16,
-            cluster_handle,
+            handle_value,
             id,
         )
         .execute(&self.pool)

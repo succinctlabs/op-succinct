@@ -132,11 +132,11 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             }
         };
 
-        let handle_json = serde_json::to_value(ClusterProofHandleJson {
+        let handle_json = ClusterProofHandleJson {
             proof_id: proof_request.proof_id.clone(),
             proof_output_id: proof_request.proof_output_id.clone().to_id(),
-        })?;
-        self.db_client.update_request_to_prove_cluster(request.id, handle_json).await?;
+        };
+        self.db_client.update_request_to_prove_cluster(request.id, &handle_json).await?;
 
         self.cluster_handles
             .lock()
@@ -598,6 +598,8 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                     let result =
                         cluster_submit_range_proof(cluster_config, self.proving_timeout, stdin)
                             .await;
+                    // Box::pin erases the concrete Future type to break async type
+                    // recursion that otherwise exceeds the default recursion_limit.
                     Box::pin(self.submit_cluster_proof(
                         &request,
                         result,
@@ -639,6 +641,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                         stdin,
                     )
                     .await;
+                    // Box::pin: see comment in Range branch above.
                     Box::pin(self.submit_cluster_proof(
                         &request,
                         result,
