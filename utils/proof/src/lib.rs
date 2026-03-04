@@ -321,10 +321,7 @@ pub async fn cluster_poll_proof(
     config: &ClusterProofConfig,
     proof_request: ProofRequest,
 ) -> Result<Option<ProofRequestResults>> {
-    config
-        .artifact_store
-        .check_proof_status(proof_request, &config.service_client)
-        .await
+    config.artifact_store.check_proof_status(proof_request, &config.service_client).await
 }
 
 /// Reconstruct a `ProofRequest` from DB-persisted JSON data and timing information.

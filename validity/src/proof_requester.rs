@@ -138,10 +138,10 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         })?;
         self.db_client.update_request_to_prove_cluster(request.id, handle_json).await?;
 
-        self.cluster_handles.lock().await.insert(
-            request.id,
-            ClusterProofHandle { proof_request, consecutive_poll_failures: 0 },
-        );
+        self.cluster_handles
+            .lock()
+            .await
+            .insert(request.id, ClusterProofHandle { proof_request, consecutive_poll_failures: 0 });
 
         info!(
             request_id = request.id,
