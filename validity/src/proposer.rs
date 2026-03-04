@@ -628,7 +628,30 @@ where
             .as_ref()
             .context("cluster_config required for cluster proof polling")?;
 
-        // 1. Look up or reconstruct the proof handle. Lock is acquired narrowly: once for the
+        // 1. Wall-clock timeout check — runs before handle lookup/reconstruction so we skip
+        //    unnecessary deserialization and lock acquisition for already-timed-out proofs.
+        if let Some(proof_request_time) = request.proof_request_time {
+            let elapsed = Utc::now().naive_utc() - proof_request_time;
+            if elapsed.num_seconds() > self.proof_requester.proving_timeout as i64 {
+                warn!(
+                    request_id = request.id,
+                    start_block = request.start_block,
+                    end_block = request.end_block,
+                    req_type = ?request.req_type,
+                    elapsed_secs = elapsed.num_seconds(),
+                    proving_timeout = self.proof_requester.proving_timeout,
+                    "Cluster proof exceeded wall-clock timeout"
+                );
+
+                self.fail_cluster_request(&request).await?;
+                ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
+                self.proof_requester.cluster_handles.lock().await.remove(&request.id);
+
+                return Ok(());
+            }
+        }
+
+        // 2. Look up or reconstruct the proof handle. Lock is acquired narrowly: once for the
         //    lookup, and (on miss) once more for insert.
         let proof_request = {
             let cached = self
@@ -686,27 +709,6 @@ where
                 proof_request
             }
         };
-
-        // 2. Wall-clock timeout check using proof_request_time.
-        if let Some(proof_request_time) = request.proof_request_time {
-            let elapsed = Utc::now().naive_utc() - proof_request_time;
-            if elapsed.num_seconds() > self.proof_requester.proving_timeout as i64 {
-                warn!(
-                    request_id = request.id,
-                    start_block = request.start_block,
-                    end_block = request.end_block,
-                    req_type = ?request.req_type,
-                    elapsed_secs = elapsed.num_seconds(),
-                    proving_timeout = self.proof_requester.proving_timeout,
-                    "Cluster proof exceeded wall-clock timeout"
-                );
-
-                self.fail_cluster_request(&request).await?;
-                ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
-
-                return Ok(());
-            }
-        }
 
         // 3. Poll the cluster for proof status.
         match cluster_poll_proof(cluster_config, proof_request).await {

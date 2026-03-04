@@ -151,7 +151,7 @@ You must set exactly one artifact store — setting both (or neither) will panic
 
 ```admonish note
 Self-hosted cluster mode is an alternative to the Succinct Prover Network. You do **not** need a `NETWORK_PRIVATE_KEY`.
-Also there's no need to set any of `OP_SUCCINCT_MOCK=true` or `MOCK_MODE=true` — cluster mode uses real proving.
+Also there's no need to set `OP_SUCCINCT_MOCK=true` or `MOCK_MODE=true` — cluster mode uses real proving.
 ```
 
 ### Tuning for large proofs
