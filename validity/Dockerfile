@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
     protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
-
+ENV SQLX_OFFLINE=true
 WORKDIR /build
 
 # Install SP1
@@ -26,8 +26,9 @@ COPY . .
 RUN --mount=type=ssh \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --bin validity --release && \
-    cp target/release/validity /build/validity-proposer
+    cargo build --bin validity --bin fetch-l2oo-config --release && \
+    cp target/release/validity /build/validity-proposer && \
+    cp target/release/fetch-l2oo-config /build/fetch-l2oo-config
 
 # Final stage
 FROM rust:1.85-slim
@@ -53,6 +54,7 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
 
 # Copy only the built binaries from builder
 COPY --from=builder /build/validity-proposer /usr/local/bin/validity-proposer
+COPY --from=builder /build/fetch-l2oo-config /usr/local/bin/fetch-l2oo-config
 
 # Run the server from its permanent location
 CMD ["/usr/local/bin/validity-proposer"]
