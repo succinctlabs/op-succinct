@@ -696,6 +696,7 @@ where
                         break
                     }
                 }
+                GameFetchResult::UnsupportedAnchorStateRegistry => {}
                 GameFetchResult::InvalidGame { index } => {
                     invalid_game_ids.push(index);
                 }
@@ -1356,6 +1357,7 @@ where
     ///
     /// Drop game if:
     /// - The game type is not supported.
+    /// - The game's anchor state registry does not match the configured registry.
     /// - The game type does not respect the expected type when created.
     /// - The output root claim is invalid.
     pub async fn fetch_game(&self, index: U256) -> Result<GameFetchResult> {
@@ -1384,6 +1386,19 @@ where
         }
 
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+
+        // Drop games with different anchor state registry.
+        let anchor_state_registry = contract.anchorStateRegistry().call().await?;
+        if anchor_state_registry != self.config.anchor_state_registry_address {
+            tracing::warn!(
+                game_index = %index,
+                ?game_address,
+                ?anchor_state_registry,
+                expected_anchor_state_registry = ?self.config.anchor_state_registry_address,
+                "Unsupported game with different anchor state registry"
+            );
+            return Ok(GameFetchResult::UnsupportedAnchorStateRegistry);
+        }
 
         let l2_block = contract.l2BlockNumber().call().await?;
         let output_root = self.l2_provider.compute_output_root_at_block(l2_block).await?;
@@ -2215,6 +2230,8 @@ pub enum GameFetchResult {
     ValidGame { game_address: Address, deadline: u64 },
     /// Game type is unsupported
     UnsupportedType { game_address: Address },
+    /// Game's anchor state registry does not match the configured registry
+    UnsupportedAnchorStateRegistry,
     /// Game is invalid
     InvalidGame { index: U256 },
     /// Game was already present in the cache
