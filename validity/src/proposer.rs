@@ -39,6 +39,9 @@ use crate::{
     ProgramConfig, RequestExecutionStatistics, RequesterConfig, ValidityGauge,
 };
 
+/// Number of consecutive poll failures before a cluster proof is marked as permanently failed.
+const MAX_CONSECUTIVE_POLL_FAILURES: u32 = 3;
+
 /// Configuration for the driver.
 pub struct DriverConfig {
     pub network_prover: Option<Arc<NetworkProver>>,
@@ -771,7 +774,7 @@ where
                     let mut handles = self.proof_requester.cluster_handles.lock().await;
                     if let Some(handle) = handles.get_mut(&request.id) {
                         handle.consecutive_poll_failures += 1;
-                        handle.consecutive_poll_failures >= 3
+                        handle.consecutive_poll_failures >= MAX_CONSECUTIVE_POLL_FAILURES
                     } else {
                         true
                     }
