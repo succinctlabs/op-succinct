@@ -14,13 +14,13 @@ The cpu-node must be sized to handle both range proofs (CONTROLLER task) and agg
 
 | Task | Weight (GB) | Runs on |
 |------|------------|---------|
-| CONTROLLER | 4 | cpu-node |
+| CONTROLLER | 16 | cpu-node |
 | PlonkWrap (Plonk mode) | 32 | cpu-node |
 | Groth16Wrap (Groth16 mode) | 14 | cpu-node |
 | ProveShard | 4 | gpu-node |
 | ShrinkWrap | 4 | gpu-node |
 
-During aggregation, the CONTROLLER and PlonkWrap tasks briefly co-exist on the cpu-node, requiring at least 40 GB of weight capacity for Plonk mode.
+During aggregation, the CONTROLLER and PlonkWrap tasks briefly co-exist on the cpu-node, requiring at least 48 GB of weight capacity for Plonk mode (CONTROLLER=16 + PlonkWrap=32).
 
 **Recommended cpu-node configuration:**
 
@@ -32,11 +32,14 @@ cpu-node:
     limits:
       memory: 64Gi
   extraEnv:
-    WORKER_MAX_WEIGHT_OVERRIDE: "64"
+    WORKER_MAX_WEIGHT_OVERRIDE: "48"
+    WORKER_CONTROLLER_WEIGHT: "16"
 ```
 
+`WORKER_CONTROLLER_WEIGHT` sets the weight for CONTROLLER tasks (default: 4 in code). Set it to 16 to reflect actual RAM usage (~16–19 GB with default splicing workers). `WORKER_MAX_WEIGHT_OVERRIDE` should be set to exactly 48 — this allows CONTROLLER (16) + PlonkWrap (32) to co-schedule, while preventing two PlonkWraps (32+32=64) from running simultaneously and OOMKilling the node.
+
 ```admonish warning
-The default sp1-cluster Helm values set `WORKER_MAX_WEIGHT_OVERRIDE=32` and `memory: 32Gi` on the cpu-node. This is too small for Plonk aggregation proofs — the PlonkWrap task (weight=32) cannot be scheduled alongside the CONTROLLER task (weight=4). Increase to at least 40 (recommend 64 for headroom).
+Do not set `WORKER_MAX_WEIGHT_OVERRIDE` higher than 48 on a 64Gi node. A value of 64 allows two PlonkWrap tasks (weight=32 each) to be co-scheduled, consuming ~64 GB of actual RAM and OOMKilling the pod. The value 48 ensures only one PlonkWrap runs at a time while still fitting alongside a CONTROLLER task.
 ```
 
 ## Quick Test: Range Proof
@@ -225,11 +228,11 @@ If range proofs complete but the aggregation proof hangs with `cpu_queue: 1` in 
    kubectl logs deploy/coordinator -n sp1-cluster --tail=3 | grep GetStatsResponse
    ```
 2. If `cpu_queue: 1` persists with `gpu_queue: 0`, the PlonkWrap task likely can't be scheduled due to insufficient weight capacity.
-3. Verify `cpu_utilization_max` is at least 40 (for Plonk) or 18 (for Groth16). If it shows 32, increase `WORKER_MAX_WEIGHT_OVERRIDE`:
+3. Verify `cpu_utilization_max` is at least 48 (for Plonk) or 18 (for Groth16). If it shows 32, increase `WORKER_MAX_WEIGHT_OVERRIDE`:
    ```bash
-   kubectl set env deploy/cpu-node -n sp1-cluster WORKER_MAX_WEIGHT_OVERRIDE=64
+   kubectl set env deploy/cpu-node -n sp1-cluster WORKER_MAX_WEIGHT_OVERRIDE=48
    ```
-   Also ensure the cpu-node has enough memory (at least 64Gi). See [Cluster Resource Requirements](#cluster-resource-requirements).
+   Also ensure the cpu-node has enough memory (at least 64Gi) and `WORKER_CONTROLLER_WEIGHT=16`. See [Cluster Resource Requirements](#cluster-resource-requirements).
 
 ### cpu-node OOMKilled (CrashLoopBackOff)
 
@@ -239,7 +242,12 @@ If the cpu-node enters CrashLoopBackOff with exit code 137:
 kubectl describe pod -l app=cpu-node -n sp1-cluster | grep -A3 "Last State"
 ```
 
-This means the CONTROLLER task exceeded the memory limit during execution/splicing. Large block ranges require more memory. Increase the cpu-node memory limit:
+Common causes:
+
+1. **Two PlonkWraps co-scheduled**: If `WORKER_MAX_WEIGHT_OVERRIDE` is set too high (e.g., 64), two PlonkWrap tasks (weight=32 each) can run simultaneously, consuming ~64 GB of actual RAM. Set `WORKER_MAX_WEIGHT_OVERRIDE=48` to prevent this — only one PlonkWrap will run at a time.
+2. **CONTROLLER task exceeds memory**: Large block ranges require more memory during execution/splicing. Reduce `RANGE_PROOF_INTERVAL` in the proposer to produce smaller proofs, or increase the cpu-node memory limit.
+
+To increase cpu-node memory:
 
 ```bash
 kubectl patch deploy cpu-node -n sp1-cluster --type='json' \
@@ -247,4 +255,4 @@ kubectl patch deploy cpu-node -n sp1-cluster --type='json' \
        {"op":"replace","path":"/spec/template/spec/containers/0/resources/requests/memory","value":"64Gi"}]'
 ```
 
-Remember to also update `WORKER_MAX_WEIGHT_OVERRIDE` to match. Alternatively, reduce `RANGE_PROOF_INTERVAL` in the proposer to produce smaller proofs that fit within the existing memory limit.
+Always keep `WORKER_MAX_WEIGHT_OVERRIDE` at 48 regardless of memory size — this prevents co-scheduling of two PlonkWraps. See [Cluster Resource Requirements](#cluster-resource-requirements).
