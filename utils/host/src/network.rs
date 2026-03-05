@@ -1,6 +1,6 @@
 use std::env;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use sp1_sdk::{
     network::{signer::NetworkSigner, FulfillmentStrategy, NetworkMode},
     NetworkProver, ProverClient,
@@ -70,27 +70,23 @@ pub async fn get_network_signer(use_kms_requester: bool) -> Result<NetworkSigner
     Ok(network_signer)
 }
 
-/// Build a network prover from `USE_KMS_REQUESTER`, `RANGE_PROOF_STRATEGY`, and
-/// `AGG_PROOF_STRATEGY` env vars (all with safe defaults).
-pub async fn build_network_prover_from_env(
-) -> Result<(NetworkProver, FulfillmentStrategy, FulfillmentStrategy)> {
+/// Build a network prover from `USE_KMS_REQUESTER` env var, using the provided fulfillment
+/// strategy.
+pub async fn build_network_prover_from_env(strategy: FulfillmentStrategy) -> Result<NetworkProver> {
     let use_kms_requester = env::var("USE_KMS_REQUESTER")
         .unwrap_or_else(|_| "false".to_string())
         .parse::<bool>()
         .context("USE_KMS_REQUESTER must be true or false")?;
     let network_signer = get_network_signer(use_kms_requester).await?;
 
-    let range_proof_strategy = parse_fulfillment_strategy(
-        env::var("RANGE_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
-    );
-    let agg_proof_strategy = parse_fulfillment_strategy(
-        env::var("AGG_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
-    );
-    let network_mode = determine_network_mode(range_proof_strategy, agg_proof_strategy)
-        .context("failed to determine network mode")?;
+    let network_mode = match strategy {
+        FulfillmentStrategy::Auction => NetworkMode::Mainnet,
+        FulfillmentStrategy::Hosted | FulfillmentStrategy::Reserved => NetworkMode::Reserved,
+        _ => bail!("Fulfillment strategy must be 'reserved', 'hosted', or 'auction'"),
+    };
 
     let prover =
         ProverClient::builder().network_for(network_mode).signer(network_signer).build().await;
 
-    Ok((prover, range_proof_strategy, agg_proof_strategy))
+    Ok(prover)
 }

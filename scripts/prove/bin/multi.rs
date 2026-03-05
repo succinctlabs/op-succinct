@@ -4,7 +4,7 @@ use op_succinct_host_utils::{
     block_range::get_validated_block_range,
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
-    network::build_network_prover_from_env,
+    network::{build_network_prover_from_env, parse_fulfillment_strategy},
     stats::ExecutionStats,
     witness_cache::{load_stdin_from_cache, save_stdin_to_cache},
     witness_generation::WitnessGenerator,
@@ -14,7 +14,7 @@ use op_succinct_prove::execute_multi;
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, Elf, ProveRequest, Prover};
 use std::{
-    fs,
+    env, fs,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -87,8 +87,10 @@ async fn main() -> Result<()> {
     };
 
     if args.prove {
-        let (prover, range_proof_strategy, _agg_proof_strategy) =
-            build_network_prover_from_env().await?;
+        let range_proof_strategy = parse_fulfillment_strategy(
+            env::var("RANGE_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
+        );
+        let prover = build_network_prover_from_env(range_proof_strategy).await?;
         let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
         // Generate proofs in compressed mode for aggregation verification.
         let proof = prover

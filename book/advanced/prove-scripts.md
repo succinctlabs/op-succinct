@@ -48,21 +48,27 @@ AGG_PROOF_MODE=plonk             # Options: plonk, groth16
 | `L2_NODE_RPC` | L2 Rollup Node (`op-node`) endpoint |
 | `NETWORK_PRIVATE_KEY` | Private key for the Succinct Prover Network. See the [Succinct Prover Network Quickstart](https://docs.succinct.xyz/docs/sp1/prover-network/quickstart) for setup instructions. |
 
-#### Optional
+#### Optional (`multi` script)
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `RANGE_PROOF_STRATEGY` | Proof fulfillment strategy for range proofs | `reserved` |
+| `USE_KMS_REQUESTER` | Use AWS KMS for network signing (`NETWORK_PRIVATE_KEY` becomes a KMS key ARN) | `false` |
+
+#### Optional (`agg` script)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
 | `AGG_PROOF_STRATEGY` | Proof fulfillment strategy for aggregation proofs | `reserved` |
 | `AGG_PROOF_MODE` | Proof mode for aggregation proofs (`plonk` or `groth16`) | `plonk` |
 | `USE_KMS_REQUESTER` | Use AWS KMS for network signing (`NETWORK_PRIVATE_KEY` becomes a KMS key ARN) | `false` |
+
+Each script reads only its own strategy env var, so `RANGE_PROOF_STRATEGY` and `AGG_PROOF_STRATEGY` can be set independently.
 
 **Proof Strategies:**
 - `reserved`: Uses reserved SP1 network capacity
 - `hosted`: Uses hosted proof generation service
 - `auction`: Uses auction-based proof fulfillment
-
-> **Note:** `RANGE_PROOF_STRATEGY` and `AGG_PROOF_STRATEGY` must be compatible — both must be `auction`, or both must be `reserved`/`hosted`. Mixed strategies (e.g., one `auction` and one `reserved`) will cause a startup error.
 
 **Proof Modes:**
 - `plonk`: PLONK proof system (default)
@@ -147,6 +153,46 @@ cargo run --bin agg --release -- \
 ### Output
 
 Aggregation proofs are saved to `data/{chain_id}/proofs/agg/{proof_names}.bin`.
+
+## End-to-End Workflow
+
+The full proving pipeline involves three steps: generating range proofs, fetching them from the network, and aggregating them.
+
+### 1. Generate Range Proofs
+
+Run `multi --prove` for each block range. Proofs are submitted to the SP1 network and saved locally to `data/{chain_id}/proofs/{start}-{end}.bin`.
+
+```bash
+cargo run --bin multi --release -- --start 1000 --end 1300 --prove
+cargo run --bin multi --release -- --start 1300 --end 1600 --prove
+cargo run --bin multi --release -- --start 1600 --end 1900 --prove
+```
+
+### 2. Fetch Proofs from the Network
+
+Use the `fetch_and_save_proof` utility to download completed proofs from the network into `data/fetched_proofs/`. Pass the `--start` and `--end` flags to name the files with the block range.
+
+```bash
+cargo run --bin fetch_and_save_proof --release -- \
+    --request-id <REQUEST_ID> --start 1000 --end 1300
+```
+
+This saves the proof as `data/fetched_proofs/1000_1300.bin`. Repeat for each range proof.
+
+> **Note:** `fetch_and_save_proof` uses underscore-separated naming (`{start}_{end}.bin`), not dash-separated. When passing proof names to `agg --proofs`, use the underscore format (e.g., `1000_1300`).
+
+### 3. Aggregate Proofs
+
+Run `agg --prove` with the proof names (without `.bin` extension) matching the files in `data/fetched_proofs/`.
+
+```bash
+cargo run --bin agg --release -- \
+    --proofs 1000_1300,1300_1600,1600_1900 \
+    --prover 0x1234567890abcdef1234567890abcdef12345678 \
+    --prove
+```
+
+The aggregation proof is saved to `data/{chain_id}/proofs/agg/`.
 
 ## Witness Caching
 

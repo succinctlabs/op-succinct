@@ -5,7 +5,9 @@ use clap::Parser;
 use op_succinct_client_utils::{boot::BootInfoStruct, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, network::build_network_prover_from_env,
+    fetcher::OPSuccinctDataFetcher,
+    get_agg_proof_stdin,
+    network::{build_network_prover_from_env, parse_fulfillment_strategy},
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
 use sp1_sdk::{
@@ -75,8 +77,10 @@ async fn main() -> Result<()> {
 
     dotenv::from_filename(args.env_file).ok();
 
-    let (prover, _range_proof_strategy, agg_proof_strategy) =
-        build_network_prover_from_env().await?;
+    let agg_proof_strategy = parse_fulfillment_strategy(
+        env::var("AGG_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
+    );
+    let prover = build_network_prover_from_env(agg_proof_strategy).await?;
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     let range_pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
