@@ -589,6 +589,9 @@ where
     /// Fail a cluster proof request: increment the appropriate error gauge, mark
     /// the request as failed (with potential split-retry), and remove the in-memory handle.
     async fn fail_cluster_request(&self, request: &OPSuccinctRequest) -> Result<()> {
+        // Remove the in-memory handle first so it doesn't leak if the DB update below fails.
+        self.proof_requester.cluster_handles.lock().await.remove(&request.id);
+
         match request.req_type {
             RequestType::Range => ValidityGauge::RangeProofRequestErrorCount.increment(1.0),
             RequestType::Aggregation => ValidityGauge::AggProofRequestErrorCount.increment(1.0),
@@ -609,7 +612,6 @@ where
             }
         }
 
-        self.proof_requester.cluster_handles.lock().await.remove(&request.id);
         Ok(())
     }
 
