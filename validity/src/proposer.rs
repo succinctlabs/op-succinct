@@ -632,7 +632,7 @@ where
         //    unnecessary deserialization and lock acquisition for already-timed-out proofs.
         if let Some(proof_request_time) = request.proof_request_time {
             let elapsed = Utc::now().naive_utc() - proof_request_time;
-            if elapsed.num_seconds() > self.proof_requester.proving_timeout as i64 {
+            if elapsed.num_seconds().max(0) > self.proof_requester.proving_timeout as i64 {
                 warn!(
                     request_id = request.id,
                     start_block = request.start_block,
@@ -645,7 +645,6 @@ where
 
                 self.fail_cluster_request(&request).await?;
                 ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
-                self.proof_requester.cluster_handles.lock().await.remove(&request.id);
 
                 return Ok(());
             }

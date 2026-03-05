@@ -84,6 +84,10 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             !(mock && cluster),
             "mock and cluster modes are mutually exclusive — set only one of SP1_PROVER=cluster or mock=true"
         );
+        anyhow::ensure!(
+            !cluster || cluster_config.is_some(),
+            "cluster mode requires cluster_config — ensure SP1_PROVER=cluster and artifact store are configured"
+        );
         Ok(Self {
             host,
             network_prover,
