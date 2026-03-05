@@ -36,7 +36,7 @@ struct Args {
 
 /// Load the aggregation proof data.
 fn load_aggregation_proof_data(
-    proof_names: Vec<String>,
+    proof_names: &[String],
     range_vkey: &SP1VerifyingKey,
     prover: &impl Prover,
 ) -> (Vec<SP1Proof>, Vec<BootInfoStruct>) {
@@ -83,7 +83,7 @@ async fn main() -> Result<()> {
     let vkey = range_pk.verifying_key().clone();
 
     let proof_names = args.proofs;
-    let (proofs, boot_infos) = load_aggregation_proof_data(proof_names.clone(), &vkey, &prover);
+    let (proofs, boot_infos) = load_aggregation_proof_data(&proof_names, &vkey, &prover);
 
     let header = fetcher.get_latest_l1_head_in_batch(&boot_infos).await?;
     let headers = fetcher.get_header_preimages(&boot_infos, header.hash_slow()).await?;
