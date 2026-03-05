@@ -91,8 +91,12 @@ async fn main() -> Result<()> {
             build_network_prover_from_env().await?;
         let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
         // Generate proofs in compressed mode for aggregation verification.
-        let proof =
-            prover.prove(&pk, sp1_stdin).compressed().strategy(range_proof_strategy).await.unwrap();
+        let proof = prover
+            .prove(&pk, sp1_stdin)
+            .compressed()
+            .strategy(range_proof_strategy)
+            .await
+            .expect("proving failed");
 
         // Create a proof directory for the chain ID if it doesn't exist.
         let proof_dir = format!("data/{}/proofs", l2_chain_id);

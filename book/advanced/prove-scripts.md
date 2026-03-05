@@ -1,22 +1,18 @@
 # Prove Scripts
 
-The prove scripts allow you to manually generate range and aggregation proofs for OP Succinct.
+The prove scripts generate range and aggregation proofs for OP Succinct using the SP1 network prover.
 
 ## Overview
 
 OP Succinct uses a two-tier proving architecture:
 
-1. **Range Proofs** (`multi.rs`): Generate compressed proofs for a range of L2 blocks.
+1. **Range Proofs** (`multi`): Generate compressed proofs for a range of L2 blocks.
 
-2. **Aggregation Proofs** (`agg.rs`): Combine multiple range proofs into a single aggregation proof. This reduces on-chain verification costs by verifying one proof instead of many.
+2. **Aggregation Proofs** (`agg`): Combine multiple range proofs into a single aggregation proof, reducing on-chain verification costs.
 
-Both binaries use the SP1 network prover by default.
+> **Note:** All range proofs must be in compressed mode for aggregation. The prove scripts handle this automatically.
 
-### When to Use Aggregation
-
-Aggregation reduces on-chain verification costs by combining multiple range proofs into a single proof.
-
-> **Note:** All range proofs must be generated in compressed mode for aggregation. The prove scripts handle this automatically.
+For cost estimation without proving, see [Cost Estimation Tools](./cost-estimation-tools.md).
 
 ## Setup
 
@@ -66,6 +62,8 @@ AGG_PROOF_MODE=plonk             # Options: plonk, groth16
 - `hosted`: Uses hosted proof generation service
 - `auction`: Uses auction-based proof fulfillment
 
+> **Note:** `RANGE_PROOF_STRATEGY` and `AGG_PROOF_STRATEGY` must be compatible — both must be `auction`, or both must be `reserved`/`hosted`. Mixed strategies (e.g., one `auction` and one `reserved`) will cause a startup error.
+
 **Proof Modes:**
 - `plonk`: PLONK proof system (default)
 - `groth16`: Groth16 proof system
@@ -75,7 +73,7 @@ AGG_PROOF_MODE=plonk             # Options: plonk, groth16
 1. Follow the [Succinct Prover Network Quickstart](https://docs.succinct.xyz/docs/sp1/prover-network/quickstart) to set up your account and obtain a private key.
 
 2. Set the `NETWORK_PRIVATE_KEY` environment variable:
-   ```.env
+   ```bash
    NETWORK_PRIVATE_KEY=0x...
    ```
 
@@ -83,7 +81,7 @@ AGG_PROOF_MODE=plonk             # Options: plonk, groth16
 
 ## Generating Range Proofs
 
-The `multi.rs` binary generates compressed range proofs for a specified block range.
+The `multi` binary generates compressed range proofs for a specified block range.
 
 ### Usage
 
@@ -104,22 +102,13 @@ cargo run --bin multi --release -- \
     --prove
 ```
 
-The proof will be generated in compressed mode, which is required for aggregation.
-
 ### Output
 
-Range proofs are saved to `data/{chain_id}/proofs/{start_block}-{end_block}.bin`
+Range proofs are saved to `data/{chain_id}/proofs/{start_block}-{end_block}.bin`.
 
 ## Generating Aggregation Proofs
 
-The `agg.rs` binary aggregates multiple compressed range proofs into a single aggregation proof. This allows you to verify the state transition for a large block range with a single on-chain verification.
-
-### How Aggregation Works
-
-1. The binary loads the specified range proofs from `data/fetched_proofs/`
-2. Each range proof is verified to ensure validity
-3. The proofs are aggregated into a single proof that attests to the entire block range
-4. The aggregation proof can be submitted on-chain for efficient verification
+The `agg` binary aggregates multiple compressed range proofs into a single aggregation proof.
 
 ### Usage
 
@@ -154,16 +143,74 @@ cargo run --bin agg --release -- \
 - Proof files must exist in `data/fetched_proofs/` directory
 - Proof names should match the range format: `{start_block}-{end_block}`
 - Range proofs must be consecutive (e.g., 1000-1300, 1300-1600, 1600-1900)
-- All range proofs are automatically verified before aggregation
+
+### Output
+
+Aggregation proofs are saved to `data/{chain_id}/proofs/agg/{proof_names}.bin`.
+
+## Witness Caching
+
+Witness generation (`host.run()`) fetches L1/L2 data and executes blocks, which can take **hours** for large ranges. Caching saves the generated witness to disk so subsequent runs skip this step.
+
+```
+host.run() → WitnessData → get_sp1_stdin() → SP1Stdin
+   [hours]                    [milliseconds]
+```
+
+### Usage
+
+Use `--cache` to enable caching. On the first run, the witness is generated and saved. On subsequent runs, the cached witness is loaded instantly.
+
+```bash
+# First run: generates witness and saves to cache
+cargo run --bin multi --release -- --start 1000 --end 1020 --cache
+
+# Second run: loads from cache (instant), then proves
+cargo run --bin multi --release -- --start 1000 --end 1020 --cache --prove
+```
+
+### Cache Location
+
+```
+data/{chain_id}/witness-cache/{start_block}-{end_block}-stdin.bin
+```
+
+### DA Compatibility
+
+| DA Type | Compatible With |
+|---------|-----------------|
+| Ethereum (default) | Celestia |
+| Celestia | Ethereum |
+| EigenDA | EigenDA only |
+
+Cache files are compatible between Ethereum and Celestia, but **not** with EigenDA. Don't mix cache files across incompatible DA types.
+
+### Cache Management
+
+```bash
+# Clear all cache for a chain
+rm -rf data/{chain_id}/witness-cache/
+
+# Clear specific range
+rm data/{chain_id}/witness-cache/{start}-{end}-stdin.bin
+```
+
+Cache files are typically 100MB-1GB per range.
 
 ## Local Development
 
-For local development and testing, omit the `--prove` flag to execute the program without generating proofs. This allows you to verify correctness without incurring proving costs.
+For testing without incurring proving costs, omit the `--prove` flag:
 
 ```bash
-# Execute without proving
+# Execute range proof program without proving
 cargo run --bin multi --release -- \
     --start 1000 \
     --end 1300
+
+# Execute aggregation program without proving
+cargo run --bin agg --release -- \
+    --proofs 1000-1300,1300-1600 \
+    --prover 0x1234567890abcdef1234567890abcdef12345678
 ```
 
+This runs execution and reports cycle counts without submitting proof requests to the network.

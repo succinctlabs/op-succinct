@@ -66,7 +66,7 @@ fn load_aggregation_proof_data(
     (proofs, boot_infos)
 }
 
-// Execute the OP Succinct program for a single block.
+/// Aggregates multiple compressed range proofs into a single proof.
 #[tokio::main]
 async fn main() -> Result<()> {
     utils::setup_logger();
@@ -82,7 +82,8 @@ async fn main() -> Result<()> {
     let range_pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
     let vkey = range_pk.verifying_key().clone();
 
-    let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs, &vkey, &prover);
+    let proof_names = args.proofs;
+    let (proofs, boot_infos) = load_aggregation_proof_data(proof_names.clone(), &vkey, &prover);
 
     let header = fetcher.get_latest_l1_head_in_batch(&boot_infos).await?;
     let headers = fetcher.get_header_preimages(&boot_infos, header.hash_slow()).await?;
@@ -106,12 +107,23 @@ async fn main() -> Result<()> {
             "groth16" => SP1ProofMode::Groth16,
             _ => SP1ProofMode::Plonk,
         };
-        prover
+        let proof = prover
             .prove(&agg_pk, stdin)
             .mode(agg_proof_mode)
             .strategy(agg_proof_strategy)
             .await
             .expect("proving failed");
+
+        // Save the aggregation proof to disk.
+        let chain_id = fetcher.get_l2_chain_id().await?;
+        let proof_dir = format!("data/{chain_id}/proofs/agg");
+        if !std::path::Path::new(&proof_dir).exists() {
+            fs::create_dir_all(&proof_dir).unwrap();
+        }
+        let proof_name = proof_names.join("_");
+        let proof_path = format!("{proof_dir}/{proof_name}.bin");
+        proof.save(&proof_path).expect("saving proof failed");
+        println!("Aggregation proof saved to {proof_path}");
     } else {
         let (_, report) = prover
             .execute(Elf::Static(AGGREGATION_ELF), stdin)
