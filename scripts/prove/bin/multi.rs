@@ -87,7 +87,6 @@ async fn main() -> Result<()> {
     };
 
     if args.prove {
-        // If the prove flag is set, generate a proof using the network prover.
         let (prover, range_proof_strategy, _agg_proof_strategy) =
             build_network_prover_from_env().await?;
         let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;

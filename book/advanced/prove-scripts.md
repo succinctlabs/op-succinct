@@ -6,7 +6,7 @@ The prove scripts allow you to manually generate range and aggregation proofs fo
 
 OP Succinct uses a two-tier proving architecture:
 
-1. **Range Proofs** (`multi.rs`): Generate compressed proofs for a range of L2 blocks. These proofs verify the state transition for a specific block range.
+1. **Range Proofs** (`multi.rs`): Generate compressed proofs for a range of L2 blocks.
 
 2. **Aggregation Proofs** (`agg.rs`): Combine multiple range proofs into a single aggregation proof. This reduces on-chain verification costs by verifying one proof instead of many.
 
@@ -14,10 +14,7 @@ Both binaries use the SP1 network prover by default.
 
 ### When to Use Aggregation
 
-Aggregation is useful when you need to:
-- Reduce on-chain verification costs by combining multiple range proofs into one proof
-- Prove larger block ranges by aggregating individual range proofs from different time periods
-- Combine proofs from different proving sessions into a single proof for batch submission
+Aggregation reduces on-chain verification costs by combining multiple range proofs into a single proof.
 
 > **Note:** All range proofs must be generated in compressed mode for aggregation. The prove scripts handle this automatically.
 
@@ -86,7 +83,7 @@ AGG_PROOF_MODE=plonk             # Options: plonk, groth16
 
 ## Generating Range Proofs
 
-The `multi.rs` binary generates compressed range proofs for a specified block range. These proofs verify the state transition function for the L2 blocks in the range.
+The `multi.rs` binary generates compressed range proofs for a specified block range.
 
 ### Usage
 
@@ -143,8 +140,6 @@ cargo run --bin agg --release -- \
     --prove
 ```
 
-This will generate a single aggregation proof that verifies the state transition from block 1000 to 1900.
-
 ### Parameters
 
 | Parameter | Description | Required |
@@ -172,4 +167,3 @@ cargo run --bin multi --release -- \
     --end 1300
 ```
 
-This will run the full execution and report cycle counts without submitting proof requests to the network.

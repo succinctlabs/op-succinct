@@ -70,11 +70,8 @@ pub async fn get_network_signer(use_kms_requester: bool) -> Result<NetworkSigner
     Ok(network_signer)
 }
 
-/// Build a network prover from environment variables.
-///
-/// Reads `USE_KMS_REQUESTER`, `RANGE_PROOF_STRATEGY`, and `AGG_PROOF_STRATEGY` from
-/// the environment (all with safe defaults) and returns the configured prover along
-/// with the parsed fulfillment strategies.
+/// Build a network prover from `USE_KMS_REQUESTER`, `RANGE_PROOF_STRATEGY`, and
+/// `AGG_PROOF_STRATEGY` env vars (all with safe defaults).
 pub async fn build_network_prover_from_env(
 ) -> Result<(NetworkProver, FulfillmentStrategy, FulfillmentStrategy)> {
     let use_kms_requester = env::var("USE_KMS_REQUESTER")
