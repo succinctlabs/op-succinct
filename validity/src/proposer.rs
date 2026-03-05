@@ -476,7 +476,9 @@ where
             // If the proof request has been fulfilled, update the request to status Complete and
             // add the proof bytes to the database.
             if status.fulfillment_status() == FulfillmentStatus::Fulfilled as i32 {
-                let proof: SP1ProofWithPublicValues = proof.unwrap();
+                let proof: SP1ProofWithPublicValues = proof.ok_or_else(|| {
+                    anyhow!("Network reported Fulfilled but returned no proof for request {}", request.id)
+                })?;
 
                 let proof_bytes = match proof.proof {
                     // If it's a compressed proof, serialize with bincode.

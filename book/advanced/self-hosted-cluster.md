@@ -228,7 +228,7 @@ If range proofs complete but the aggregation proof hangs with `cpu_queue: 1` in 
    kubectl logs deploy/coordinator -n sp1-cluster --tail=3 | grep GetStatsResponse
    ```
 2. If `cpu_queue: 1` persists with `gpu_queue: 0`, the PlonkWrap task likely can't be scheduled due to insufficient weight capacity.
-3. Verify `cpu_utilization_max` is at least 48 (for Plonk) or 18 (for Groth16). If it shows 32, increase `WORKER_MAX_WEIGHT_OVERRIDE`:
+3. Verify `cpu_utilization_max` is at least 48 (for Plonk) or 30 (for Groth16). If it shows 32, increase `WORKER_MAX_WEIGHT_OVERRIDE`:
    ```bash
    kubectl set env deploy/cpu-node -n sp1-cluster WORKER_MAX_WEIGHT_OVERRIDE=48
    ```
