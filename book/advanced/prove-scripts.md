@@ -130,7 +130,7 @@ cargo run --bin agg --release -- \
 ```bash
 # Aggregate three consecutive range proofs covering blocks 1000-1900
 cargo run --bin agg --release -- \
-    --proofs 1000-1300,1300-1600,1600-1900 \
+    --proofs 1000_1300,1300_1600,1600_1900 \
     --prover 0x1234567890abcdef1234567890abcdef12345678 \
     --prove
 ```
@@ -147,8 +147,8 @@ cargo run --bin agg --release -- \
 ### Requirements
 
 - Proof files must exist in `data/fetched_proofs/` directory
-- Proof names should match the range format: `{start_block}-{end_block}`
-- Range proofs must be consecutive (e.g., 1000-1300, 1300-1600, 1600-1900)
+- Proof names should match the range format: `{start_block}_{end_block}`
+- Range proofs must be consecutive (e.g., 1000_1300, 1300_1600, 1600_1900)
 
 ### Output
 
@@ -255,7 +255,7 @@ cargo run --bin multi --release -- \
 
 # Execute aggregation program without proving
 cargo run --bin agg --release -- \
-    --proofs 1000-1300,1300-1600 \
+    --proofs 1000_1300,1300_1600 \
     --prover 0x1234567890abcdef1234567890abcdef12345678
 ```
 

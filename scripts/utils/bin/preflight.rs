@@ -217,10 +217,10 @@ async fn main() -> Result<()> {
     // Initialize the network prover.
     let network_signer = get_network_signer(use_kms_requester).await?;
 
-    let range_proof_strategy = parse_fulfillment_strategy(env::var("RANGE_PROOF_STRATEGY")?);
+    let range_proof_strategy = parse_fulfillment_strategy(env::var("RANGE_PROOF_STRATEGY")?)?;
     info!("Range proof strategy: {:?}", range_proof_strategy);
 
-    let agg_proof_strategy = parse_fulfillment_strategy(env::var("AGG_PROOF_STRATEGY")?);
+    let agg_proof_strategy = parse_fulfillment_strategy(env::var("AGG_PROOF_STRATEGY")?)?;
     info!("Aggregation proof strategy: {:?}", agg_proof_strategy);
 
     let network_mode = determine_network_mode(range_proof_strategy, agg_proof_strategy)

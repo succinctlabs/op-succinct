@@ -79,7 +79,7 @@ async fn main() -> Result<()> {
 
     let agg_proof_strategy = parse_fulfillment_strategy(
         env::var("AGG_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
-    );
+    )?;
     let prover = build_network_prover_from_env(agg_proof_strategy).await?;
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 

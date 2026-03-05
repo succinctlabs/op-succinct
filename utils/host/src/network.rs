@@ -7,12 +7,14 @@ use sp1_sdk::{
 };
 
 /// Parse a fulfillment strategy from a string.
-pub fn parse_fulfillment_strategy(value: String) -> FulfillmentStrategy {
+pub fn parse_fulfillment_strategy(value: String) -> Result<FulfillmentStrategy> {
     match value.to_ascii_lowercase().as_str() {
-        "reserved" => FulfillmentStrategy::Reserved,
-        "hosted" => FulfillmentStrategy::Hosted,
-        "auction" => FulfillmentStrategy::Auction,
-        _ => FulfillmentStrategy::UnspecifiedFulfillmentStrategy,
+        "reserved" => Ok(FulfillmentStrategy::Reserved),
+        "hosted" => Ok(FulfillmentStrategy::Hosted),
+        "auction" => Ok(FulfillmentStrategy::Auction),
+        _ => bail!(
+            "Invalid fulfillment strategy '{value}': must be 'reserved', 'hosted', or 'auction'"
+        ),
     }
 }
 

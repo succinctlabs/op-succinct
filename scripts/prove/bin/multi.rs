@@ -89,7 +89,7 @@ async fn main() -> Result<()> {
     if args.prove {
         let range_proof_strategy = parse_fulfillment_strategy(
             env::var("RANGE_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
-        );
+        )?;
         let prover = build_network_prover_from_env(range_proof_strategy).await?;
         let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
         // Generate proofs in compressed mode for aggregation verification.
