@@ -1,5 +1,5 @@
 use alloy_primitives::{Address, B256};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use cargo_metadata::MetadataCommand;
 use clap::Parser;
 use op_succinct_client_utils::{boot::BootInfoStruct, types::u32_to_u8};
@@ -19,7 +19,7 @@ use std::{env, fs};
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Start L2 block number.
+    /// Proof file names to aggregate.
     #[arg(short, long, num_args = 1.., value_delimiter = ',')]
     proofs: Vec<String>,
 
@@ -122,7 +122,7 @@ async fn main() -> Result<()> {
         let chain_id = fetcher.get_l2_chain_id().await?;
         let proof_dir = format!("data/{chain_id}/proofs/agg");
         if !std::path::Path::new(&proof_dir).exists() {
-            fs::create_dir_all(&proof_dir).unwrap();
+            fs::create_dir_all(&proof_dir).context("failed to create proof directory")?;
         }
         let proof_name = proof_names.join("_");
         let proof_path = format!("{proof_dir}/{proof_name}.bin");
