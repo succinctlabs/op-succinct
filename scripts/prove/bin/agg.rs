@@ -137,22 +137,33 @@ async fn main() -> Result<()> {
             println!("report: {report:?}");
         }
     } else {
-        let agg_proof_strategy = parse_fulfillment_strategy(
-            env::var("AGG_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
-        )?;
-        let prover = build_network_prover_from_env(agg_proof_strategy).await?;
+        // Setup vkeys locally via CpuProver — no network credentials needed.
+        let (range_vkey, agg_vkey) = tokio::task::spawn_blocking(|| {
+            let cpu_prover = blocking::CpuProver::new();
+            let range_pk = cpu_prover
+                .setup(Elf::Static(get_range_elf_embedded()))
+                .context("range ELF setup failed")?;
+            let range_vkey = range_pk.verifying_key().clone();
+            let agg_pk =
+                cpu_prover.setup(Elf::Static(AGGREGATION_ELF)).context("agg ELF setup failed")?;
+            let agg_vkey = agg_pk.verifying_key().clone();
+            anyhow::Ok((range_vkey, agg_vkey))
+        })
+        .await
+        .expect("setup task panicked")?;
 
-        let range_pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
-        let vkey = range_pk.verifying_key().clone();
+        println!("Aggregate ELF Verification Key: {:?}", agg_vkey.bytes32());
 
         let proof_names = args.proofs;
-        let stdin = build_agg_stdin(&fetcher, proof_names.clone(), &vkey, args.prover).await?;
-
-        let agg_pk = prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
-        let agg_vk = agg_pk.verifying_key();
-        println!("Aggregate ELF Verification Key: {:?}", agg_vk.bytes32());
+        let stdin =
+            build_agg_stdin(&fetcher, proof_names.clone(), &range_vkey, args.prover).await?;
 
         if args.prove {
+            let agg_proof_strategy = parse_fulfillment_strategy(
+                env::var("AGG_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
+            )?;
+            let prover = build_network_prover_from_env(agg_proof_strategy).await?;
+            let agg_pk = prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
             let agg_proof_mode = match env::var("AGG_PROOF_MODE")
                 .unwrap_or_else(|_| "plonk".to_string())
                 .to_lowercase()
@@ -178,12 +189,16 @@ async fn main() -> Result<()> {
             proof.save(&proof_path).expect("saving proof failed");
             println!("Aggregation proof saved to {proof_path}");
         } else {
-            let (_, report) = prover
-                .execute(Elf::Static(AGGREGATION_ELF), stdin)
-                .calculate_gas(true)
-                .deferred_proof_verification(false)
-                .await
-                .unwrap();
+            // Execute locally — same pattern as cluster execute-only branch.
+            let (_, report) = tokio::task::spawn_blocking(move || {
+                let cpu_prover = blocking::CpuProver::new();
+                cpu_prover
+                    .execute(Elf::Static(AGGREGATION_ELF), stdin)
+                    .calculate_gas(true)
+                    .deferred_proof_verification(false)
+                    .run()
+            })
+            .await??;
             println!("report: {report:?}");
         }
     }

@@ -1,6 +1,6 @@
 # Prove Scripts
 
-The prove scripts generate range and aggregation proofs for OP Succinct using the SP1 network prover.
+The prove scripts generate range and aggregation proofs for OP Succinct. By default they use the [Succinct Prover Network](https://docs.succinct.xyz/docs/sp1/prover-network/intro); for self-hosted proving, see [Self-Hosted Proving Cluster](./self-hosted-cluster.md).
 
 ## Overview
 
@@ -46,7 +46,12 @@ AGG_PROOF_MODE=plonk             # Options: plonk, groth16
 | `L1_BEACON_RPC` | L1 Consensus (Beacon) Node endpoint |
 | `L2_RPC` | L2 Execution Node (`op-geth`) endpoint |
 | `L2_NODE_RPC` | L2 Rollup Node (`op-node`) endpoint |
-| `NETWORK_PRIVATE_KEY` | Private key for the Succinct Prover Network. See the [Succinct Prover Network Quickstart](https://docs.succinct.xyz/docs/sp1/prover-network/quickstart) for setup instructions. |
+
+#### Required (proving only)
+
+| Variable | Description |
+|----------|-------------|
+| `NETWORK_PRIVATE_KEY` | Required when using `--prove` with the Succinct Prover Network. See the [Succinct Prover Network Quickstart](https://docs.succinct.xyz/docs/sp1/prover-network/quickstart) for setup instructions. Not needed for execute-only runs or cluster mode. |
 
 #### Optional (`multi` script)
 
@@ -143,6 +148,7 @@ cargo run --bin agg --release -- \
 | `--prover` | Prover wallet address included in the aggregation proof | Yes |
 | `--prove` | Generate proof (omit to only execute and verify inputs) | No |
 | `--env-file` | Path to environment file (default: `.env`) | No |
+| `--cluster-timeout` | Proving timeout in seconds (cluster mode only) | No (default: 21600) |
 
 ### Requirements
 
@@ -259,4 +265,4 @@ cargo run --bin agg --release -- \
     --prover 0x1234567890abcdef1234567890abcdef12345678
 ```
 
-This runs execution and reports cycle counts without submitting proof requests to the network.
+This runs execution and reports cycle counts without submitting proof requests to the network. No `NETWORK_PRIVATE_KEY` or proof strategy configuration is needed for execute-only runs.
