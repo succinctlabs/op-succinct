@@ -477,7 +477,10 @@ where
             // add the proof bytes to the database.
             if status.fulfillment_status() == FulfillmentStatus::Fulfilled as i32 {
                 let proof: SP1ProofWithPublicValues = proof.ok_or_else(|| {
-                    anyhow!("Network reported Fulfilled but returned no proof for request {}", request.id)
+                    anyhow!(
+                        "Network reported Fulfilled but returned no proof for request {}",
+                        request.id
+                    )
                 })?;
 
                 let proof_bytes = match proof.proof {
