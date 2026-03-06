@@ -243,7 +243,8 @@ async fn main() -> Result<()> {
 
     // Save the proof to the proof directory corresponding to the chain ID.
     let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
-    let range_proof_path = save_range_proof(l2_chain_id, l2_start_block, l2_end_block, &range_proof)?;
+    let range_proof_path =
+        save_range_proof(l2_chain_id, l2_start_block, l2_end_block, &range_proof)?;
     info!("Range proof saved to {}", range_proof_path.display());
 
     // 3. Generate the aggregation proof.
