@@ -30,7 +30,7 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
 name = "aggregation"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -1565,9 +1565,9 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "aws-config"
-version = "1.8.14"
+version = "1.8.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a8fc176d53d6fe85017f230405e3255cedb4a02221cb55ed6d76dccbbb099b2"
+checksum = "11493b0bad143270fb8ad284a096dd529ba91924c5409adeac856cc1bf047dbc"
 dependencies = [
  "aws-credential-types",
  "aws-runtime",
@@ -1585,7 +1585,7 @@ dependencies = [
  "fastrand",
  "hex",
  "http 1.4.0",
- "ring",
+ "sha1",
  "time",
  "tokio",
  "tracing",
@@ -1595,9 +1595,9 @@ dependencies = [
 
 [[package]]
 name = "aws-credential-types"
-version = "1.2.13"
+version = "1.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d203b0bf2626dcba8665f5cd0871d7c2c0930223d6b6be9097592fea21242d0"
+checksum = "8f20799b373a1be121fe3005fba0c2090af9411573878f224df44b42727fcaf7"
 dependencies = [
  "aws-smithy-async",
  "aws-smithy-runtime-api",
@@ -1629,9 +1629,9 @@ dependencies = [
 
 [[package]]
 name = "aws-runtime"
-version = "1.7.1"
+version = "1.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ede2ddc593e6c8acc6ce3358c28d6677a6dc49b65ba4b37a2befe14a11297e75"
+checksum = "5fc0651c57e384202e47153c1260b84a9936e19803d747615edf199dc3b98d17"
 dependencies = [
  "aws-credential-types",
  "aws-sigv4",
@@ -1657,9 +1657,9 @@ dependencies = [
 
 [[package]]
 name = "aws-sdk-kms"
-version = "1.102.0"
+version = "1.103.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22b682ef733ec24c300b11cec2df9bfea7ee4bf48ab2030c832e27db92b69c68"
+checksum = "8e6bfd8dfb5a562f9a605bbd5c3aef09db9231c826a1e0488ce3f4338c70dbbb"
 dependencies = [
  "aws-credential-types",
  "aws-runtime",
@@ -1715,9 +1715,9 @@ dependencies = [
 
 [[package]]
 name = "aws-sdk-sso"
-version = "1.95.0"
+version = "1.96.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00c5ff27c6ba2cbd95e6e26e2e736676fdf6bcf96495b187733f521cfe4ce448"
+checksum = "f64a6eded248c6b453966e915d32aeddb48ea63ad17932682774eb026fbef5b1"
 dependencies = [
  "aws-credential-types",
  "aws-runtime",
@@ -1739,9 +1739,9 @@ dependencies = [
 
 [[package]]
 name = "aws-sdk-ssooidc"
-version = "1.97.0"
+version = "1.98.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d186f1e5a3694a188e5a0640b3115ccc6e084d104e16fd6ba968dca072ffef8"
+checksum = "db96d720d3c622fcbe08bae1c4b04a72ce6257d8b0584cb5418da00ae20a344f"
 dependencies = [
  "aws-credential-types",
  "aws-runtime",
@@ -1763,9 +1763,9 @@ dependencies = [
 
 [[package]]
 name = "aws-sdk-sts"
-version = "1.99.0"
+version = "1.100.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9acba7c62f3d4e2408fa998a3a8caacd8b9a5b5549cf36e2372fbdae329d5449"
+checksum = "fafbdda43b93f57f699c5dfe8328db590b967b8a820a13ccdd6687355dfcc7ca"
 dependencies = [
  "aws-credential-types",
  "aws-runtime",
@@ -1788,9 +1788,9 @@ dependencies = [
 
 [[package]]
 name = "aws-sigv4"
-version = "1.4.1"
+version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37411f8e0f4bea0c3ca0958ce7f18f6439db24d555dbd809787262cd00926aa9"
+checksum = "b0b660013a6683ab23797778e21f1f854744fdf05f68204b4cca4c8c04b5d1f4"
 dependencies = [
  "aws-credential-types",
  "aws-smithy-eventstream",
@@ -2045,9 +2045,9 @@ dependencies = [
 
 [[package]]
 name = "aws-types"
-version = "1.3.13"
+version = "1.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0470cc047657c6e286346bdf10a8719d26efd6a91626992e0e64481e44323e96"
+checksum = "47c8323699dd9b3c8d5b3c13051ae9cdef58fd179957c882f8374dd8725962d9"
 dependencies = [
  "aws-credential-types",
  "aws-smithy-async",
@@ -2541,7 +2541,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0686c856aa6aac0c4498f936d7d6a02df690f614c03e4d906d1018062b5c5e2c"
 dependencies = [
  "once_cell",
- "proc-macro-crate 3.4.0",
+ "proc-macro-crate 3.5.0",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
@@ -5803,7 +5803,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2da3f8ab5ce1bb124b6d082e62dffe997578ceaf0aeb9f3174a214589dc00f07"
 dependencies = [
  "heck",
- "proc-macro-crate 3.4.0",
+ "proc-macro-crate 3.5.0",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
@@ -7218,7 +7218,7 @@ version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff32365de1b6743cb203b710788263c44a03de03802daf96092f2da4fe6ba4d7"
 dependencies = [
- "proc-macro-crate 3.4.0",
+ "proc-macro-crate 3.5.0",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
@@ -7406,7 +7406,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-bindings"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "alloy",
  "alloy-sol-types",
@@ -7416,7 +7416,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-build-utils"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "cargo_metadata",
  "sp1-build",
@@ -7424,7 +7424,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-celestia-client-utils"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7442,7 +7442,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-celestia-host-utils"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -7470,7 +7470,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-client-utils"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -7524,7 +7524,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-eigenda-host-utils"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -7557,11 +7557,11 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-elfs"
-version = "4.1.0"
+version = "3.6.0"
 
 [[package]]
 name = "op-succinct-ethereum-client-utils"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7577,7 +7577,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-ethereum-host-utils"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -7596,7 +7596,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-fp"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "alloy",
  "alloy-contract",
@@ -7644,7 +7644,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-host-utils"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "alloy-consensus",
  "alloy-contract",
@@ -7699,7 +7699,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-proof-utils"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -7721,7 +7721,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-prove"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "alloy-contract",
  "alloy-eips",
@@ -7756,7 +7756,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-range-utils"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "anyhow",
  "kona-proof",
@@ -7769,7 +7769,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-scripts"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "alloy-eips",
  "alloy-network",
@@ -7803,7 +7803,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-signer-utils"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -7825,7 +7825,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-validity"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -8427,7 +8427,7 @@ version = "3.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34b4653168b563151153c9e4c08ebed57fb8262bebfa79711552fa983c623e7a"
 dependencies = [
- "proc-macro-crate 3.4.0",
+ "proc-macro-crate 3.5.0",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
@@ -8819,9 +8819,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro-crate"
-version = "3.4.0"
+version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "219cb19e96be00ab2e37d6e299658a0cfa83e52429179969b0f0121b4ac46983"
+checksum = "e67ba7e9b2b56446f1d419b1d807906278ffa1a658a8a5d8a39dcb1f5a78614f"
 dependencies = [
  "toml_edit",
 ]
@@ -9298,7 +9298,7 @@ dependencies = [
 
 [[package]]
 name = "range"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "kona-proof",
  "op-succinct-client-utils",
@@ -9311,7 +9311,7 @@ dependencies = [
 
 [[package]]
 name = "range-celestia"
-version = "4.1.0"
+version = "3.6.0"
 dependencies = [
  "kona-proof",
  "op-succinct-celestia-client-utils",
@@ -10854,7 +10854,7 @@ checksum = "9c845311f0ff7951c5506121a9ad75aec44d083c31583b2ea5a30bcb0b0abba0"
 dependencies = [
  "cfg-if",
  "glob",
- "proc-macro-crate 3.4.0",
+ "proc-macro-crate 3.5.0",
  "proc-macro2",
  "quote",
  "regex",
@@ -11205,7 +11205,7 @@ version = "2.11.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c6630024bf739e2179b91fb424b28898baf819414262c5d376677dbff1fe7ebf"
 dependencies = [
- "proc-macro-crate 3.4.0",
+ "proc-macro-crate 3.5.0",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
@@ -13911,7 +13911,7 @@ checksum = "cf92845e79fc2e2def6a5d828f0801e29a2f8acc037becc5ab08595c7d5e9863"
 dependencies = [
  "serde_core",
  "serde_spanned",
- "toml_datetime",
+ "toml_datetime 0.7.5+spec-1.1.0",
  "toml_parser",
  "winnow",
 ]
@@ -13926,13 +13926,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "toml_edit"
-version = "0.23.10+spec-1.0.0"
+name = "toml_datetime"
+version = "1.0.0+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84c8b9f757e028cee9fa244aea147aab2a9ec09d5325a9b01e0a49730c2b5269"
+checksum = "32c2555c699578a4f59f0cc68e5116c8d7cabbd45e1409b989d4be085b53f13e"
+dependencies = [
+ "serde_core",
+]
+
+[[package]]
+name = "toml_edit"
+version = "0.25.4+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7193cbd0ce53dc966037f54351dbbcf0d5a642c7f0038c382ef9e677ce8c13f2"
 dependencies = [
  "indexmap 2.13.0",
- "toml_datetime",
+ "toml_datetime 1.0.0+spec-1.1.0",
  "toml_parser",
  "winnow",
 ]
@@ -14497,9 +14506,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.21.0"
+version = "1.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b672338555252d43fd2240c714dc444b8c6fb0a5c5335e65a07bba7742735ddb"
+checksum = "a68d3c8f01c0cfa54a75291d83601161799e4a89a39e0929f4b0354d88757a37"
 dependencies = [
  "atomic",
  "getrandom 0.4.2",
@@ -15287,9 +15296,9 @@ checksum = "d6bbff5f0aada427a1e5a6da5f1f98158182f26556f345ac9e04d36d0ebed650"
 
 [[package]]
 name = "winnow"
-version = "0.7.14"
+version = "0.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a5364e9d77fcdeeaa6062ced926ee3381faa2ee02d3eb83a5c27a8825540829"
+checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
 dependencies = [
  "memchr",
 ]
