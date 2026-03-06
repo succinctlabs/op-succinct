@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - release/v3.x
     paths:
       - '.github/workflows/cargo-tests.yml'
       - 'Cargo.toml'
