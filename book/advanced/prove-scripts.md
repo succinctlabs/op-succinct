@@ -115,7 +115,7 @@ cargo run --bin multi --release -- \
 
 ### Output
 
-Range proofs are saved to `data/{chain_id}/proofs/{start_block}-{end_block}.bin`.
+Range proofs are saved to `data/{chain_id}/proofs/range/{start_block}-{end_block}.bin`.
 
 ## Generating Aggregation Proofs
 
@@ -135,7 +135,7 @@ cargo run --bin agg --release -- \
 ```bash
 # Aggregate three consecutive range proofs covering blocks 1000-1900
 cargo run --bin agg --release -- \
-    --proofs 1000_1300,1300_1600,1600_1900 \
+    --proofs 1000-1300,1300-1600,1600-1900 \
     --prover 0x1234567890abcdef1234567890abcdef12345678 \
     --prove
 ```
@@ -152,9 +152,9 @@ cargo run --bin agg --release -- \
 
 ### Requirements
 
-- Proof files must exist in `data/fetched_proofs/` directory
-- Proof names should match the range format: `{start_block}_{end_block}`
-- Range proofs must be consecutive (e.g., 1000_1300, 1300_1600, 1600_1900)
+- Proof files must exist in `data/{chain_id}/proofs/range/` directory
+- Proof names should match the range format: `{start_block}-{end_block}`
+- Range proofs must be consecutive (e.g., 1000-1300, 1300-1600, 1600-1900)
 
 ### Output
 
@@ -162,11 +162,13 @@ Aggregation proofs are saved to `data/{chain_id}/proofs/agg/{proof_names}.bin`.
 
 ## End-to-End Workflow
 
-The full proving pipeline involves three steps: generating range proofs, fetching them from the network, and aggregating them.
+All proofs are stored under `data/{chain_id}/proofs/` with consistent hyphen-separated naming (`{start}-{end}.bin`).
 
-### 1. Generate Range Proofs
+### Local Proving
 
-Run `multi --prove` for each block range. Proofs are submitted to the SP1 network and saved locally to `data/{chain_id}/proofs/{start}-{end}.bin`.
+#### 1. Generate Range Proofs
+
+Run `multi --prove` for each block range. Proofs are saved to `data/{chain_id}/proofs/range/{start}-{end}.bin`.
 
 ```bash
 cargo run --bin multi --release -- --start 1000 --end 1300 --prove
@@ -174,31 +176,46 @@ cargo run --bin multi --release -- --start 1300 --end 1600 --prove
 cargo run --bin multi --release -- --start 1600 --end 1900 --prove
 ```
 
-### 2. Fetch Proofs from the Network
+#### 2. Aggregate Proofs
 
-Use the `fetch_and_save_proof` utility to download completed proofs from the network into `data/fetched_proofs/`. Pass the `--start` and `--end` flags to name the files with the block range.
-
-```bash
-cargo run --bin fetch_and_save_proof --release -- \
-    --request-id <REQUEST_ID> --start 1000 --end 1300
-```
-
-This saves the proof as `data/fetched_proofs/1000_1300.bin`. Repeat for each range proof.
-
-> **Note:** `fetch_and_save_proof` uses underscore-separated naming (`{start}_{end}.bin`), not dash-separated. When passing proof names to `agg --proofs`, use the underscore format (e.g., `1000_1300`).
-
-### 3. Aggregate Proofs
-
-Run `agg --prove` with the proof names (without `.bin` extension) matching the files in `data/fetched_proofs/`.
+Run `agg --prove` with the proof names (without `.bin` extension) matching files in `data/{chain_id}/proofs/range/`.
 
 ```bash
 cargo run --bin agg --release -- \
-    --proofs 1000_1300,1300_1600,1600_1900 \
+    --proofs 1000-1300,1300-1600,1600-1900 \
     --prover 0x1234567890abcdef1234567890abcdef12345678 \
     --prove
 ```
 
 The aggregation proof is saved to `data/{chain_id}/proofs/agg/`.
+
+### Network Fetch
+
+If proofs were generated via the SP1 network, use `fetch_and_save_proof` to download them into the same `data/{chain_id}/proofs/range/` directory.
+
+#### 1. Generate Range Proofs (network)
+
+```bash
+cargo run --bin multi --release -- --start 1000 --end 1300 --prove
+```
+
+#### 2. Fetch Proofs from the Network
+
+```bash
+cargo run --bin fetch-and-save-proof --release -- \
+    --request-id <REQUEST_ID> --chain-id <CHAIN_ID> --start 1000 --end 1300
+```
+
+This saves the proof as `data/{chain_id}/proofs/range/1000-1300.bin`. Repeat for each range proof.
+
+#### 3. Aggregate Proofs
+
+```bash
+cargo run --bin agg --release -- \
+    --proofs 1000-1300,1300-1600,1600-1900 \
+    --prover 0x1234567890abcdef1234567890abcdef12345678 \
+    --prove
+```
 
 ## Witness Caching
 
@@ -261,7 +278,7 @@ cargo run --bin multi --release -- \
 
 # Execute aggregation program without proving
 cargo run --bin agg --release -- \
-    --proofs 1000_1300,1300_1600 \
+    --proofs 1000-1300,1300-1600 \
     --prover 0x1234567890abcdef1234567890abcdef12345678
 ```
 

@@ -5,6 +5,7 @@ use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
     network::{build_network_prover_from_env, parse_fulfillment_strategy},
+    proof_cache::save_range_proof,
     stats::ExecutionStats,
     witness_cache::{load_stdin_from_cache, save_stdin_to_cache},
     witness_generation::WitnessGenerator,
@@ -89,16 +90,10 @@ async fn main() -> Result<()> {
     };
 
     if args.prove {
-        let proof_dir = format!("data/{}/proofs", l2_chain_id);
-        if !std::path::Path::new(&proof_dir).exists() {
-            fs::create_dir_all(&proof_dir).unwrap();
-        }
-
         if is_cluster_mode() {
             let proof = cluster_range_proof(args.cluster_timeout, sp1_stdin).await?;
-            proof
-                .save(format!("{proof_dir}/{l2_start_block}-{l2_end_block}.bin"))
-                .context("saving proof failed")?;
+            let path = save_range_proof(l2_chain_id, l2_start_block, l2_end_block, &proof)?;
+            info!("Range proof saved to {}", path.display());
         } else {
             let range_proof_strategy = parse_fulfillment_strategy(
                 env::var("RANGE_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
@@ -111,9 +106,8 @@ async fn main() -> Result<()> {
                 .strategy(range_proof_strategy)
                 .await
                 .expect("proving failed");
-            proof
-                .save(format!("{proof_dir}/{l2_start_block}-{l2_end_block}.bin"))
-                .context("saving proof failed")?;
+            let path = save_range_proof(l2_chain_id, l2_start_block, l2_end_block, &proof)?;
+            info!("Range proof saved to {}", path.display());
         }
     } else {
         let (block_data, report, execution_duration) =

@@ -29,7 +29,7 @@ cargo run --bin multi -- --start 1000 --end 1020 --prove
 ### Output
 
 - **Execution mode**: Prints execution stats and saves to `execution-reports/multi/{chain_id}/{start}-{end}.csv`
-- **Prove mode**: Saves proof to `data/{chain_id}/proofs/{start}-{end}.bin`
+- **Prove mode**: Saves proof to `data/{chain_id}/proofs/range/{start}-{end}.bin`
 
 ## Cost Estimator
 
