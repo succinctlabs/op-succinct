@@ -1332,7 +1332,7 @@ where
     pub async fn submit_bond_claim_transaction(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
         let transaction_request =
-            contract.claimCredit(self.signer.address()).gas(200_000).into_transaction_request();
+            contract.claimCredit(self.signer.address()).gas(300_000).into_transaction_request();
         let receipt = self
             .signer
             .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
