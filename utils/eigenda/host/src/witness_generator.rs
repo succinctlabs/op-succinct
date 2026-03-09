@@ -28,7 +28,10 @@ use rkyv::to_bytes;
 use sp1_core_executor::SP1RecursionProof;
 use sp1_hypercube::SP1PcsProofInner;
 use sp1_primitives::SP1GlobalContext;
-use sp1_sdk::{blocking::Prover as BlockingProver, Elf, ProvingKey, SP1Stdin, SP1VerifyingKey};
+use sp1_sdk::{
+    blocking::{CpuProver, Prover as _},
+    Elf, ProvingKey, SP1Stdin, SP1VerifyingKey,
+};
 
 type WitnessExecutor = EigenDAWitnessExecutor<
     PreimageWitnessCollector<DefaultOracleBase>,
@@ -41,9 +44,10 @@ type WitnessExecutor = EigenDAWitnessExecutor<
 /// separate thread to avoid nested tokio runtime panics.
 static CANOE_VK: LazyLock<SP1VerifyingKey> = LazyLock::new(|| {
     std::thread::spawn(|| {
-        let client = sp1_sdk::blocking::ProverClient::from_env();
-        let pk =
-            client.setup(Elf::Static(canoe_sp1_cc_host::ELF)).expect("Failed to setup canoe ELF");
+        let cpu_prover = CpuProver::new();
+        let pk = cpu_prover
+            .setup(Elf::Static(canoe_sp1_cc_host::ELF))
+            .expect("Failed to setup canoe ELF");
         pk.verifying_key().clone()
     })
     .join()
