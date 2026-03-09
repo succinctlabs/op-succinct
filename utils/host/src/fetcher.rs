@@ -206,10 +206,18 @@ impl OPSuccinctDataFetcher {
                                 .sum();
                             (l1_fees, tx_fees)
                         }
-                        Ok(None) | Err(_) => {
+                        Ok(None) => {
                             tracing::warn!(
                                 block_number,
-                                "eth_getBlockReceipts unavailable; fee data will be zero"
+                                "eth_getBlockReceipts returned None; fee data will be zero"
+                            );
+                            (0u128, 0u128)
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                block_number,
+                                error = %e,
+                                "eth_getBlockReceipts failed; fee data will be zero"
                             );
                             (0u128, 0u128)
                         }
