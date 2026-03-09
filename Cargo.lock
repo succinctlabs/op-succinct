@@ -7406,7 +7406,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-altda-client-utils"
-version = "4.0.2"
+version = "4.2.0"
 dependencies = [
  "alloy-primitives",
  "anyhow",
@@ -7424,7 +7424,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-altda-host-utils"
-version = "4.0.2"
+version = "4.2.0"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -9352,7 +9352,7 @@ dependencies = [
 
 [[package]]
 name = "range-altda"
-version = "4.0.2"
+version = "4.2.0"
 dependencies = [
  "kona-proof",
  "op-succinct-altda-client-utils",
