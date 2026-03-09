@@ -237,10 +237,10 @@ where
             for game in games {
                 let contract =
                     OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
-                let status = contract.status().call().await?;
+                let status = GameStatus::try_from(contract.status().call().await?)?;
                 let claim_data = contract.claimData().call().await?;
-                let proposal_status = claim_data.status;
-                let deadline = U256::from(claim_data.deadline).to::<u64>();
+                let proposal_status = ProposalStatus::try_from(claim_data.status)?;
+                let deadline = claim_data.deadline;
 
                 match status {
                     GameStatus::IN_PROGRESS => {
@@ -342,7 +342,7 @@ where
     /// Drop game if the game type is invalid or the game was not respected at the time of creation.
     async fn fetch_game(&self, index: U256) -> Result<()> {
         let game = self.factory.gameAtIndex(index).call().await?;
-        let game_address = game.proxy;
+        let game_address = game.proxy_;
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
 
         let game_type = contract.gameType().call().await?;
@@ -361,7 +361,7 @@ where
         let claim_data = contract.claimData().call().await?;
 
         let was_respected = contract.wasRespectedGameTypeWhenCreated().call().await?;
-        let status = contract.status().call().await?;
+        let status = GameStatus::try_from(contract.status().call().await?)?;
 
         let mut state = self.state.lock().await;
 
@@ -375,7 +375,7 @@ where
                     l2_block_number,
                     is_invalid: output_root != computed_output_root,
                     status,
-                    proposal_status: claim_data.status,
+                    proposal_status: ProposalStatus::try_from(claim_data.status)?,
                     should_attempt_to_challenge: false,
                     should_attempt_to_resolve: false,
                     should_attempt_to_claim_bond: false,
