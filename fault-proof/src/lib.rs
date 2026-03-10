@@ -85,12 +85,18 @@ impl L2ProviderTrait for L2Provider {
             .await?;
         let l2_state_root = l2_block.header.state_root;
         let l2_claim_hash = l2_block.header.hash;
-        let l2_storage_root = self
-            .get_l2_storage_root(
+
+        let l2_storage_root = if let Some(root) = l2_block.header.withdrawals_root {
+            // Post-Isthmus: Use the withdrawals_root from the header (fast)
+            root
+        } else {
+            // Pre-Isthmus: Fall back to eth_getProof (slow)
+            self.get_l2_storage_root(
                 address!("0x4200000000000000000000000000000000000016"),
                 BlockNumberOrTag::Number(l2_block_number.to::<u64>()),
             )
-            .await?;
+            .await?
+        };
 
         let l2_claim_encoded = L2Output {
             zero: 0,
