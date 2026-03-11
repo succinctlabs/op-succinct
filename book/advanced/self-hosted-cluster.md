@@ -28,9 +28,9 @@ During aggregation, the CONTROLLER and PlonkWrap tasks briefly co-exist on the c
 cpu-node:
   resources:
     requests:
-      memory: 64Gi
+      memory: 96Gi
     limits:
-      memory: 64Gi
+      memory: 96Gi
   extraEnv:
     WORKER_MAX_WEIGHT_OVERRIDE: "48"
     WORKER_CONTROLLER_WEIGHT: "16"
@@ -39,7 +39,11 @@ cpu-node:
 `WORKER_CONTROLLER_WEIGHT` sets the weight for CONTROLLER tasks (default: 4 in code). Set it to 16 to reflect actual RAM usage (~16–19 GB with default splicing workers). `WORKER_MAX_WEIGHT_OVERRIDE` should be set to exactly 48 — this allows CONTROLLER (16) + PlonkWrap (32) to co-schedule, while preventing two PlonkWraps (32+32=64) from running simultaneously and OOMKilling the node.
 
 ```admonish warning
-Do not set `WORKER_MAX_WEIGHT_OVERRIDE` higher than 48 on a 64Gi node. A value of 64 allows two PlonkWrap tasks (weight=32 each) to be co-scheduled, consuming ~64 GB of actual RAM and OOMKilling the pod. The value 48 ensures only one PlonkWrap runs at a time while still fitting alongside a CONTROLLER task.
+The memory limit must be significantly higher than the 48 GB weight sum. Actual peak memory during CONTROLLER + PlonkWrap co-scheduling reaches ~60–70 GB due to jemalloc fragmentation, circuit artifacts, and splicing worker overhead. A 64Gi limit will OOMKill under sustained load. Use at least 96Gi (or 88Gi if your Kubernetes node cannot fit 96Gi alongside other pods).
+```
+
+```admonish warning
+Do not set `WORKER_MAX_WEIGHT_OVERRIDE` higher than 48. A value of 64 allows two PlonkWrap tasks (weight=32 each) to be co-scheduled, consuming ~64 GB of actual RAM and OOMKilling the pod. The value 48 ensures only one PlonkWrap runs at a time while still fitting alongside a CONTROLLER task.
 ```
 
 ## Quick Test: Range Proof
@@ -232,7 +236,7 @@ If range proofs complete but the aggregation proof hangs with `cpu_queue: 1` in 
    ```bash
    kubectl set env deploy/cpu-node -n sp1-cluster WORKER_MAX_WEIGHT_OVERRIDE=48
    ```
-   Also ensure the cpu-node has enough memory (at least 64Gi) and `WORKER_CONTROLLER_WEIGHT=16`. See [Cluster Resource Requirements](#cluster-resource-requirements).
+   Also ensure the cpu-node has enough memory (at least 96Gi) and `WORKER_CONTROLLER_WEIGHT=16`. See [Cluster Resource Requirements](#cluster-resource-requirements).
 
 ### cpu-node OOMKilled (CrashLoopBackOff)
 
@@ -245,14 +249,15 @@ kubectl describe pod -l app=cpu-node -n sp1-cluster | grep -A3 "Last State"
 Common causes:
 
 1. **Two PlonkWraps co-scheduled**: If `WORKER_MAX_WEIGHT_OVERRIDE` is set too high (e.g., 64), two PlonkWrap tasks (weight=32 each) can run simultaneously, consuming ~64 GB of actual RAM. Set `WORKER_MAX_WEIGHT_OVERRIDE=48` to prevent this — only one PlonkWrap will run at a time.
-2. **CONTROLLER task exceeds memory**: Large block ranges require more memory during execution/splicing. Reduce `RANGE_PROOF_INTERVAL` in the proposer to produce smaller proofs, or increase the cpu-node memory limit.
+2. **Memory limit too low**: Task weights are soft estimates — actual peak memory during CONTROLLER + PlonkWrap co-scheduling can reach ~60–70 GB due to jemalloc fragmentation, circuit artifact loading, and splicing worker overhead. If your memory limit is 64Gi, increase it to at least 96Gi.
+3. **CONTROLLER task exceeds memory**: Large block ranges require more memory during execution/splicing. Reduce `RANGE_PROOF_INTERVAL` in the proposer to produce smaller proofs, or increase the cpu-node memory limit.
 
 To increase cpu-node memory:
 
 ```bash
 kubectl patch deploy cpu-node -n sp1-cluster --type='json' \
-  -p='[{"op":"replace","path":"/spec/template/spec/containers/0/resources/limits/memory","value":"64Gi"},
-       {"op":"replace","path":"/spec/template/spec/containers/0/resources/requests/memory","value":"64Gi"}]'
+  -p='[{"op":"replace","path":"/spec/template/spec/containers/0/resources/limits/memory","value":"96Gi"},
+       {"op":"replace","path":"/spec/template/spec/containers/0/resources/requests/memory","value":"96Gi"}]'
 ```
 
 Always keep `WORKER_MAX_WEIGHT_OVERRIDE` at 48 regardless of memory size — this prevents co-scheduling of two PlonkWraps. See [Cluster Resource Requirements](#cluster-resource-requirements).
