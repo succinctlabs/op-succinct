@@ -256,3 +256,47 @@ kubectl patch deploy cpu-node -n sp1-cluster --type='json' \
 ```
 
 Always keep `WORKER_MAX_WEIGHT_OVERRIDE` at 48 regardless of memory size — this prevents co-scheduling of two PlonkWraps. See [Cluster Resource Requirements](#cluster-resource-requirements).
+
+## E2E Testing with Cluster Proving
+
+The repository includes an E2E test that validates the full AltDA pipeline with real cluster proving:
+`batcher → DA server → L1 commitment → witness gen → SP1 cluster proof → L2OO submission`
+
+### Running Locally
+
+```bash
+cd tests
+
+SP1_PROVER=cluster \
+CLI_CLUSTER_RPC="http://<cluster-grpc-endpoint>:50051" \
+CLI_S3_BUCKET="<artifact-bucket>" \
+CLI_S3_REGION="<region>" \
+OP_SUCCINCT_MOCK=false \
+PROVING_TIMEOUT=21600 \
+just test-e2e-sysgo-altda "" "240m"
+```
+
+Key env vars:
+- `SP1_PROVER=cluster` — routes proofs to the self-hosted cluster instead of mock or network
+- `OP_SUCCINCT_MOCK=false` — required to avoid mock/cluster conflict panic
+- `PROVING_TIMEOUT=21600` — 6h timeout per proof request (cluster proving is slower than network)
+- Timeout arg `240m` — Go test timeout (cluster range + aggregation proofs take ~15–20 min with cached programs)
+
+### Running via CI
+
+The `e2e-sysgo-cluster-prover` workflow is **workflow_dispatch only** (not triggered by PRs or pushes) since it requires cluster infrastructure and takes significantly longer than mock-proving tests.
+
+Trigger it from the Actions tab or via CLI:
+```bash
+gh workflow run e2e-sysgo-cluster-prover.yml --ref <branch>
+```
+
+### Expected Timing (cached programs)
+
+| Phase | Duration |
+|-------|----------|
+| Range proof (10 blocks) | ~2–4 min |
+| Aggregation proof (Plonk) | ~8–10 min |
+| Total test | ~15–20 min |
+
+First run on a new ELF takes longer (2–4 hours) due to program compilation on the cluster.

@@ -20,7 +20,11 @@ func TestValidityProposer_AltDA_SingleSubmission(gt *testing.T) {
 	sys := opspresets.NewValiditySystem(t, cfg, opspresets.DefaultL2ChainConfig(), opspresets.WithAltDA())
 	require := t.Require()
 	logger := t.Logger()
-	ctx, cancel := context.WithTimeout(t.Ctx(), utils.ShortTimeout())
+	timeout := utils.ShortTimeout()
+	if utils.UseClusterProver() {
+		timeout = utils.ClusterTimeout()
+	}
+	ctx, cancel := context.WithTimeout(t.Ctx(), timeout)
 	defer cancel()
 
 	l2oo := sys.L2OOClient(t)
