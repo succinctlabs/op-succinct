@@ -837,16 +837,12 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         vm.deal(proposer, 2 ether);
 
         // Creating a game with a specific parent index should still work.
-        factory.create{value: 1 ether}(
-            gameType, newRootClaim, abi.encodePacked(newL2BlockNumber, parentGameIndex)
-        );
+        factory.create{value: 1 ether}(gameType, newRootClaim, abi.encodePacked(newL2BlockNumber, parentGameIndex));
 
         // Creating a game with uint32.max should revert because an anchor game exists.
         // This prevents duplicate games for the same L2 block number.
         vm.expectRevert(InvalidParentGame.selector);
-        factory.create{value: 1 ether}(
-            gameType, newRootClaim, abi.encodePacked(newL2BlockNumber, type(uint32).max)
-        );
+        factory.create{value: 1 ether}(gameType, newRootClaim, abi.encodePacked(newL2BlockNumber, type(uint32).max));
 
         vm.stopPrank();
     }
