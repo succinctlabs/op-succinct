@@ -190,20 +190,38 @@ impl OPSuccinctDataFetcher {
             .map(|block_number| async move {
                 let block =
                     self.l2_provider.get_block_by_number(block_number.into()).await?.unwrap();
-                let receipts =
-                    self.l2_provider.get_block_receipts(block_number.into()).await?.unwrap();
-                let total_l1_fees: u128 =
-                    receipts.iter().map(|tx| tx.l1_block_info.l1_fee.unwrap_or(0)).sum();
-                let total_tx_fees: u128 = receipts
-                    .iter()
-                    .map(|tx| {
-                        // tx.inner.effective_gas_price * tx.inner.gas_used +
-                        // tx.l1_block_info.l1_fee is the total fee for the transaction.
-                        // tx.inner.effective_gas_price * tx.inner.gas_used is the tx fee on L2.
-                        tx.inner.effective_gas_price * tx.inner.gas_used as u128 +
-                            tx.l1_block_info.l1_fee.unwrap_or(0)
-                    })
-                    .sum();
+                let (total_l1_fees, total_tx_fees) =
+                    match self.l2_provider.get_block_receipts(block_number.into()).await {
+                        Ok(Some(receipts)) => {
+                            let l1_fees: u128 = receipts
+                                .iter()
+                                .map(|tx| tx.l1_block_info.l1_fee.unwrap_or(0))
+                                .sum();
+                            let tx_fees: u128 = receipts
+                                .iter()
+                                .map(|tx| {
+                                    tx.inner.effective_gas_price * tx.inner.gas_used as u128 +
+                                        tx.l1_block_info.l1_fee.unwrap_or(0)
+                                })
+                                .sum();
+                            (l1_fees, tx_fees)
+                        }
+                        Ok(None) => {
+                            tracing::warn!(
+                                block_number,
+                                "eth_getBlockReceipts returned None; fee data will be zero"
+                            );
+                            (0u128, 0u128)
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                block_number,
+                                error = %e,
+                                "eth_getBlockReceipts failed; fee data will be zero"
+                            );
+                            (0u128, 0u128)
+                        }
+                    };
 
                 Ok(BlockInfo {
                     block_number,
