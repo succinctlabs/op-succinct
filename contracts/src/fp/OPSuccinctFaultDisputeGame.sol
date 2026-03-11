@@ -637,6 +637,12 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
         maxChallengeDuration_ = MAX_CHALLENGE_DURATION;
     }
 
+    /// @notice Returns the max clock duration.
+    /// @dev Compatibility alias for maxChallengeDuration to match the standard FaultDisputeGame interface.
+    function maxClockDuration() external view returns (Duration maxClockDuration_) {
+        maxClockDuration_ = MAX_CHALLENGE_DURATION;
+    }
+
     /// @notice Returns the max prove duration.
     function maxProveDuration() external view returns (Duration maxProveDuration_) {
         maxProveDuration_ = MAX_PROVE_DURATION;

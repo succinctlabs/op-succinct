@@ -1,0 +1,31 @@
+[package]
+name = "op-succinct-altda-host-utils"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+# local
+op-succinct-altda-client-utils.workspace = true
+op-succinct-client-utils.workspace = true
+op-succinct-host-utils.workspace = true
+
+# kona
+kona-host.workspace = true
+kona-preimage.workspace = true
+kona-proof.workspace = true
+
+# alloy
+alloy-eips.workspace = true
+alloy-primitives.workspace = true
+
+# general
+anyhow.workspace = true
+async-trait.workspace = true
+clap.workspace = true
+reqwest.workspace = true
+rkyv.workspace = true
+serde.workspace = true
+sp1-sdk.workspace = true
+tokio.workspace = true
+tracing.workspace = true
