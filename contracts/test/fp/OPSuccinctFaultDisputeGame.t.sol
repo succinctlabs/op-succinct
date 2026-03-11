@@ -814,4 +814,40 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             gameType, Claim.wrap(keccak256("new-claim-4")), abi.encodePacked(uint256(5000), uint32(1))
         );
     }
+
+    // =========================================
+    // Test: No duplicate game with anchor parent
+    // =========================================
+    function testNoDuplicateGameWithAnchorParent() public {
+        // Resolve and finalize the child game so it becomes anchor.
+        (,,,,, Timestamp deadline) = game.claimData();
+        vm.warp(deadline.raw() + 1);
+        game.resolve();
+        vm.warp(game.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
+        game.closeGame();
+        assertEq(address(anchorStateRegistry.anchorGame()), address(game));
+
+        // `game` from setUp is at factory index 1, and is now the anchor.
+        // From game1's perspective, `game` is its PARENT — hence parentGameIndex.
+        uint32 parentGameIndex = uint32(factory.gameCount() - 1);
+        uint256 newL2BlockNumber = l2BlockNumber + 1000;
+        Claim newRootClaim = Claim.wrap(keccak256("newRootClaim"));
+
+        vm.startPrank(proposer);
+        vm.deal(proposer, 2 ether);
+
+        // Creating a game with a specific parent index should still work.
+        factory.create{value: 1 ether}(
+            gameType, newRootClaim, abi.encodePacked(newL2BlockNumber, parentGameIndex)
+        );
+
+        // Creating a game with uint32.max should revert because an anchor game exists.
+        // This prevents duplicate games for the same L2 block number.
+        vm.expectRevert(InvalidParentGame.selector);
+        factory.create{value: 1 ether}(
+            gameType, newRootClaim, abi.encodePacked(newL2BlockNumber, type(uint32).max)
+        );
+
+        vm.stopPrank();
+    }
 }

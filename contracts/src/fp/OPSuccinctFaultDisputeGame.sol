@@ -272,7 +272,15 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
             // INVARIANT: The parent game must be a valid game.
             if (proxy.status() == GameStatus.CHALLENGER_WINS) revert InvalidParentGame();
         } else {
-            // When there is no parent game, the starting output root is the anchor state for the game type.
+            // INVARIANT: uint32.max is only valid when no anchor game exists (genesis case).
+            // Once an anchor game exists, the proposer must reference a specific parent game
+            // by its factory index. Without this check, a proposer could create duplicate games
+            // for the same L2 block by using both the anchor game's factory index and uint32.max,
+            // since anchors() returns the same data as the anchor game's root claim.
+            if (address(ANCHOR_STATE_REGISTRY.anchorGame()) != address(0)) {
+                revert InvalidParentGame();
+            }
+            // When there is no anchor game, the starting output root is the genesis anchor state.
             (startingOutputRoot.root, startingOutputRoot.l2SequenceNumber) =
                 IAnchorStateRegistry(ANCHOR_STATE_REGISTRY).anchors(GAME_TYPE);
         }
