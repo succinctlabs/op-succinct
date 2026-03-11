@@ -29,7 +29,8 @@ kona-preimage.workspace = true
 kona-proof.workspace = true
 kona-protocol.workspace = true
 kona-registry.workspace = true
-kona-rpc.workspace = true
+# Note: kona-rpc is NOT included to avoid rollup-boost dependency chain.
+# RPC types (OutputResponse, SafeHeadResponse) are defined locally in src/rpc_types.rs
 
 # hana
 hana-host.workspace = true
@@ -49,6 +50,7 @@ alloy-sol-types.workspace = true
 # general
 anyhow.workspace = true
 async-trait.workspace = true
+bincode.workspace = true
 cfg-if.workspace = true
 c-kzg.workspace = true
 futures.workspace = true

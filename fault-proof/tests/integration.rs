@@ -5,17 +5,18 @@ mod integration {
     use super::*;
     use std::sync::Arc;
 
-    use alloy_primitives::{Bytes, FixedBytes, U256};
+    use alloy_primitives::{Bytes, FixedBytes, B256, U256};
     use alloy_sol_types::{SolCall, SolValue};
     use anyhow::{Context, Result};
     use common::{
         constants::{
             CHALLENGER_ADDRESS, DISPUTE_GAME_FINALITY_DELAY_SECONDS,
             L2_BLOCK_OFFSET_FROM_FINALIZED, MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION,
-            MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, TEST_GAME_TYPE,
+            MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, TEST_GAME_TYPE, WAIT_TIMEOUT,
         },
+        env::compute_vkeys,
         monitor::{verify_all_resolved_correctly, TrackedGame},
-        TestEnvironment,
+        new_proposer, TestEnvironment,
     };
     use fault_proof::{
         challenger::Game,
@@ -26,7 +27,7 @@ mod integration {
     use tokio::time::{sleep, Duration};
     use tracing::info;
 
-    use crate::common::init_challenger;
+    use crate::common::new_challenger;
 
     alloy_sol_types::sol! {
         #[sol(rpc)]
@@ -49,7 +50,7 @@ mod integration {
         info!("=== Waiting for Game Creation ===");
 
         // Track first 3 games (L2 finalized head won't advance far enough for 3)
-        let tracked_games = env.wait_and_track_games(3, 30).await?;
+        let tracked_games = env.wait_and_track_games(3, WAIT_TIMEOUT).await?;
         info!("✓ Proposer created {} games:", tracked_games.len());
         for (i, game) in tracked_games.iter().enumerate() {
             info!("  Game {}: {} at L2 block {}", i + 1, game.address, game.l2_block_number);
@@ -74,7 +75,7 @@ mod integration {
         info!("=== Phase 3: Resolution ===");
 
         // Wait for games to be resolved
-        let resolutions = env.wait_for_resolutions(&tracked_games, 30).await?;
+        let resolutions = env.wait_for_resolutions(&tracked_games, WAIT_TIMEOUT).await?;
 
         // Verify all games resolved correctly (proposer wins)
         verify_all_resolved_correctly(&resolutions)?;
@@ -91,7 +92,7 @@ mod integration {
         info!("=== Phase 4: Bond Claims ===");
 
         // Wait for proposer to claim bonds
-        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 30).await?;
+        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, WAIT_TIMEOUT).await?;
 
         env.stop_proposer(proposer_handle);
 
@@ -152,19 +153,19 @@ mod integration {
         let proposer_handle = env.start_proposer().await?;
         info!("✓ Proposer started after legacy games seeded");
 
-        let tracked_games = env.wait_and_track_games(3, 30).await?;
+        let tracked_games = env.wait_and_track_games(3, WAIT_TIMEOUT).await?;
         assert_eq!(tracked_games.len(), 3);
         info!("✓ Proposer created 3 type {} games despite legacy history", env.game_type);
 
         env.warp_time(MAX_CHALLENGE_DURATION).await?;
 
-        let resolutions = env.wait_for_resolutions(&tracked_games, 30).await?;
+        let resolutions = env.wait_for_resolutions(&tracked_games, WAIT_TIMEOUT).await?;
 
         verify_all_resolved_correctly(&resolutions)?;
 
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
 
-        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 30).await?;
+        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, WAIT_TIMEOUT).await?;
 
         env.stop_proposer(proposer_handle);
 
@@ -234,19 +235,19 @@ mod integration {
 
         env.set_respected_game_type(TEST_GAME_TYPE).await?;
 
-        let tracked_games = env.wait_and_track_games(3, 30).await?;
+        let tracked_games = env.wait_and_track_games(3, WAIT_TIMEOUT).await?;
         assert_eq!(tracked_games.len(), 3);
         info!("✓ Proposer created 3 type {} games despite legacy history", env.game_type);
 
         env.warp_time(MAX_CHALLENGE_DURATION).await?;
 
-        let resolutions = env.wait_for_resolutions(&tracked_games, 30).await?;
+        let resolutions = env.wait_for_resolutions(&tracked_games, WAIT_TIMEOUT).await?;
 
         verify_all_resolved_correctly(&resolutions)?;
 
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
 
-        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 30).await?;
+        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, WAIT_TIMEOUT).await?;
 
         env.stop_proposer(proposer_handle);
 
@@ -316,7 +317,7 @@ mod integration {
 
         // === PHASE 2: Challenge Period ===
         info!("=== Phase 2: Challenge Period ===");
-        env.wait_for_challenges(&invalid_games, 30).await?;
+        env.wait_for_challenges(&invalid_games, WAIT_TIMEOUT).await?;
         info!("✓ All games challenged successfully");
 
         // === PHASE 3: Resolution ===
@@ -333,7 +334,7 @@ mod integration {
             &invalid_games,
             GameStatus::CHALLENGER_WINS,
             "ChallengerWins",
-            30,
+            WAIT_TIMEOUT,
         )
         .await?;
 
@@ -362,7 +363,7 @@ mod integration {
             })
             .collect();
 
-        env.wait_for_bond_claims(&tracked_games, CHALLENGER_ADDRESS, 30).await?;
+        env.wait_for_bond_claims(&tracked_games, CHALLENGER_ADDRESS, WAIT_TIMEOUT).await?;
 
         // Stop challenger
         info!("=== Stopping Challenger ===");
@@ -545,7 +546,7 @@ mod integration {
         if is_retired {
             let parent_created_at = parent_game.createdAt().call().await?;
 
-            let portal = env.mock_optimism_portal2(anchor_registry).await?;
+            let portal = env.mock_optimism_portal2().await?;
 
             let respected_game_type_updated_at = portal.respectedGameTypeUpdatedAt().call().await?;
 
@@ -583,7 +584,7 @@ mod integration {
         let challenger_handle = env.start_challenger(Some(100.0)).await?;
 
         // Wait for challenge
-        env.wait_for_challenges(&[parent_game_address], 30).await?;
+        env.wait_for_challenges(&[parent_game_address], WAIT_TIMEOUT).await?;
         info!("✓ Parent game challenged");
 
         // Warp time to resolve as CHALLENGER_WINS (no proof submitted)
@@ -594,7 +595,7 @@ mod integration {
             &[parent_game_address],
             GameStatus::CHALLENGER_WINS,
             "ChallengerWins",
-            30,
+            WAIT_TIMEOUT,
         )
         .await?;
         info!("✓ Parent game resolved as CHALLENGER_WINS");
@@ -795,21 +796,23 @@ mod integration {
         // Wait for proposer to create 3 games
         let factory = env.factory()?;
 
-        let tracked_games = env.wait_and_track_games(3, 30).await?;
+        let tracked_games = env.wait_and_track_games(3, WAIT_TIMEOUT).await?;
         info!("✓ Proposer created {} games:", tracked_games.len());
 
         assert!(!proposer_handle.is_finished(), "Proposer should be running");
 
         // === PHASE 2: Challenge Game 3 =================================
         info!("=== Phase 2: Challenge Game 3 ===");
-        let challenger = init_challenger(
+        let challenger = new_challenger(
             &env.rpc_config,
             env.private_keys.challenger,
+            &env.deployed.anchor_state_registry,
             &env.deployed.factory,
             env.game_type,
             Some(100.0),
         )
         .await?;
+        challenger.try_init().await?;
         info!("✓ Challenger initialized");
 
         let game_to_challenge = Game {
@@ -837,7 +840,7 @@ mod integration {
 
         let first_two_games = &tracked_games[0..2];
 
-        let resolutions = env.wait_for_resolutions(first_two_games, 30).await?;
+        let resolutions = env.wait_for_resolutions(first_two_games, WAIT_TIMEOUT).await?;
         verify_all_resolved_correctly(&resolutions)?;
         info!("✓ First 2 games resolved as DEFENDER_WINS");
 
@@ -851,7 +854,7 @@ mod integration {
         // Warp time to allow the proposer to finalize the first 2 games
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
 
-        env.wait_for_bond_claims(first_two_games, PROPOSER_ADDRESS, 30).await?;
+        env.wait_for_bond_claims(first_two_games, PROPOSER_ADDRESS, WAIT_TIMEOUT).await?;
         info!("✓ Proposer finalized the first 2 games");
 
         // === PHASE 4: Verify Proposer recovers automatically ===
@@ -903,23 +906,23 @@ mod integration {
     async fn test_proposer_retains_anchor_after_bond_claim() -> Result<()> {
         let env = TestEnvironment::setup().await?;
 
-        let proposer = Arc::new(env.init_proposer().await?);
+        let proposer = Arc::new(env.new_proposer().await?);
 
         let proposer_handle = {
             let proposer_clone = proposer.clone();
             tokio::spawn(async move { proposer_clone.run().await })
         };
 
-        let tracked_games = env.wait_and_track_games(3, 30).await?;
+        let tracked_games = env.wait_and_track_games(3, WAIT_TIMEOUT).await?;
 
         env.warp_time(MAX_CHALLENGE_DURATION).await?;
 
-        let resolutions = env.wait_for_resolutions(&tracked_games, 30).await?;
+        let resolutions = env.wait_for_resolutions(&tracked_games, WAIT_TIMEOUT).await?;
         verify_all_resolved_correctly(&resolutions)?;
 
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
 
-        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 30).await?;
+        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, WAIT_TIMEOUT).await?;
 
         // Allow the proposer loop to observe the finalized games and update its cache.
         let settle_delay = Duration::from_secs(proposer.config.fetch_interval + 5);
@@ -944,16 +947,29 @@ mod integration {
     }
 
     // Tests that the proposer fails fast when the contract's starting L2 block number is
-    // misconfigured to a future value (e.g., a single block ahead of actual finalized L2 block).
+    // misconfigured to a future value (10000 blocks beyond of the finalized block at setup time).
     // This prevents the proposer from running indefinitely without creating games.
+    // Note: We use a large offset (10000 blocks) to avoid race conditions where the L2 chain
+    // advances during test setup, especially on networks with faster block times.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_proposer_rejects_future_starting_block() -> Result<()> {
         let env = TestEnvironment::setup_with_starting_block_offset(
-            (L2_BLOCK_OFFSET_FROM_FINALIZED + 1) as i64,
+            (L2_BLOCK_OFFSET_FROM_FINALIZED + 10000) as i64,
         )
         .await?;
 
-        let result = env.init_proposer().await;
+        // Create proposer and call validate_and_init directly (not try_init which retries).
+        let proposer = new_proposer(
+            &env.rpc_config,
+            env.private_keys.proposer,
+            &env.deployed.anchor_state_registry,
+            &env.deployed.factory,
+            env.game_type,
+            None,
+        )
+        .await?;
+
+        let result = proposer.validate_and_init().await;
 
         let error = match result {
             Err(e) => e,
@@ -966,6 +982,110 @@ mod integration {
             "Unexpected error message. Got: '{}'. Expected reference to block gap.",
             err_msg
         );
+
+        Ok(())
+    }
+
+    // Custom vkeys for hardfork simulation (different from B256::ZERO used by default)
+    const HARDFORK_AGGREGATION_VKEY: B256 = B256::repeat_byte(0xDE);
+    const HARDFORK_RANGE_VKEY_COMMITMENT: B256 = B256::repeat_byte(0xCA);
+
+    /// Tests that an OLD proposer does NOT spawn defense tasks for NEW games
+    /// created after a hardfork that changes the vkeys.
+    ///
+    /// This tests the is_owned() check in a real hardfork scenario:
+    /// - OLD proposer vkeys: B256::ZERO (from original deployment)
+    /// - NEW game vkeys: FAKE (from upgraded implementation)
+    /// - is_owned() returns FALSE → No defense task spawned
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_old_proposer_no_defense_for_new_games_after_hardfork() -> Result<()> {
+        info!("=== Test: Old Proposer NOT Defending New Games After Hardfork ===");
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // Phase 1: Deploy contracts with real vkeys computed from ELFs
+        // ═══════════════════════════════════════════════════════════════════════
+
+        // Compute vkeys from ELFs - these match what proposer will use
+        let (original_agg_vkey, original_range_vkey) = compute_vkeys().await?;
+
+        let env = TestEnvironment::setup().await?;
+        let factory = env.factory()?;
+        let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
+
+        info!("✓ Deployed contracts with real ELF vkeys");
+        info!("  Original vkeys: {:?}, {:?}", original_agg_vkey, original_range_vkey);
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // Phase 2: Create OLD proposer with original vkeys
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let proposer = Arc::new(env.init_proposer().await?);
+
+        info!("✓ Created OLD proposer with original vkeys");
+        info!("  Proposer identity: {:?}, {:?}", original_agg_vkey, original_range_vkey);
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // Phase 3: Simulate HARDFORK - Deploy new game implementation
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let new_impl = env
+            .deploy_game_impl_with_vkeys(HARDFORK_AGGREGATION_VKEY, HARDFORK_RANGE_VKEY_COMMITMENT)
+            .await?;
+
+        info!("✓ Deployed new game implementation at {new_impl}");
+        info!(
+            "  Hardfork vkeys: {:?}, {:?}",
+            HARDFORK_AGGREGATION_VKEY, HARDFORK_RANGE_VKEY_COMMITMENT
+        );
+
+        // Upgrade factory to use new implementation
+        env.set_game_implementation(TEST_GAME_TYPE, new_impl).await?;
+
+        info!("✓ Upgraded factory to use new implementation");
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // Phase 4: Create NEW game through factory
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let block = starting_l2_block + 10;
+        let root_claim = env.compute_output_root_at_block(block).await?;
+        env.create_game(root_claim, block, u32::MAX, init_bond).await?;
+        let (_, game_address) = env.last_game_info().await?;
+
+        info!("✓ Created NEW game at {game_address}");
+        info!(
+            "  Game vkeys (from new impl): {:?}, {:?}",
+            HARDFORK_AGGREGATION_VKEY, HARDFORK_RANGE_VKEY_COMMITMENT
+        );
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // Phase 5: Challenge game and verify NO defense
+        // ═══════════════════════════════════════════════════════════════════════
+
+        env.challenge_game(game_address).await?;
+        info!("✓ Challenged game");
+
+        // Sync state and try to spawn defense tasks
+        proposer.sync_state().await?;
+        let _ = proposer.spawn_defense_tasks_for_test().await?;
+
+        // Get active defense task addresses
+        let active_defense = proposer.get_active_defense_game_addresses().await;
+
+        // CRITICAL ASSERTION: OLD proposer should NOT defend NEW game
+        assert!(
+            !active_defense.contains(&game_address),
+            "OLD proposer should NOT defend NEW game after hardfork"
+        );
+
+        info!("✓ SUCCESS: OLD proposer did NOT spawn defense task for NEW game");
+        info!("  OLD proposer vkeys: {:?}, {:?}", original_agg_vkey, original_range_vkey);
+        info!(
+            "  NEW game vkeys: {:?}, {:?}",
+            HARDFORK_AGGREGATION_VKEY, HARDFORK_RANGE_VKEY_COMMITMENT
+        );
+        info!("  is_owned() correctly returned FALSE");
 
         Ok(())
     }

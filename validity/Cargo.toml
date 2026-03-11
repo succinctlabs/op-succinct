@@ -30,6 +30,7 @@ op-succinct-signer-utils.workspace = true
 
 # sp1
 sp1-sdk.workspace = true
+sp1-cluster-utils.workspace = true
 
 # alloy
 alloy-eips.workspace = true
@@ -66,7 +67,7 @@ strum_macros.workspace = true
 op-succinct-build-utils.workspace = true
 
 [dev-dependencies]
-postgresql_embedded = { version = "0.15", features = ["bundled"] }
+postgresql_embedded = { version = "0.20", features = ["bundled"] }
 
 [features]
 default = ["ethereum"]

@@ -18,7 +18,7 @@ import {DisputeGameFactory} from "src/dispute/DisputeGameFactory.sol";
 import {AccessManager} from "../../src/fp/AccessManager.sol";
 
 contract UpgradeOPSuccinctFDG is Script {
-    function run() public {
+    function run() public returns (address gameImpl) {
         vm.startBroadcast();
 
         // Get the factory.
@@ -50,6 +50,8 @@ contract UpgradeOPSuccinctFDG is Script {
         console.log("New implementation set in factory: ", address(factory.gameImpls(gameType)));
 
         vm.stopBroadcast();
+
+        return address(newImpl);
     }
 
     function getUpgradeCalldata() public returns (bytes memory) {
@@ -71,10 +73,9 @@ contract UpgradeOPSuccinctFDG is Script {
             AccessManager(vm.envAddress("ACCESS_MANAGER"))
         );
 
-        // Generate the calldata for setImplementation.
-        bytes memory calldata_ = abi.encodeWithSelector(
-            DisputeGameFactory.setImplementation.selector, gameType, IDisputeGame(address(newImpl))
-        );
+        // Generate the calldata for setImplementation (using explicit signature for overloaded function).
+        bytes memory calldata_ =
+            abi.encodeWithSignature("setImplementation(uint32,address)", GameType.unwrap(gameType), address(newImpl));
 
         string memory calldataString = string.concat("Upgrade Calldata: ", vm.toString(calldata_));
         console.log(calldataString);

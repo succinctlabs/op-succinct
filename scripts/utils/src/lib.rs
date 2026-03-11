@@ -15,9 +15,9 @@ pub struct HostExecutorArgs {
     /// The number of blocks to execute in a single batch.
     #[arg(long, default_value = "10")]
     pub batch_size: u64,
-    /// Use cached witness generation.
+    /// Enable caching: load from cache if available, save to cache if not.
     #[arg(long)]
-    pub use_cache: bool,
+    pub cache: bool,
     /// Use a fixed recent range.
     #[arg(long)]
     pub rolling: bool,
@@ -34,6 +34,20 @@ pub struct HostExecutorArgs {
     /// activated for op-node.
     #[clap(long)]
     pub safe_db_fallback: bool,
+    /// Cluster proving timeout in seconds (only used when SP1_PROVER=cluster).
+    #[arg(long, default_value = "21600")]
+    pub cluster_timeout: u64,
+}
+
+impl HostExecutorArgs {
+    /// When both start and end are explicitly provided, default the batch size
+    /// to the full range so it is processed as a single batch.
+    pub fn effective_batch_size(&self) -> u64 {
+        match (self.start, self.end) {
+            (Some(start), Some(end)) if end > start => end - start,
+            _ => self.batch_size,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Parser)]

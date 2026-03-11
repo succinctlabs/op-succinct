@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use alloy_primitives::B256;
 use base64::{engine::general_purpose, Engine as _};
+use op_succinct_client_utils::precompiles::cycle_tracker::keys;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use sp1_sdk::{
@@ -131,17 +132,17 @@ impl RequestExecutionStatistics {
 
         Self {
             total_instruction_cycles: execution_report.total_instruction_count(),
-            total_sp1_gas: execution_report.gas.unwrap_or(0),
+            total_sp1_gas: execution_report.gas().unwrap_or(0),
             block_execution_cycles: get_cycles("block-execution"),
             oracle_verify_cycles: get_cycles("oracle-verify"),
             derivation_cycles: get_cycles("payload-derivation"),
             blob_verification_cycles: get_cycles("blob-verification"),
-            bn_add_cycles: get_cycles("precompile-bn-add"),
-            bn_mul_cycles: get_cycles("precompile-bn-mul"),
-            bn_pair_cycles: get_cycles("precompile-bn-pair"),
-            kzg_eval_cycles: get_cycles("precompile-kzg-eval"),
-            ec_recover_cycles: get_cycles("precompile-ec-recover"),
-            p256_verify_cycles: get_cycles("precompile-p256-verify"),
+            bn_add_cycles: get_cycles(keys::BN_ADD),
+            bn_mul_cycles: get_cycles(keys::BN_MUL),
+            bn_pair_cycles: get_cycles(keys::BN_PAIR),
+            kzg_eval_cycles: get_cycles(keys::KZG_EVAL),
+            ec_recover_cycles: get_cycles(keys::EC_RECOVER),
+            p256_verify_cycles: get_cycles(keys::P256_VERIFY),
         }
     }
 }

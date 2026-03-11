@@ -1,4 +1,5 @@
 use alloy_sol_macro::sol;
+use serde::{Deserialize, Serialize};
 
 sol! {
     type GameType is uint32;
@@ -48,7 +49,7 @@ sol! {
     #[allow(missing_docs)]
     #[sol(rpc)]
     interface IFaultDisputeGame {
-        function l2BlockNumber() external view returns (uint256 l2BlockNumber_);
+        function l2SequenceNumber() external view returns (uint256 l2SequenceNumber_);
     }
 
     #[sol(rpc)]
@@ -59,7 +60,11 @@ sol! {
         /// @notice Getter for the creator of the dispute game.
         function gameCreator() public pure returns (address creator_);
 
+        /// @notice The L2 sequence number (block number) for which this game is proposing an output root.
+        function l2SequenceNumber() public pure returns (uint256 l2SequenceNumber_);
+
         /// @notice The L2 block number for which this game is proposing an output root.
+        /// @dev Alias for l2SequenceNumber() for backward compatibility.
         function l2BlockNumber() public pure returns (uint256 l2BlockNumber_);
 
         /// @notice Only the starting block number of the game.
@@ -98,11 +103,23 @@ sol! {
         /// @notice Returns the max challenge duration.
         function maxChallengeDuration() external view returns (uint256 maxChallengeDuration_);
 
+        /// @notice Returns the max prove duration.
+        function maxProveDuration() external view returns (uint64 maxProveDuration_);
+
         /// @notice Returns the anchor state registry contract.
         function anchorStateRegistry() external view returns (IAnchorStateRegistry registry_);
 
         /// @notice Returns the challenger bond amount.
         function challengerBond() external view returns (uint256 challengerBond_);
+
+        /// @notice Returns the aggregation verification key.
+        function aggregationVkey() external view returns (bytes32 aggregationVkey_);
+
+        /// @notice Returns the range verification key commitment.
+        function rangeVkeyCommitment() external view returns (bytes32 rangeVkeyCommitment_);
+
+        /// @notice Returns the rollup config hash.
+        function rollupConfigHash() external view returns (bytes32 rollupConfigHash_);
 
         /// @notice Claim the credit belonging to the recipient address.
         function claimCredit(address _recipient) external;
@@ -128,9 +145,13 @@ sol! {
 
         /// @notice Returns the current anchor game reference.
         function anchorGame() public view returns (IDisputeGame anchorGame_);
+
+        /// @notice Returns the respected game type.
+        function respectedGameType() external view returns (GameType);
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
     /// @notice The current status of the dispute game.
     enum GameStatus {
         // The game is currently in progress, and has not been resolved.
@@ -141,7 +162,7 @@ sol! {
         DEFENDER_WINS
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
     enum ProposalStatus {
         // The initial state of a new proposal.
         Unchallenged,

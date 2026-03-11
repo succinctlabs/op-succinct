@@ -1,6 +1,6 @@
 use std::{
     env,
-    sync::{Arc, Mutex},
+    sync::{Arc, LazyLock, Mutex},
 };
 
 use anyhow::Result;
@@ -25,15 +25,34 @@ use op_succinct_host_utils::witness_generation::{
     DefaultOracleBase, WitnessGenerator,
 };
 use rkyv::to_bytes;
-use sp1_core_executor::SP1ReduceProof;
-use sp1_prover::InnerSC;
-use sp1_sdk::{ProverClient, SP1Stdin};
+use sp1_core_executor::SP1RecursionProof;
+use sp1_hypercube::SP1PcsProofInner;
+use sp1_primitives::SP1GlobalContext;
+use sp1_sdk::{
+    blocking::{CpuProver, Prover as _},
+    Elf, ProvingKey, SP1Stdin, SP1VerifyingKey,
+};
 
 type WitnessExecutor = EigenDAWitnessExecutor<
     PreimageWitnessCollector<DefaultOracleBase>,
     OnlineBlobStore<OracleBlobProvider<DefaultOracleBase>>,
     OracleEigenDAPreimageProvider<DefaultOracleBase>,
 >;
+
+/// Cached canoe verifying key. The canoe ELF is a compile-time constant, so the
+/// resulting vkey is deterministic and only needs to be computed once. Uses a
+/// separate thread to avoid nested tokio runtime panics.
+static CANOE_VK: LazyLock<SP1VerifyingKey> = LazyLock::new(|| {
+    std::thread::spawn(|| {
+        let cpu_prover = CpuProver::new();
+        let pk = cpu_prover
+            .setup(Elf::Static(canoe_sp1_cc_host::ELF))
+            .expect("Failed to setup canoe ELF");
+        pk.verifying_key().clone()
+    })
+    .join()
+    .expect("Canoe VK setup thread panicked")
+});
 
 pub struct EigenDAWitnessGenerator {}
 
@@ -47,7 +66,7 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
     }
 
     fn get_sp1_stdin(&self, mut witness: Self::WitnessData) -> Result<SP1Stdin> {
-        let mut stdin = SP1Stdin::new();
+        let mut stdin = SP1Stdin::default();
 
         // If eigenda blob witness data is present, write the canoe proof to stdin
         if let Some(eigenda_data) = &witness.eigenda_data {
@@ -58,16 +77,10 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
 
             // Take the canoe proof bytes from the witness data
             if let Some(proof_bytes) = eigenda_witness.canoe_proof_bytes.take() {
-                // Get the canoe SP1 CC client ELF and setup verification key
-                // The ELF is included in the canoe-sp1-cc-host crate
-                const CANOE_ELF: &[u8] = canoe_sp1_cc_host::ELF;
-                let client = ProverClient::from_env();
-                let (_pk, canoe_vk) = client.setup(CANOE_ELF);
-
-                let reduced_proof: SP1ReduceProof<InnerSC> =
+                let reduced_proof: SP1RecursionProof<SP1GlobalContext, SP1PcsProofInner> =
                     serde_cbor::from_slice(&proof_bytes)
                         .map_err(|e| anyhow::anyhow!("Failed to deserialize canoe proof: {}", e))?;
-                stdin.write_proof(reduced_proof, canoe_vk.vk.clone());
+                stdin.write_proof(reduced_proof, CANOE_VK.vk.clone());
 
                 // Re-serialize the witness data without the proof
                 witness.eigenda_data = Some(serde_cbor::to_vec(&eigenda_witness).map_err(|e| {
@@ -114,7 +127,7 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
 
         let executor = EigenDAWitnessExecutor::new(eigenda_preimage_provider);
 
-        let (boot_info, input) = get_inputs_for_pipeline(oracle.clone()).await.unwrap();
+        let (boot_info, input) = get_inputs_for_pipeline(oracle.clone()).await?;
         if let Some((cursor, l1_provider, l2_provider)) = input {
             let rollup_config = Arc::new(boot_info.rollup_config.clone());
             let l1_config = Arc::new(boot_info.l1_config.clone());
@@ -128,11 +141,9 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
                 l1_provider.clone(),
                 l2_provider.clone(),
             )
-            .await
-            .unwrap();
+            .await?;
             WitnessExecutorTrait::run(&executor, boot_info.clone(), pipeline, cursor, l2_provider)
-                .await
-                .unwrap();
+                .await?;
         }
 
         // Extract the EigenDA preimage data
@@ -141,6 +152,7 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
         let kzg_proofs = create_kzg_proofs_for_eigenda_preimage(&eigenda_preimage_data);
 
         // Generate canoe proofs using the reduced proof provider for proof aggregation
+        use alloy_rpc_client::RpcClient;
         use canoe_sp1_cc_host::CanoeSp1CCReducedProofProvider;
         let eth_rpc_url = std::env::var("L1_RPC")
             .map_err(|_| anyhow::anyhow!("L1_RPC environment variable not set"))?;
@@ -148,11 +160,14 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
             .unwrap_or("false".to_string())
             .parse::<bool>()
             .unwrap_or(false);
-        let canoe_provider = CanoeSp1CCReducedProofProvider { eth_rpc_url, mock_mode };
+        let eth_rpc_client = RpcClient::new_http(
+            eth_rpc_url.parse().map_err(|_| anyhow::anyhow!("Failed to parse L1_RPC as URL"))?,
+        );
+        let canoe_provider = CanoeSp1CCReducedProofProvider { eth_rpc_client, mock_mode };
         let maybe_canoe_proof = hokulea_witgen::from_boot_info_to_canoe_proof(
             &boot_info,
             &eigenda_preimage_data,
-            oracle.clone(),
+            oracle.as_ref(),
             canoe_provider,
             CanoeVerifierAddressFetcherDeployedByEigenLabs {},
         )

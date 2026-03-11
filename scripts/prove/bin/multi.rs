@@ -1,15 +1,27 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use op_succinct_host_utils::{
-    block_range::get_validated_block_range, fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost,
-    stats::ExecutionStats, witness_generation::WitnessGenerator,
+    block_range::get_validated_block_range,
+    fetcher::OPSuccinctDataFetcher,
+    host::OPSuccinctHost,
+    network::{build_network_prover_from_env, parse_fulfillment_strategy},
+    proof_cache::save_range_proof,
+    stats::ExecutionStats,
+    witness_cache::{load_stdin_from_cache, save_stdin_to_cache},
+    witness_generation::WitnessGenerator,
 };
-use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
-use op_succinct_prove::{execute_multi, DEFAULT_RANGE};
+use op_succinct_proof_utils::{
+    cluster_range_proof, get_range_elf_embedded, initialize_host, is_cluster_mode,
+};
+use op_succinct_prove::execute_multi;
 use op_succinct_scripts::HostExecutorArgs;
-use sp1_sdk::{utils, ProverClient};
-use std::{fs, sync::Arc, time::Instant};
-use tracing::debug;
+use sp1_sdk::{utils, Elf, ProveRequest, Prover};
+use std::{
+    env, fs,
+    sync::Arc,
+    time::{Duration, Instant},
+};
+use tracing::{debug, info, warn};
 
 /// Execute the OP Succinct program for multiple blocks.
 #[tokio::main]
@@ -31,41 +43,73 @@ async fn main() -> Result<()> {
         &data_fetcher,
         args.start,
         args.end,
-        DEFAULT_RANGE,
+        args.default_range,
     )
     .await?;
 
-    let host_args = host.fetch(l2_start_block, l2_end_block, None, args.safe_db_fallback).await?;
+    let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
 
-    debug!("Host args: {:?}", host_args);
+    // Helper closure to generate stdin (runs witness generation and converts to SP1Stdin)
+    let generate_stdin = || async {
+        let host_args =
+            host.fetch(l2_start_block, l2_end_block, None, args.safe_db_fallback).await?;
+        debug!("Host args: {:?}", host_args);
 
-    let start_time = Instant::now();
-    let witness_data = host.run(&host_args).await?;
-    let witness_generation_duration = start_time.elapsed();
+        let start_time = Instant::now();
+        let witness = host.run(&host_args).await?;
+        let duration = start_time.elapsed();
 
-    // Get the stdin for the block.
-    let sp1_stdin = host.witness_generator().get_sp1_stdin(witness_data)?;
+        // Convert witness to SP1Stdin
+        let stdin = host.witness_generator().get_sp1_stdin(witness)?;
 
-    let prover = ProverClient::from_env();
+        // Save to cache if enabled
+        if args.cache {
+            let cache_path =
+                save_stdin_to_cache(l2_chain_id, l2_start_block, l2_end_block, &stdin)?;
+            info!("Saved stdin to cache: {}", cache_path.display());
+        }
+
+        Ok::<_, anyhow::Error>((stdin, duration))
+    };
+
+    // Check cache first if enabled (with graceful fallback)
+    let (sp1_stdin, witness_generation_duration) = if args.cache {
+        match load_stdin_from_cache(l2_chain_id, l2_start_block, l2_end_block) {
+            Ok(Some(stdin)) => {
+                info!("Loaded stdin from cache");
+                (stdin, Duration::ZERO)
+            }
+            Ok(None) => generate_stdin().await?,
+            Err(e) => {
+                warn!("Failed to load cache: {e}, regenerating...");
+                generate_stdin().await?
+            }
+        }
+    } else {
+        generate_stdin().await?
+    };
 
     if args.prove {
-        // If the prove flag is set, generate a proof.
-        let (pk, _) = prover.setup(get_range_elf_embedded());
-        // Generate proofs in compressed mode for aggregation verification.
-        let proof = prover.prove(&pk, &sp1_stdin).compressed().run().unwrap();
-
-        // Create a proof directory for the chain ID if it doesn't exist.
-        let proof_dir = format!("data/{}/proofs", data_fetcher.get_l2_chain_id().await.unwrap());
-        if !std::path::Path::new(&proof_dir).exists() {
-            fs::create_dir_all(&proof_dir).unwrap();
+        if is_cluster_mode() {
+            let proof = cluster_range_proof(args.cluster_timeout, sp1_stdin).await?;
+            let path = save_range_proof(l2_chain_id, l2_start_block, l2_end_block, &proof)?;
+            info!("Range proof saved to {}", path.display());
+        } else {
+            let range_proof_strategy = parse_fulfillment_strategy(
+                env::var("RANGE_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
+            )?;
+            let prover = build_network_prover_from_env(range_proof_strategy).await?;
+            let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
+            let proof = prover
+                .prove(&pk, sp1_stdin)
+                .compressed()
+                .strategy(range_proof_strategy)
+                .await
+                .expect("proving failed");
+            let path = save_range_proof(l2_chain_id, l2_start_block, l2_end_block, &proof)?;
+            info!("Range proof saved to {}", path.display());
         }
-        // Save the proof to the proof directory corresponding to the chain ID.
-        proof
-            .save(format!("{proof_dir}/{l2_start_block}-{l2_end_block}.bin"))
-            .expect("saving proof failed");
     } else {
-        let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
-
         let (block_data, report, execution_duration) =
             execute_multi(&data_fetcher, sp1_stdin, l2_start_block, l2_end_block).await?;
 

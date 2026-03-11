@@ -38,12 +38,8 @@ fn test_get_sp1_stdin_rejects_malformed_eigenda_data() {
 fn test_get_sp1_stdin_with_eigenda_data_but_no_canoe_proof() {
     let generator = EigenDAWitnessGenerator {};
 
-    let eigenda_witness = EigenDAWitness {
-        recencies: vec![],
-        validities: vec![],
-        encoded_payloads: vec![],
-        canoe_proof_bytes: None,
-    };
+    let eigenda_witness =
+        EigenDAWitness { validities: vec![], encoded_payloads: vec![], canoe_proof_bytes: None };
 
     let eigenda_data = serde_cbor::to_vec(&eigenda_witness).expect("serialization should work");
 
@@ -64,7 +60,6 @@ fn test_get_sp1_stdin_rejects_invalid_canoe_proof_bytes() {
 
     // Create a valid EigenDAWitness with garbage in canoe_proof_bytes
     let eigenda_witness = EigenDAWitness {
-        recencies: vec![],
         validities: vec![],
         encoded_payloads: vec![],
         canoe_proof_bytes: Some(vec![0xFF, 0xFF, 0xFF, 0xFF]), // Invalid proof bytes
@@ -94,8 +89,9 @@ mod integration {
     use op_succinct_host_utils::{
         fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost, setup_logger,
     };
-    use sp1_core_executor::SP1ReduceProof;
-    use sp1_prover::InnerSC;
+    use sp1_core_executor::SP1RecursionProof;
+    use sp1_hypercube::SP1PcsProofInner;
+    use sp1_primitives::SP1GlobalContext;
     use tracing::info;
 
     #[tokio::test(flavor = "multi_thread")]
@@ -132,8 +128,9 @@ mod integration {
 
         // If canoe proof is present, verify it deserializes correctly
         if let Some(ref proof_bytes) = eigenda_witness.canoe_proof_bytes {
-            let _proof: SP1ReduceProof<InnerSC> = serde_cbor::from_slice(proof_bytes)
-                .expect("Canoe proof should deserialize to SP1ReduceProof");
+            let _proof: SP1RecursionProof<SP1GlobalContext, SP1PcsProofInner> =
+                serde_cbor::from_slice(proof_bytes)
+                    .expect("Canoe proof should deserialize to SP1RecursionProof");
             info!("Canoe proof deserialization verified ({} bytes)", proof_bytes.len());
         }
 

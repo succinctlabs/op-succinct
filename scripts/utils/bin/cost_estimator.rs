@@ -10,12 +10,16 @@ use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
     stats::ExecutionStats,
+    witness_cache::{load_stdin_from_cache, save_stdin_to_cache},
     witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_scripts::HostExecutorArgs;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use sp1_sdk::{utils, ProverClient};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use sp1_sdk::{
+    blocking::{CpuProver, Prover},
+    utils, Elf,
+};
 use std::{
     cmp::{max, min},
     fs::{self, OpenOptions},
@@ -26,14 +30,18 @@ use std::{
 
 /// Run the zkVM execution process for each split range in parallel. Writes the execution stats for
 /// each block range to a CSV file after each execution completes (not guaranteed to be in order).
-async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
+async fn execute_blocks_and_write_stats_csv<H>(
     host: Arc<H>,
     host_args: &[H::Args],
     ranges: Vec<SpanBatchRange>,
     l2_chain_id: u64,
     start: u64,
     end: u64,
-) -> Result<()> {
+    cache_enabled: bool,
+) -> Result<()>
+where
+    H: OPSuccinctHost,
+{
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     // Fetch all of the execution stats block ranges in parallel.
@@ -64,15 +72,39 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
     fs::File::create(&report_path).unwrap();
     let report_path = report_path.canonicalize().unwrap();
 
-    let prover = ProverClient::builder().cpu().build();
-
     // Run the host tasks in parallel using join_all
-    let handles = host_args.iter().map(|host_args| {
+    let handles = host_args.iter().zip(ranges.iter()).map(|(host_args, range)| {
         let host_args = host_args.clone();
         let host = host.clone();
+        let start = range.start;
+        let end = range.end;
         tokio::spawn(async move {
+            // Try loading SP1Stdin from cache
+            if cache_enabled {
+                match load_stdin_from_cache(l2_chain_id, start, end) {
+                    Ok(Some(stdin)) => {
+                        info!("Loaded stdin from cache for range {}-{}", start, end);
+                        return stdin;
+                    }
+                    Ok(None) => {} // No cache, generate below
+                    Err(e) => {
+                        log::warn!("Failed to load stdin cache for range {}-{}: {e}", start, end);
+                    }
+                }
+            }
+
+            // Generate witness and convert to SP1Stdin
             let witness_data = host.run(&host_args).await.unwrap();
-            host.witness_generator().get_sp1_stdin(witness_data).unwrap()
+            let stdin = host.witness_generator().get_sp1_stdin(witness_data).unwrap();
+
+            // Save SP1Stdin to cache
+            if cache_enabled {
+                if let Ok(cache_path) = save_stdin_to_cache(l2_chain_id, start, end, &stdin) {
+                    info!("Saved stdin to cache: {}", cache_path.display());
+                }
+            }
+
+            stdin
         })
     });
 
@@ -82,44 +114,53 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
         .map(|r| r.unwrap())
         .collect::<Vec<_>>();
 
-    let execution_inputs = stdins.iter().zip(block_data.iter()).collect::<Vec<_>>();
+    let execution_inputs = stdins.into_iter().zip(block_data.into_iter()).collect::<Vec<_>>();
 
     // Execute the program for each block range in parallel.
-    execution_inputs.par_iter().for_each(|(sp1_stdin, (range, block_data))| {
-        let result = prover.execute(get_range_elf_embedded(), sp1_stdin).deferred_proof_verification(false).run();
+    // CpuProver creates its own tokio runtime, so run it outside the async context.
+    let report_path_clone = report_path.clone();
+    tokio::task::spawn_blocking(move || {
+        let prover = CpuProver::new();
+        execution_inputs.into_par_iter().for_each(|(sp1_stdin, (range, block_data))| {
+            let result = prover
+                .execute(Elf::Static(get_range_elf_embedded()), sp1_stdin)
+                .deferred_proof_verification(false)
+                .run();
 
-        if let Some(err) = result.as_ref().err() {
-            log::warn!(
-                "Failed to execute blocks {:?} - {:?} because of {:?}. Reduce your `batch-size` if you're running into OOM issues on SP1.",
-                range.start,
-                range.end,
-                err
-            );
-            return;
-        }
+            if let Some(err) = result.as_ref().err() {
+                log::warn!(
+                    "Failed to execute blocks {:?} - {:?} because of {:?}. Reduce your `batch-size` if you're running into OOM issues on SP1.",
+                    range.start,
+                    range.end,
+                    err
+                );
+                return;
+            }
 
-        let (_, report) = result.unwrap();
+            let (_, report) = result.unwrap();
 
-        let execution_stats = ExecutionStats::new(0, block_data, &report, 0, 0);
+            let execution_stats = ExecutionStats::new(0, &block_data, &report, 0, 0);
 
-        let mut file = OpenOptions::new()
-            .read(true)
-            .append(true)
-            .open(&report_path)
-            .unwrap();
+            let mut file = OpenOptions::new()
+                .read(true)
+                .append(true)
+                .open(&report_path_clone)
+                .unwrap();
 
-        // Writes the headers only if the file is empty.
-        let needs_header = file.seek(std::io::SeekFrom::End(0)).unwrap() == 0;
+            // Writes the headers only if the file is empty.
+            let needs_header = file.seek(std::io::SeekFrom::End(0)).unwrap() == 0;
 
-        let mut csv_writer = csv::WriterBuilder::new()
-            .has_headers(needs_header)
-            .from_writer(file);
+            let mut csv_writer = csv::WriterBuilder::new()
+                .has_headers(needs_header)
+                .from_writer(file);
 
-        csv_writer
-            .serialize(execution_stats.clone())
-            .expect("Failed to write execution stats to CSV.");
-        csv_writer.flush().expect("Failed to flush CSV writer.");
-    });
+            csv_writer
+                .serialize(execution_stats.clone())
+                .expect("Failed to write execution stats to CSV.");
+            csv_writer.flush().expect("Failed to flush CSV writer.");
+        });
+    })
+    .await?;
 
     info!("Execution is complete.");
 
@@ -160,15 +201,17 @@ fn aggregate_execution_stats(
 
     // For statistics that are per-block or per-transaction, we take the average over the entire
     // range.
+    let safe_div = |a: u64, b: u64| if b > 0 { a / b } else { 0 };
     aggregate_stats.cycles_per_block =
-        aggregate_stats.total_instruction_count / aggregate_stats.nb_blocks;
+        safe_div(aggregate_stats.total_instruction_count, aggregate_stats.nb_blocks);
     aggregate_stats.cycles_per_transaction =
-        aggregate_stats.total_instruction_count / aggregate_stats.nb_transactions;
+        safe_div(aggregate_stats.total_instruction_count, aggregate_stats.nb_transactions);
     aggregate_stats.transactions_per_block =
-        aggregate_stats.nb_transactions / aggregate_stats.nb_blocks;
-    aggregate_stats.gas_used_per_block = aggregate_stats.eth_gas_used / aggregate_stats.nb_blocks;
+        safe_div(aggregate_stats.nb_transactions, aggregate_stats.nb_blocks);
+    aggregate_stats.gas_used_per_block =
+        safe_div(aggregate_stats.eth_gas_used, aggregate_stats.nb_blocks);
     aggregate_stats.gas_used_per_transaction =
-        aggregate_stats.eth_gas_used / aggregate_stats.nb_transactions;
+        safe_div(aggregate_stats.eth_gas_used, aggregate_stats.nb_transactions);
 
     // Use the earliest start and latest end across all blocks.
     aggregate_stats.batch_start = batch_start;
@@ -214,9 +257,10 @@ async fn main() -> Result<()> {
     let safe_db_activated = data_fetcher.is_safe_db_activated().await?;
 
     let split_ranges = if safe_db_activated {
-        split_range_based_on_safe_heads(l2_start_block, l2_end_block, args.batch_size).await?
+        split_range_based_on_safe_heads(l2_start_block, l2_end_block, args.effective_batch_size())
+            .await?
     } else {
-        split_range_basic(l2_start_block, l2_end_block, args.batch_size)
+        split_range_basic(l2_start_block, l2_end_block, args.effective_batch_size())
     };
 
     info!("The span batch ranges which will be executed: {split_ranges:?}");
@@ -238,6 +282,7 @@ async fn main() -> Result<()> {
         l2_chain_id,
         l2_start_block,
         l2_end_block,
+        args.cache,
     )
     .await?;
 
