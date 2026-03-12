@@ -103,12 +103,12 @@ kona-registry = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.2
 kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.2.7", default-features = false }
 
 # celo-kona
-celo-driver = { git = "https://github.com/celo-org/celo-kona", rev = "8c60308" }
-celo-proof = { git = "https://github.com/celo-org/celo-kona", rev = "8c60308" }
-celo-host = { git = "https://github.com/celo-org/celo-kona", rev = "8c60308" }
-celo-protocol = { git = "https://github.com/celo-org/celo-kona", rev = "8c60308", default-features = false }
-celo-genesis = { git = "https://github.com/celo-org/celo-kona", rev = "8c60308", default-features = false }
-celo-registry = { git = "https://github.com/celo-org/celo-kona", rev = "8c60308", default-features = false }
+celo-driver = { git = "https://github.com/celo-org/celo-kona", rev = "27fd769" }
+celo-proof = { git = "https://github.com/celo-org/celo-kona", rev = "27fd769" }
+celo-host = { git = "https://github.com/celo-org/celo-kona", rev = "27fd769" }
+celo-protocol = { git = "https://github.com/celo-org/celo-kona", rev = "27fd769", default-features = false }
+celo-genesis = { git = "https://github.com/celo-org/celo-kona", rev = "27fd769", default-features = false }
+celo-registry = { git = "https://github.com/celo-org/celo-kona", rev = "27fd769", default-features = false }
 
 # hana
 hana-blobstream = { git = "https://github.com/celestiaorg/hana", tag = "1.5.0-mocha" }
@@ -117,16 +117,16 @@ hana-host = { git = "https://github.com/celestiaorg/hana", tag = "1.5.0-mocha" }
 hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "1.5.0-mocha" }
 
 # hokulea
-hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
-hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
-hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
-hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
-hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
-hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
-canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
-canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
-canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
-eigenda-cert = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
+hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.5" }
+hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.5" }
+hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.5" }
+hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.5" }
+hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.5" }
+hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.5" }
+canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.5" }
+canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.5" }
+canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.5" }
+eigenda-cert = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.5" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -150,32 +150,34 @@ op-succinct-range-utils = { path = "programs/range/utils" }
 op-succinct-bindings = { path = "bindings" }
 
 # Alloy (Network) - versions allow semver compatible upgrades for hokulea v1.1.4 (requires 1.4.3)
-alloy-signer-local = { version = "1.4" }
-alloy-provider = { version = "1.4" }
-alloy-transport = { version = "1.4" }
-alloy-transport-http = { version = "1.4" }
-alloy-contract = { version = "1.4" }
-alloy-network = { version = "1.4" }
+# We should pin these alloy crates version to apply below patches. The patches won't used in the crate 
+# graph if those have a different version from what is locked in the Cargo.lock file.
+alloy-signer-local = { version = "=1.5.2" }
+alloy-provider = { version = "=1.5.2" }
+alloy-transport = { version = "=1.5.2" }
+alloy-transport-http = { version = "=1.5.2" }
+alloy-contract = { version = "=1.5.2" }
+alloy-network = { version = "=1.5.2" }
 
 # Alloy - versions allow semver compatible upgrades for hokulea v1.1.4
 alloy-rlp = { version = "0.3.12", default-features = false }
 alloy-trie = { version = "0.9.1", default-features = false, features = [
     "ethereum",
 ] }
-alloy-eips = { version = "1.4", default-features = false }
-alloy-serde = { version = "1.4", default-features = false }
-alloy-consensus = { version = "1.4", default-features = false }
-alloy-tx-macros = { version = "1.4", default-features = false }
-alloy-rpc-types = { version = "1.4", default-features = false }
-alloy-rpc-client = { version = "1.4", default-features = false }
-alloy-node-bindings = { version = "1.4", default-features = false }
-alloy-rpc-types-engine = { version = "1.4", default-features = false }
-alloy-rpc-types-beacon = { version = "1.4", default-features = false }
-alloy-rpc-types-eth = { version = "1.4", default-features = false }
-alloy-rpc-types-trace = { version = "1.4", default-features = false }
-alloy-signer = { version = "1.4", default-features = false }
-alloy-signer-gcp = { version = "1.4", default-features = false }
-alloy = { version = "1.4", features = [
+alloy-eips = { version = "=1.5.2", default-features = false }
+alloy-serde = { version = "=1.5.2", default-features = false }
+alloy-consensus = { version = "=1.5.2", default-features = false }
+alloy-tx-macros = { version = "=1.5.2", default-features = false }
+alloy-rpc-types = { version = "=1.5.2", default-features = false }
+alloy-rpc-client = { version = "=1.5.2", default-features = false }
+alloy-node-bindings = { version = "=1.5.2", default-features = false }
+alloy-rpc-types-engine = { version = "=1.5.2", default-features = false }
+alloy-rpc-types-beacon = { version = "=1.5.2", default-features = false }
+alloy-rpc-types-eth = { version = "=1.5.2", default-features = false }
+alloy-rpc-types-trace = { version = "=1.5.2", default-features = false }
+alloy-signer = { version = "=1.5.2", default-features = false }
+alloy-signer-gcp = { version = "=1.5.2", default-features = false }
+alloy = { version = "=1.5.2", features = [
     "reqwest",
     "network",
     "providers",
@@ -199,10 +201,10 @@ op-alloy-rpc-types-engine = { version = "0.22.4", default-features = false }
 op-alloy-network = { version = "0.22.4", default-features = false }
 
 # Celo Alloy
-celo-alloy-consensus = { git = "https://github.com/celo-org/celo-kona", rev = "8c60308", default-features = false }
-celo-alloy-rpc-types = { git = "https://github.com/celo-org/celo-kona", rev = "8c60308", default-features = false }
-celo-alloy-rpc-types-engine = { git = "https://github.com/celo-org/celo-kona", rev = "8c60308", default-features = false }
-celo-alloy-network = { git = "https://github.com/celo-org/celo-kona", rev = "8c60308", default-features = false }
+celo-alloy-consensus = { git = "https://github.com/celo-org/celo-kona", rev = "27fd769", default-features = false }
+celo-alloy-rpc-types = { git = "https://github.com/celo-org/celo-kona", rev = "27fd769", default-features = false }
+celo-alloy-rpc-types-engine = { git = "https://github.com/celo-org/celo-kona", rev = "27fd769", default-features = false }
+celo-alloy-network = { git = "https://github.com/celo-org/celo-kona", rev = "27fd769", default-features = false }
 
 # Execution
 alloy-evm = { version = "0.24.2", default-features = false }
@@ -216,7 +218,7 @@ revm-precompile = { version = "31.0.0", default-features = false }
 op-revm = { version = "14.1.0", default-features = false }
 
 # Celo Execution
-alloy-celo-evm = { git = "https://github.com/celo-org/celo-kona", rev = "8c60308", default-features = false }
+alloy-celo-evm = { git = "https://github.com/celo-org/celo-kona", rev = "27fd769", default-features = false }
 
 # SP1
 sp1-sdk = { version = "=5.2.4", default-features = false, features = ["network"] }
@@ -251,10 +253,10 @@ k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k2
 # Both are now at 1.4.x for hokulea v1.1.4 compatibility
 
 # We patch alloy-eips to a version where fake_exponential does not overflow when provided with large inputs.
-alloy-eips = { git = "https://github.com/celo-org/alloy", rev = "f88c10d3"}
+alloy-eips = { git = "https://github.com/celo-org/alloy", branch = "fix-fake-exponential-v1.5.2" }
 # We also need to patch alloy-serde to this version since otherwise a different non patch version is also included in the project
 # which breaks trait bound satisfaction
-alloy-serde = { git = "https://github.com/celo-org/alloy", rev = "f88c10d3"}
+alloy-serde = { git = "https://github.com/celo-org/alloy", branch = "fix-fake-exponential-v1.5.2" }
 
 
 # Note: vergen-lib conflict fixed by pinning vergen=9.0.4, vergen-git2=1.0.5 in Cargo.lock
@@ -287,7 +289,6 @@ kona-proof = { git = "https://github.com/celo-org/kona", rev = "ce6c778e" }
 kona-client = { git = "https://github.com/celo-org/kona", rev = "ce6c778e" }
 kona-host = { git = "https://github.com/celo-org/kona", rev = "ce6c778e" }
 kona-providers-alloy = { git = "https://github.com/celo-org/kona", rev = "ce6c778e" }
-kona-rpc = { git = "https://github.com/celo-org/kona", rev = "ce6c778e"}
 kona-protocol = { git = "https://github.com/celo-org/kona", rev = "ce6c778e"}
 kona-registry = { git = "https://github.com/celo-org/kona", rev = "ce6c778e"}
 kona-genesis = { git = "https://github.com/celo-org/kona", rev = "ce6c778e"}
