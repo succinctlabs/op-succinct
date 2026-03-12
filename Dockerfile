@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y \
     clang \
     pkg-config \
     libssl-dev \
+    protobuf-compiler \
+    golang-go \
     && rm -rf /var/lib/apt/lists/*
 
 # Install project's required Rust toolchain
