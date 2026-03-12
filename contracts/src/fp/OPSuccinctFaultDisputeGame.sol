@@ -272,9 +272,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
             // INVARIANT: The parent game must be a valid game.
             if (proxy.status() == GameStatus.CHALLENGER_WINS) revert InvalidParentGame();
         } else {
-            // When there is no parent game, the starting output root is the anchor state for the game type.
-            (startingOutputRoot.root, startingOutputRoot.l2SequenceNumber) =
-                IAnchorStateRegistry(ANCHOR_STATE_REGISTRY).anchors(GAME_TYPE);
+            // Use the genesis anchor root (not the current anchor) to prevent duplicate games when
+            // a finalized game becomes the anchor and anchors() would match a specific parent index.
+            startingOutputRoot = IAnchorStateRegistry(ANCHOR_STATE_REGISTRY).getStartingAnchorRoot();
         }
 
         // Do not allow the game to be initialized if the root claim corresponds to a block at or before the

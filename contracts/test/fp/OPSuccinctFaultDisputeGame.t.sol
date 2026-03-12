@@ -814,4 +814,64 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             gameType, Claim.wrap(keccak256("new-claim-4")), abi.encodePacked(uint256(5000), uint32(1))
         );
     }
+
+    // =========================================
+    // Test: No duplicate game with anchor parent
+    // =========================================
+    function testNoDuplicateGameWithAnchorParent() public {
+        // Finalize `game` (index 1) so it becomes anchor.
+        (,,,,, Timestamp deadline) = game.claimData();
+        vm.warp(deadline.raw() + 1);
+        game.resolve();
+        vm.warp(game.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
+        game.closeGame();
+
+        // Create and finalize a third game (index 2) so the anchor updates a second time.
+        vm.startPrank(proposer);
+        vm.deal(proposer, 3 ether);
+        OPSuccinctFaultDisputeGame game3 = OPSuccinctFaultDisputeGame(
+            address(
+                factory.create{value: 1 ether}(
+                    gameType, Claim.wrap(keccak256("claim3")), abi.encodePacked(uint256(3000), uint32(1))
+                )
+            )
+        );
+        vm.stopPrank();
+
+        (,,,,, Timestamp deadline3) = game3.claimData();
+        vm.warp(deadline3.raw() + 1);
+        game3.resolve();
+        vm.warp(game3.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
+        game3.closeGame();
+        assertEq(address(anchorStateRegistry.anchorGame()), address(game3));
+
+        // Create two games for the same block: one via parent index, one via uint32.max.
+        uint32 parentGameIndex = uint32(factory.gameCount() - 1);
+        Claim newRootClaim = Claim.wrap(keccak256("newRootClaim"));
+
+        vm.startPrank(proposer);
+        vm.deal(proposer, 2 ether);
+
+        OPSuccinctFaultDisputeGame byIndex = OPSuccinctFaultDisputeGame(
+            address(
+                factory.create{value: 1 ether}(gameType, newRootClaim, abi.encodePacked(uint256(4000), parentGameIndex))
+            )
+        );
+
+        OPSuccinctFaultDisputeGame byGenesis = OPSuccinctFaultDisputeGame(
+            address(
+                factory.create{value: 1 ether}(
+                    gameType, newRootClaim, abi.encodePacked(uint256(4000), type(uint32).max)
+                )
+            )
+        );
+
+        vm.stopPrank();
+
+        // byIndex inherits from the anchor game, byGenesis always resolves to genesis.
+        assertEq(byIndex.startingRootHash().raw(), game3.rootClaim().raw());
+        assertEq(byIndex.startingBlockNumber(), game3.l2SequenceNumber());
+        assertEq(byGenesis.startingRootHash().raw(), keccak256("genesis"));
+        assertEq(byGenesis.startingBlockNumber(), 0);
+    }
 }
