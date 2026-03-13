@@ -5,7 +5,7 @@ use clap::Parser;
 use fault_proof::contract::{
     DisputeGameFactory::DisputeGameFactoryInstance, OPSuccinctFaultDisputeGame,
 };
-use log::{error, info};
+use log::{error, info, warn};
 use std::{
     collections::{HashMap, VecDeque},
     env,
@@ -58,6 +58,13 @@ pub struct GameMonitorArgs {
     /// The directory under which to store the logs.
     #[arg(long, default_value = "logs")]
     pub logs_dir: PathBuf,
+
+    /// Maximum total size in megabytes for the logs directory. When this limit
+    /// is exceeded, the oldest log files (by game index) are deleted until the
+    /// total size is within the limit. Log files for currently running processes
+    /// are never deleted. A value of 0 disables the limit.
+    #[arg(long, default_value = "0")]
+    pub max_logs_size_mb: u64,
 
     // The index of the game to start checking from. If unset the monitor will
     #[arg(long, default_value = None)]
@@ -208,6 +215,78 @@ fn spawn_cost_estimator(
     Ok(child)
 }
 
+fn extract_game_index(path: &Path) -> Option<u64> {
+    let filename = path.file_name()?.to_str()?;
+    let stripped = filename.strip_prefix("cost-estimator-")?;
+    let dash_pos = stripped.find('-')?;
+    stripped[..dash_pos].parse().ok()
+}
+
+fn enforce_log_space_limit(
+    logs_dir: &Path,
+    max_size_bytes: u64,
+    running_game_indices: &HashMap<u64, RunningEstimator>,
+) -> Result<()> {
+    let mut log_files: Vec<(PathBuf, u64, u64)> = Vec::new();
+    let mut total_size: u64 = 0;
+
+    for entry in fs::read_dir(logs_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_file() {
+            let size = entry.metadata()?.len();
+            total_size += size;
+            // Only consider files matching our naming pattern as deletion
+            // candidates.
+            if let Some(game_index) = extract_game_index(&path) {
+                log_files.push((path, size, game_index));
+            }
+        }
+    }
+
+    if total_size <= max_size_bytes {
+        return Ok(());
+    }
+
+    info!(
+        "Log directory size ({:.2} MB) exceeds limit ({:.2} MB), cleaning up oldest logs",
+        total_size as f64 / (1024.0 * 1024.0),
+        max_size_bytes as f64 / (1024.0 * 1024.0),
+    );
+
+    // Sort by game index ascending (oldest first).
+    log_files.sort_by_key(|(_, _, idx)| *idx);
+
+    for (path, size, game_index) in &log_files {
+        if total_size <= max_size_bytes {
+            break;
+        }
+
+        if running_game_indices.contains_key(game_index) {
+            continue;
+        }
+
+        match fs::remove_file(path) {
+            Ok(()) => {
+                info!("Deleted log file: {}", path.display());
+                total_size -= size;
+            }
+            Err(e) => {
+                warn!("Failed to delete log file {}: {}", path.display(), e);
+            }
+        }
+    }
+
+    if total_size > max_size_bytes {
+        warn!(
+            "Log directory still exceeds limit after cleanup ({:.2} MB remaining), some files may belong to running processes",
+            total_size as f64 / (1024.0 * 1024.0),
+        );
+    }
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = GameMonitorArgs::parse();
@@ -227,6 +306,11 @@ async fn main() -> Result<()> {
     info!("Polling interval: {}s", args.poll_interval);
     info!("Max concurrent processes: {}", args.max_concurrent);
     info!("Cost estimator binary path: {}", args.cost_estimator_binary_path.display());
+    if args.max_logs_size_mb > 0 {
+        info!("Max logs size: {} MB", args.max_logs_size_mb);
+    } else {
+        info!("Max logs size: unlimited");
+    }
 
     // Get required environment variables
     let l1_rpc = env::var("L1_RPC").context("L1_RPC not set")?;
@@ -263,6 +347,16 @@ async fn main() -> Result<()> {
     // Main monitoring loop
     loop {
         state.cleanup_finished_processes();
+
+        if args.max_logs_size_mb > 0 {
+            if let Err(e) = enforce_log_space_limit(
+                &args.logs_dir,
+                args.max_logs_size_mb * 1024 * 1024,
+                &state.running_processes,
+            ) {
+                error!("Failed to enforce log space limit: {}", e);
+            }
+        }
 
         info!(
             "Running: {}/{}, Pending: {}",
