@@ -3,10 +3,10 @@ use anyhow::Result;
 use clap::Parser;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
-use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
+use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, setup_logger};
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_scripts::ConfigArgs;
-use sp1_sdk::{utils, HashableKey, Prover, ProverClient};
+use sp1_sdk::{HashableKey, Prover, ProverClient};
 
 // Get the verification keys for the ELFs and check them against the contract.
 #[tokio::main]
@@ -27,7 +27,7 @@ async fn main() -> Result<()> {
     if let Some(env_file) = args.env_file {
         dotenv::from_path(env_file).ok();
 
-        utils::setup_logger();
+        setup_logger();
 
         let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
