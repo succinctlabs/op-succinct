@@ -2481,4 +2481,111 @@ mod tests {
             }
         }
     }
+
+    /// Tests for ASR-based game filtering and its effect on canonical head selection.
+    mod asr_filtering {
+        use super::super::*;
+        use alloy_primitives::{Address, B256, U256};
+
+        fn game_with(index: u64, parent_index: u32, l2_block: u64) -> Game {
+            Game {
+                index: U256::from(index),
+                address: Address::left_padding_from(&[index as u8]),
+                parent_index,
+                l2_block: U256::from(l2_block),
+                status: crate::contract::GameStatus::IN_PROGRESS,
+                proposal_status: crate::contract::ProposalStatus::Unchallenged,
+                deadline: 0,
+                should_attempt_to_resolve: false,
+                should_attempt_to_claim_bond: false,
+                aggregation_vkey: B256::ZERO,
+                range_vkey_commitment: B256::ZERO,
+                rollup_config_hash: B256::ZERO,
+            }
+        }
+
+        #[test]
+        fn old_asr_games_pollute_canonical_head() {
+            // Demonstrates the bug: old ASR games with higher L2 blocks can override
+            // the canonical head even when they aren't descendants of the anchor.
+            let mut state = ProposerState::default();
+
+            // Old ASR games (higher L2 blocks from running longer)
+            state.games.insert(U256::from(0), game_with(0, u32::MAX, 1000));
+            state.games.insert(U256::from(1), game_with(1, 0, 2000));
+            state.games.insert(U256::from(2), game_with(2, 1, 3000));
+
+            // New ASR games (lower L2 blocks, just started)
+            let anchor = game_with(3, u32::MAX, 100);
+            state.games.insert(U256::from(3), anchor.clone());
+            state.games.insert(U256::from(4), game_with(4, 3, 200));
+
+            state.anchor_game = Some(anchor);
+
+            // Old ASR games are NOT descendants of the new anchor
+            let descendants = state.descendants_of(U256::from(3));
+            assert!(descendants.contains(&U256::from(4)));
+            assert!(!descendants.contains(&U256::from(0)));
+            assert!(!descendants.contains(&U256::from(2)));
+
+            // Game 0 has parent_index == u32::MAX and l2_block 1000 > 200,
+            // so override_head logic would pick it as canonical head — the bug.
+            let game_0 = &state.games[&U256::from(0)];
+            let game_4 = &state.games[&U256::from(4)];
+            assert!(game_0.l2_block > game_4.l2_block);
+            assert_eq!(game_0.parent_index, u32::MAX);
+        }
+
+        #[test]
+        fn filtered_dag_produces_correct_canonical_head() {
+            // After filtering: only new ASR games in DAG → clean canonical head.
+            let mut state = ProposerState::default();
+
+            let anchor = game_with(3, u32::MAX, 100);
+            state.games.insert(U256::from(3), anchor.clone());
+            state.games.insert(U256::from(4), game_with(4, 3, 200));
+            state.anchor_game = Some(anchor);
+
+            let descendants = state.descendants_of(U256::from(3));
+
+            // Best descendant is Game 4
+            let best = state
+                .games
+                .values()
+                .filter(|g| descendants.contains(&g.index))
+                .max_by_key(|g| g.l2_block)
+                .unwrap();
+            assert_eq!(best.index, U256::from(4));
+
+            // No non-descendant games to override
+            assert!(state.games.values().all(|g| descendants.contains(&g.index)));
+        }
+
+        #[test]
+        fn descendants_excludes_unrelated_chains() {
+            let mut state = ProposerState::default();
+
+            // Chain A: 0 → 1 → 2
+            state.games.insert(U256::from(0), game_with(0, u32::MAX, 100));
+            state.games.insert(U256::from(1), game_with(1, 0, 200));
+            state.games.insert(U256::from(2), game_with(2, 1, 300));
+
+            // Chain B: 3 → 4
+            state.games.insert(U256::from(3), game_with(3, u32::MAX, 150));
+            state.games.insert(U256::from(4), game_with(4, 3, 250));
+
+            let chain_a = state.descendants_of(U256::from(0));
+            assert_eq!(chain_a.len(), 3);
+            assert!(chain_a.contains(&U256::from(0)));
+            assert!(chain_a.contains(&U256::from(1)));
+            assert!(chain_a.contains(&U256::from(2)));
+            assert!(!chain_a.contains(&U256::from(3)));
+
+            let chain_b = state.descendants_of(U256::from(3));
+            assert_eq!(chain_b.len(), 2);
+            assert!(chain_b.contains(&U256::from(3)));
+            assert!(chain_b.contains(&U256::from(4)));
+            assert!(!chain_b.contains(&U256::from(0)));
+        }
+    }
 }
