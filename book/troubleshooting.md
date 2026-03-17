@@ -48,3 +48,23 @@ let l1_head_number = l1_head_number + 100;
 The error occurs in the derivation pipeline when attempting to validate L2 blocks. The L1 head must be sufficiently ahead of the batch posting block to ensure all required data is available and the safe head state is consistent. The buffer of 20 blocks is added empirically to handle most cases where RPCs may have an incorrect view of the safe head state and have minimum overhead for the derivation process.
 
 Reference: [Fetcher Implementation](https://github.com/succinctlabs/op-succinct/blob/5dfc43928c75cef0ebf881d10bd8b3dcbe273419/utils/host/src/fetcher.rs#L773)
+
+### Cached Rollup Config Differs from Node RPC
+
+**Warning Message:**
+
+```text
+WARN Cached rollup config differs from node RPC. If the hardfork has activated, delete configs/L2/{chain_id}.json and restart.
+```
+
+**Cause:**
+The proposer caches the rollup config on first run and reuses it on subsequent startups. This warning appears when the cached config doesn't match what the node RPC returns. This is expected during hardfork transitions when the node has been upgraded before activation.
+
+**Solution:**
+- **Before hardfork activation**: No action needed — the cached config is correct. The node RPC is returning the post-hardfork config prematurely.
+- **After hardfork activates**: Delete the cached config file and restart the proposer:
+
+```bash
+rm configs/L2/{chain_id}.json
+# restart proposer
+```

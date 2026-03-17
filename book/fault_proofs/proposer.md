@@ -80,7 +80,7 @@ Depending on the one you choose, you must provide the corresponding environment 
 | Variable | Description | Default Value |
 |----------|-------------|---------------|
 | `L1_CONFIG_DIR` | The directory containing the L1 chain configuration files. | `<project-root>/configs/L1` |
-| `L2_CONFIG_DIR` | Directory containing L2 chain configuration files | `<project-root>/configs/L2` |
+| `L2_CONFIG_DIR` | Directory containing L2 chain configuration files. On first run, the rollup config is fetched from the node RPC and cached here. On subsequent runs, the cached file is used. Delete the cached file and restart to force a refresh (e.g., after a hardfork activates). | `<project-root>/configs/L2` |
 | `MOCK_MODE` | Whether to use mock mode | `false` |
 | `FAST_FINALITY_MODE` | Whether to use fast finality mode | `false` |
 | `RANGE_PROOF_STRATEGY` | Proof fulfillment strategy for range proofs. Set to `hosted` to use the hosted proof strategy. | `reserved` |
@@ -338,6 +338,23 @@ To perform a hardfork with zero downtime:
    Once the old proposer has no remaining owned games (all resolved and bonds claimed), it can be safely shut down.
 
 **Timeline**: Games may take up to `MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION` to fully resolve after the hardfork. Plan for the old proposer to run for this duration.
+
+### Rollup Config During Hardforks
+
+The proposer caches the rollup config to `{L2_CONFIG_DIR}/{chain_id}.json` on first run and reuses the cached file on subsequent startups. This prevents the proposer from picking up a premature post-hardfork config when the node is upgraded before hardfork activation.
+
+**Normal operation**: No action needed. The config is fetched once and cached.
+
+**During hardfork transition**: If the node is upgraded before hardfork activation, the cached config protects the proposer from receiving the wrong config. A `WARN` log will appear if the cached config differs from the node RPC.
+
+**After hardfork activates**: Delete the cached config file and restart the proposer to pick up the new config:
+
+```bash
+rm configs/L2/{chain_id}.json
+# restart proposer
+```
+
+**Fresh setup during transition window**: If setting up a new proposer after the node upgrade but before hardfork activation, manually place the correct pre-hardfork config at `configs/L2/{chain_id}.json` before starting.
 
 ### Logging and Monitoring
 
