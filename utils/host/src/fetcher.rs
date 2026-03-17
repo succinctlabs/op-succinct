@@ -387,6 +387,18 @@ impl OPSuccinctDataFetcher {
         let rollup_config: RollupConfig =
             Self::fetch_rpc_data(&rpc_config.l2_node_rpc, "optimism_rollupConfig", vec![]).await?;
 
+        // Validate that the config's chain ID matches what l2_rpc reported. These come from
+        // different endpoints (l2_rpc = execution client, l2_node_rpc = op-node), so a mismatch
+        // indicates misconfiguration.
+        if rollup_config.l2_chain_id.id() != chain_id {
+            bail!(
+                "Rollup config from op-node has chain ID {} but L2 execution RPC reports {}. \
+                 Check that L2_RPC and L2_NODE_RPC point to the same chain.",
+                rollup_config.l2_chain_id.id(),
+                chain_id
+            );
+        }
+
         // SingleChainHost reads this file for witness generation, so write failure is fatal.
         fs::create_dir_all(&l2_config_dir)
             .with_context(|| format!("Failed to create {}", l2_config_dir.display()))?;
@@ -402,6 +414,8 @@ impl OPSuccinctDataFetcher {
     }
 
     /// Best-effort: compare cached config against node RPC, warn on mismatch (5s timeout).
+    /// Intentionally warn-only — mismatches are expected during hardfork transitions and the
+    /// on-chain vkey check is the authoritative gate for game creation.
     async fn compare_config_with_rpc(cached: &RollupConfig, rpc_config: &RPCConfig) {
         let rpc_fetch = Self::fetch_rpc_data::<RollupConfig>(
             &rpc_config.l2_node_rpc,
