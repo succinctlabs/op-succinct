@@ -663,16 +663,19 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         game.claimCredit(proposer);
     }
 
+    function _finalizeAndClose(OPSuccinctFaultDisputeGame _game) internal {
+        (,,,,, Timestamp dl) = _game.claimData();
+        vm.warp(dl.raw() + 1);
+        _game.resolve();
+        vm.warp(_game.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
+        _game.closeGame();
+    }
+
     // =========================================
     // Test: Check if anchor game is updated
     // =========================================
     function testAnchorGameUpdated() public {
-        (,,,,, Timestamp deadline) = game.claimData();
-        vm.warp(deadline.raw() + 1);
-        game.resolve();
-
-        vm.warp(game.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
-        game.closeGame();
+        _finalizeAndClose(game);
 
         assertEq(address(anchorStateRegistry.anchorGame()), address(game));
     }
@@ -816,15 +819,11 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     }
 
     // =========================================
-    // Test: No duplicate game with anchor parent
+    // Test: Index vs genesis parent yield different starting roots
     // =========================================
-    function testNoDuplicateGameWithAnchorParent() public {
+    function testDifferentStartingRootForIndexVsGenesisParent() public {
         // Finalize `game` (index 1) so it becomes anchor.
-        (,,,,, Timestamp deadline) = game.claimData();
-        vm.warp(deadline.raw() + 1);
-        game.resolve();
-        vm.warp(game.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
-        game.closeGame();
+        _finalizeAndClose(game);
 
         // Create and finalize a third game (index 2) so the anchor updates a second time.
         vm.startPrank(proposer);
@@ -838,11 +837,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         );
         vm.stopPrank();
 
-        (,,,,, Timestamp deadline3) = game3.claimData();
-        vm.warp(deadline3.raw() + 1);
-        game3.resolve();
-        vm.warp(game3.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
-        game3.closeGame();
+        _finalizeAndClose(game3);
         assertEq(address(anchorStateRegistry.anchorGame()), address(game3));
 
         // Create two games for the same block: one via parent index, one via uint32.max.
@@ -868,7 +863,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         vm.stopPrank();
 
-        // byIndex inherits from the anchor game, byGenesis always resolves to genesis.
+        // The two games must be distinct contracts with different starting states.
+        assertTrue(address(byIndex) != address(byGenesis), "should be distinct games");
         assertEq(byIndex.startingRootHash().raw(), game3.rootClaim().raw());
         assertEq(byIndex.startingBlockNumber(), game3.l2SequenceNumber());
         assertEq(byGenesis.startingRootHash().raw(), keccak256("genesis"));
