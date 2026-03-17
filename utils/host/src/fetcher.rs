@@ -327,14 +327,14 @@ impl OPSuccinctDataFetcher {
     }
 
     /// Load rollup config from cache (`{L2_CONFIG_DIR}/{chain_id}.json`) if available,
-    /// otherwise fetch from RPC and cache it. Compares cached vs RPC to detect hardfork transitions.
+    /// otherwise fetch from RPC and cache it. Compares cached vs RPC to detect hardfork
+    /// transitions.
     async fn fetch_and_save_rollup_config(
         rpc_config: &RPCConfig,
     ) -> Result<(RollupConfig, PathBuf)> {
-        let chain_id_hex: String =
-            Self::fetch_rpc_data(&rpc_config.l2_rpc, "eth_chainId", vec![])
-                .await
-                .context("Failed to fetch chain ID from L2 RPC — is L2_RPC reachable?")?;
+        let chain_id_hex: String = Self::fetch_rpc_data(&rpc_config.l2_rpc, "eth_chainId", vec![])
+            .await
+            .context("Failed to fetch chain ID from L2 RPC — is L2_RPC reachable?")?;
         let chain_id_stripped = chain_id_hex
             .strip_prefix("0x")
             .or_else(|| chain_id_hex.strip_prefix("0X"))
@@ -892,9 +892,11 @@ mod tests {
     fn load_valid_cached_config() {
         let dir = TempDir::new().unwrap();
         let config = test_rollup_config(42220);
-        let path = write_config(&dir, "42220.json", &serde_json::to_string_pretty(&config).unwrap());
+        let path =
+            write_config(&dir, "42220.json", &serde_json::to_string_pretty(&config).unwrap());
 
-        let loaded: RollupConfig = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        let loaded: RollupConfig =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(loaded.l2_chain_id.id(), 42220);
     }
 
@@ -909,10 +911,8 @@ mod tests {
     #[test]
     fn chain_id_hex_parsing() {
         for (input, expected) in [("0xa4ec", 42220u64), ("0XA4EC", 42220), ("a4ec", 42220)] {
-            let stripped = input
-                .strip_prefix("0x")
-                .or_else(|| input.strip_prefix("0X"))
-                .unwrap_or(input);
+            let stripped =
+                input.strip_prefix("0x").or_else(|| input.strip_prefix("0X")).unwrap_or(input);
             assert_eq!(u64::from_str_radix(stripped, 16).unwrap(), expected);
         }
     }
@@ -923,8 +923,10 @@ mod tests {
         let config = test_rollup_config(42220);
         let hash_before = hash_rollup_config(&config);
 
-        let path = write_config(&dir, "42220.json", &serde_json::to_string_pretty(&config).unwrap());
-        let loaded: RollupConfig = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        let path =
+            write_config(&dir, "42220.json", &serde_json::to_string_pretty(&config).unwrap());
+        let loaded: RollupConfig =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
 
         assert_eq!(hash_before, hash_rollup_config(&loaded));
     }
