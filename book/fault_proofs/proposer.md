@@ -345,16 +345,9 @@ The proposer caches the rollup config to `{L2_CONFIG_DIR}/{chain_id}.json` on fi
 
 **Normal operation**: No action needed. The config is fetched once and cached.
 
-**During hardfork transition**: If the node is upgraded before hardfork activation, the cached config protects the proposer from receiving the wrong config. A `WARN` log will appear if the cached config differs from the node RPC.
+**During hardfork transition**: If the node is upgraded before hardfork activation, the cached config protects the proposer from receiving the wrong config. A `WARN` log will appear if the cached config differs from the node RPC. The proposer's on-chain vkey check (`on_chain_vkeys_match`) independently prevents it from creating games with a mismatched config, so no operator action is needed.
 
-**After hardfork activates**: Delete the cached config file and restart the proposer to pick up the new config:
-
-```bash
-rm configs/L2/{chain_id}.json
-# restart proposer
-```
-
-**Fresh setup during transition window**: If setting up a new proposer after the node upgrade but before hardfork activation, manually place the correct pre-hardfork config at `configs/L2/{chain_id}.json` before starting.
+**New proposer setup**: When standing up a new proposer for a hardfork, it fetches the config fresh from RPC. If the node has already been upgraded but the hardfork hasn't activated yet, manually place the correct pre-hardfork config at `configs/L2/{chain_id}.json` before starting.
 
 ### Logging and Monitoring
 

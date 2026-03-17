@@ -367,8 +367,7 @@ impl OPSuccinctDataFetcher {
                         path = %rollup_config_path.display(),
                         "Loaded rollup config from cached file"
                     );
-                    Self::compare_config_with_rpc(&rollup_config, rpc_config, &rollup_config_path)
-                        .await;
+                    Self::compare_config_with_rpc(&rollup_config, rpc_config).await;
                     return Ok((rollup_config, rollup_config_path));
                 }
                 Err(e) => {
@@ -403,11 +402,7 @@ impl OPSuccinctDataFetcher {
     }
 
     /// Best-effort: compare cached config against node RPC, warn on mismatch (5s timeout).
-    async fn compare_config_with_rpc(
-        cached: &RollupConfig,
-        rpc_config: &RPCConfig,
-        cached_path: &PathBuf,
-    ) {
+    async fn compare_config_with_rpc(cached: &RollupConfig, rpc_config: &RPCConfig) {
         let rpc_fetch = Self::fetch_rpc_data::<RollupConfig>(
             &rpc_config.l2_node_rpc,
             "optimism_rollupConfig",
@@ -424,9 +419,8 @@ impl OPSuccinctDataFetcher {
                     tracing::warn!(
                         cached_hash = %cached_hash,
                         rpc_hash = %rpc_hash,
-                        "Cached rollup config differs from node RPC. \
-                         If the hardfork has activated, delete {} and restart.",
-                        cached_path.display()
+                        "Cached rollup config differs from node RPC — \
+                         expected during hardfork transitions"
                     );
                 }
             }

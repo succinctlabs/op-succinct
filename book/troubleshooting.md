@@ -54,17 +54,11 @@ Reference: [Fetcher Implementation](https://github.com/succinctlabs/op-succinct/
 **Warning Message:**
 
 ```text
-WARN Cached rollup config differs from node RPC. If the hardfork has activated, delete configs/L2/{chain_id}.json and restart.
+WARN Cached rollup config differs from node RPC — expected during hardfork transitions
 ```
 
 **Cause:**
-The proposer caches the rollup config on first run and reuses it on subsequent startups. This warning appears when the cached config doesn't match what the node RPC returns. This is expected during hardfork transitions when the node has been upgraded before activation.
+The proposer caches the rollup config on first run and reuses it on subsequent startups. This warning appears when the cached config doesn't match what the node RPC returns — typically because the node was upgraded before hardfork activation.
 
 **Solution:**
-- **Before hardfork activation**: No action needed — the cached config is correct. The node RPC is returning the post-hardfork config prematurely.
-- **After hardfork activates**: Delete the cached config file and restart the proposer:
-
-```bash
-rm configs/L2/{chain_id}.json
-# restart proposer
-```
+No action needed. The cached config is correct for the proposer's current identity. The on-chain vkey check (`on_chain_vkeys_match`) independently prevents the proposer from creating games with a mismatched config.
