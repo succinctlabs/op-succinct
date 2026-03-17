@@ -877,9 +877,7 @@ mod tests {
     use tempfile::TempDir;
 
     fn test_rollup_config(chain_id: u64) -> RollupConfig {
-        let mut config = RollupConfig::default();
-        config.l2_chain_id = chain_id.into();
-        config
+        RollupConfig { l2_chain_id: chain_id.into(), ..Default::default() }
     }
 
     fn write_config(dir: &TempDir, name: &str, content: &str) -> PathBuf {
