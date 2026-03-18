@@ -5,13 +5,16 @@ members = [
     "utils/build",
     "utils/celestia/client",
     "utils/celestia/host",
-    "utils/eigenda/client",
-    "utils/eigenda/host",
+    # "utils/eigenda/client",
+    # "utils/eigenda/host",
     "utils/proof",
     "utils/signer",
     "utils/ethereum/client",
     "utils/ethereum/host",
-    "programs/range/*",
+    "programs/range/ethereum",
+    "programs/range/celestia",
+    # "programs/range/eigenda",
+    "programs/range/utils",
     "programs/aggregation",
     "scripts/*",
     "validity",
@@ -109,7 +112,7 @@ hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "1.5.0-mocha"
 
 # hokulea
 hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.6" }
-hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.6" }
+# hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.6" }
 hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.6" }
 hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.6" }
 hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.6" }
@@ -130,8 +133,8 @@ op-succinct-ethereum-client-utils = { path = "utils/ethereum/client" }
 op-succinct-ethereum-host-utils = { path = "utils/ethereum/host" }
 op-succinct-celestia-client-utils = { path = "utils/celestia/client" }
 op-succinct-celestia-host-utils = { path = "utils/celestia/host" }
-op-succinct-eigenda-client-utils = { path = "utils/eigenda/client" }
-op-succinct-eigenda-host-utils = { path = "utils/eigenda/host" }
+# op-succinct-eigenda-client-utils = { path = "utils/eigenda/client" }
+# op-succinct-eigenda-host-utils = { path = "utils/eigenda/host" }
 op-succinct-proof-utils = { path = "utils/proof" }
 op-succinct-signer-utils = { path = "utils/signer" }
 op-succinct-signer-gcp-utils = { path = "utils/signer-gcp" }
@@ -208,9 +211,9 @@ sp1-prover-types = { git = "https://github.com/succinctlabs/sp1", branch = "main
 sp1-core-executor = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
 sp1-hypercube = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
 sp1-primitives = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
-sp1-cluster-artifact = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.0.3" }
-sp1-cluster-common = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.0.3" }
-sp1-cluster-utils = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.0.3" }
+sp1-cluster-artifact = { git = "https://github.com/succinctlabs/sp1-cluster.git", branch = "tobias/task-messages" }
+sp1-cluster-common = { git = "https://github.com/succinctlabs/sp1-cluster.git", branch = "tobias/task-messages" }
+sp1-cluster-utils = { git = "https://github.com/succinctlabs/sp1-cluster.git", branch = "tobias/task-messages" }
 
 # kzg
 kzg-rs = { version = "0.2.8", features = ["rkyv", "serde"] }
@@ -226,6 +229,30 @@ codegen-units = 1
 lto = "fat"
 
 [patch.crates-io]
+# SP1 - redirect crates.io versions to git main
+sp1-build = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-core-executor = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-core-executor-runner = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-core-executor-runner-binary = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-core-machine = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-cuda = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-curves = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-derive = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-hypercube = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-jit = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-lib = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-primitives = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-prover = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-prover-types = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-recursion-circuit = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-recursion-compiler = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-recursion-executor = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-recursion-gnark-ffi = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-recursion-machine = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-verifier = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1", branch = "main" }
+
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.9-sp1-6.0.0" }
 sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-6.0.0" }
 substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-sp1-6.0.0-substrate-bn" }
