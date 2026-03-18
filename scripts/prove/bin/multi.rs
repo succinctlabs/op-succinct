@@ -4,20 +4,17 @@ use op_succinct_host_utils::{
     block_range::get_validated_block_range,
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
-    network::{build_network_prover_from_env, parse_fulfillment_strategy},
-    proof_cache::save_range_proof,
+    network::get_network_signer,
     stats::ExecutionStats,
     witness_cache::{load_stdin_from_cache, save_stdin_to_cache},
     witness_generation::WitnessGenerator,
 };
-use op_succinct_proof_utils::{
-    cluster_range_proof, get_range_elf_embedded, initialize_host, is_cluster_mode,
-};
+use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_prove::execute_multi;
 use op_succinct_scripts::HostExecutorArgs;
-use sp1_sdk::{utils, Elf, ProveRequest, Prover};
+use sp1_sdk::{utils, Elf, ProveRequest, Prover, ProverClient};
 use std::{
-    env, fs,
+    fs,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -89,25 +86,39 @@ async fn main() -> Result<()> {
         generate_stdin().await?
     };
 
+    // let prover = ProverClient::from_env().await;
+    let network_signer = get_network_signer(false).await?;
+    let prover = ProverClient::builder()
+        .network_for(sp1_sdk::network::NetworkMode::Mainnet)
+        .rpc_url("https://rpc.sepolia.succinct.xyz")
+        .signer(network_signer)
+        .build()
+        .await;
+
     if args.prove {
-        if is_cluster_mode() {
-            let proof = cluster_range_proof(args.cluster_timeout, sp1_stdin).await?;
-            let path = save_range_proof(l2_chain_id, l2_start_block, l2_end_block, &proof)?;
-            info!("Range proof saved to {}", path.display());
-        } else {
-            let range_proof_strategy = parse_fulfillment_strategy(
-                env::var("RANGE_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
-            )?;
-            let prover = build_network_prover_from_env(range_proof_strategy).await?;
-            let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
-            let proof = prover
-                .prove(&pk, sp1_stdin)
-                .compressed()
-                .strategy(range_proof_strategy)
-                .await
-                .expect("proving failed");
-            let path = save_range_proof(l2_chain_id, l2_start_block, l2_end_block, &proof)?;
-            info!("Range proof saved to {}", path.display());
+        // If the prove flag is set, generate a proof.
+        let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
+
+        // Generate proofs in compressed mode for aggregation verification.
+        // let proof = prover.prove(&pk, sp1_stdin).compressed().await.unwrap();
+
+        let _proof = prover
+            .prove(&pk, sp1_stdin)
+            .strategy(sp1_sdk::network::FulfillmentStrategy::Auction)
+            .auction_timeout(Duration::from_secs(60))
+            .min_auction_period(1)
+            .cycle_limit(1_000_000_000_000)
+            .gas_limit(1_000_000_000)
+            .max_price_per_pgu(600_000_000)
+            .timeout(Duration::from_secs(6 * 60 * 60))
+            .skip_simulation(true)
+            .compressed()
+            .await?;
+
+        // Create a proof directory for the chain ID if it doesn't exist.
+        let proof_dir = format!("data/{}/proofs", l2_chain_id);
+        if !std::path::Path::new(&proof_dir).exists() {
+            fs::create_dir_all(&proof_dir).unwrap();
         }
     } else {
         let (block_data, report, execution_duration) =

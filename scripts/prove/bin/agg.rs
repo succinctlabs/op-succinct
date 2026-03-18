@@ -6,7 +6,7 @@ use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
     get_agg_proof_stdin,
-    network::{build_network_prover_from_env, parse_fulfillment_strategy},
+    network::get_network_signer,
     proof_cache::{get_range_proof_dir, save_agg_proof},
 };
 use op_succinct_proof_utils::{
@@ -14,10 +14,11 @@ use op_succinct_proof_utils::{
 };
 use sp1_sdk::{
     blocking::{self, Prover as BlockingProver},
-    utils, Elf, HashableKey, ProveRequest, Prover, ProvingKey, SP1Proof, SP1ProofMode,
-    SP1ProofWithPublicValues, SP1Stdin, SP1VerifyingKey,
+    network::FulfillmentStrategy,
+    utils, Elf, HashableKey, ProveRequest, Prover, ProverClient, ProvingKey, SP1Proof,
+    SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin, SP1VerifyingKey,
 };
-use std::env;
+use std::{env, time::Duration};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -165,10 +166,14 @@ async fn main() -> Result<()> {
                 .await?;
 
         if args.prove {
-            let agg_proof_strategy = parse_fulfillment_strategy(
-                env::var("AGG_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
-            )?;
-            let prover = build_network_prover_from_env(agg_proof_strategy).await?;
+            let network_signer = get_network_signer(false).await?;
+            let prover = ProverClient::builder()
+                .network_for(sp1_sdk::network::NetworkMode::Mainnet)
+                .rpc_url("https://rpc.sepolia.succinct.xyz")
+                .signer(network_signer)
+                .build()
+                .await;
+
             let agg_pk = prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
             let agg_proof_mode = match env::var("AGG_PROOF_MODE")
                 .unwrap_or_else(|_| "plonk".to_string())
@@ -181,7 +186,14 @@ async fn main() -> Result<()> {
             let proof = prover
                 .prove(&agg_pk, stdin)
                 .mode(agg_proof_mode)
-                .strategy(agg_proof_strategy)
+                .strategy(FulfillmentStrategy::Auction)
+                .auction_timeout(Duration::from_secs(60))
+                .min_auction_period(1)
+                .cycle_limit(1_000_000_000_000)
+                .gas_limit(1_000_000_000)
+                .max_price_per_pgu(600_000_000)
+                .timeout(Duration::from_secs(6 * 60 * 60))
+                .skip_simulation(true)
                 .await
                 .expect("proving failed");
 
