@@ -272,7 +272,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
             // INVARIANT: The parent game's L2 block must be ahead of the anchor. This prevents
             // duplicate games (same startingOutputRoot via parent index vs uint32.max) and ensures
             // that after a game type switch, proposals resume from the anchor rather than a stale parent.
-            (, uint256 anchorL2SeqNum) = IAnchorStateRegistry(ANCHOR_STATE_REGISTRY).getAnchorRoot();
+            (, uint256 anchorL2SeqNum) = ANCHOR_STATE_REGISTRY.getAnchorRoot();
             if (startingOutputRoot.l2SequenceNumber <= anchorL2SeqNum) {
                 revert InvalidParentGame();
             }
@@ -282,7 +282,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
         } else {
             // When there is no parent game, start from the current anchor root. This allows
             // resuming from the latest anchor after game type switches (e.g., retirement recovery).
-            (Hash anchorRoot, uint256 anchorL2SeqNum) = IAnchorStateRegistry(ANCHOR_STATE_REGISTRY).getAnchorRoot();
+            (Hash anchorRoot, uint256 anchorL2SeqNum) = ANCHOR_STATE_REGISTRY.getAnchorRoot();
             startingOutputRoot = Proposal({root: anchorRoot, l2SequenceNumber: anchorL2SeqNum});
         }
 
