@@ -186,10 +186,10 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         parentGame.resolve();
 
         vm.warp(parentGame.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
-        parentGame.claimCredit(proposer);
 
-        // Create the child game referencing parent index = 0.
-        // The child game is at index 1.
+        // Create the child game BEFORE claiming credit on parentGame. claimCredit() triggers
+        // closeGame() which sets parentGame as anchor — after that, parentGame can no longer be
+        // used as a parent via index (its l2SeqNum would equal the anchor's).
         game = OPSuccinctFaultDisputeGame(
             address(
                 factory.create{value: 1 ether}(
@@ -200,6 +200,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
                 )
             )
         );
+
+        parentGame.claimCredit(proposer);
 
         vm.stopPrank();
     }
@@ -487,23 +489,22 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     // This triggers UnexpectedRootClaim in initialize().
     // =========================================
     function testCannotCreateChildWithSmallerBlockThanParent() public {
-        // The parent game used L2 block 1234567890.
-        // Try to create a child game that references l2BlockNumber = 1.
+        // Use game (index 1, l2SeqNum=2000) as parent — it's ahead of anchor (l2SeqNum=1000).
+        // Try to create a child game with l2BlockNumber = 1, which is smaller than parent's 2000.
         vm.startPrank(proposer);
         vm.deal(proposer, 1 ether);
 
-        // We expect revert
         vm.expectRevert(
             abi.encodeWithSelector(
                 UnexpectedRootClaim.selector,
-                Claim.wrap(keccak256("rootClaim")) // The rootClaim we pass.
+                Claim.wrap(keccak256("rootClaim"))
             )
         );
 
         factory.create{value: 1 ether}(
             gameType,
             rootClaim,
-            abi.encodePacked(uint256(1), uint32(0)) // L2 block is smaller than parent's block.
+            abi.encodePacked(uint256(1), uint32(1)) // L2 block is smaller than parent's block.
         );
         vm.stopPrank();
     }
@@ -765,7 +766,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         vm.prank(proposer);
         vm.deal(proposer, 1 ether);
         factory.create{value: 1 ether}(
-            gameType, Claim.wrap(keccak256("new-claim-2")), abi.encodePacked(l2BlockNumber, parentIndex)
+            gameType, Claim.wrap(keccak256("new-claim-2")), abi.encodePacked(uint256(3000), uint32(1))
         );
 
         // Warp time forward past the timeout
@@ -819,55 +820,94 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     }
 
     // =========================================
-    // Test: Index vs genesis parent yield different starting roots
+    // Test: Anchor parent cannot be used as parent index (prevents duplicates)
     // =========================================
-    function testDifferentStartingRootForIndexVsGenesisParent() public {
-        // Finalize `game` (index 1) so it becomes anchor.
+    function testCannotUseAnchorGameAsParentIndex() public {
+        // Finalize game (index 1) so it becomes anchor at l2SeqNum=2000.
         _finalizeAndClose(game);
 
-        // Create and finalize a third game (index 2) so the anchor updates a second time.
+        // Using game (index 1) as parent should fail: l2SeqNum (2000) <= anchor (2000).
         vm.startPrank(proposer);
-        vm.deal(proposer, 3 ether);
-        OPSuccinctFaultDisputeGame game3 = OPSuccinctFaultDisputeGame(
+        vm.deal(proposer, 1 ether);
+        vm.expectRevert(InvalidParentGame.selector);
+        factory.create{value: 1 ether}(
+            gameType, Claim.wrap(keccak256("dup")), abi.encodePacked(uint256(3000), uint32(1))
+        );
+        vm.stopPrank();
+
+        // uint32.max uses current anchor root — this is the only way to extend from the anchor.
+        vm.startPrank(proposer);
+        vm.deal(proposer, 1 ether);
+        OPSuccinctFaultDisputeGame fromAnchor = OPSuccinctFaultDisputeGame(
             address(
                 factory.create{value: 1 ether}(
-                    gameType, Claim.wrap(keccak256("claim3")), abi.encodePacked(uint256(3000), uint32(1))
+                    gameType, Claim.wrap(keccak256("fromAnchor")), abi.encodePacked(uint256(3000), type(uint32).max)
                 )
             )
         );
         vm.stopPrank();
 
-        _finalizeAndClose(game3);
-        assertEq(address(anchorStateRegistry.anchorGame()), address(game3));
+        assertEq(fromAnchor.startingRootHash().raw(), rootClaim.raw());
+        assertEq(fromAnchor.startingBlockNumber(), 2000);
+    }
 
-        // Create two games for the same block: one via parent index, one via uint32.max.
-        uint32 parentGameIndex = uint32(factory.gameCount() - 1);
-        Claim newRootClaim = Claim.wrap(keccak256("newRootClaim"));
-
+    // =========================================
+    // Test: Parent game must be ahead of anchor
+    // =========================================
+    function testParentMustBeAheadOfAnchor() public {
+        // Create game3 from game (index 1) before anchor updates. Anchor is still genesis (l2SeqNum=0).
         vm.startPrank(proposer);
         vm.deal(proposer, 2 ether);
-
-        OPSuccinctFaultDisputeGame byIndex = OPSuccinctFaultDisputeGame(
-            address(
-                factory.create{value: 1 ether}(gameType, newRootClaim, abi.encodePacked(uint256(4000), parentGameIndex))
-            )
+        // game3 is at index 2, l2SeqNum=3000, parent=game (index 1, l2SeqNum=2000 > anchor 1000).
+        factory.create{value: 1 ether}(
+            gameType, Claim.wrap(keccak256("claim3")), abi.encodePacked(uint256(3000), uint32(1))
         );
+        vm.stopPrank();
 
-        OPSuccinctFaultDisputeGame byGenesis = OPSuccinctFaultDisputeGame(
+        // Finalize game (index 1) to make it anchor (l2SeqNum=2000).
+        _finalizeAndClose(game);
+
+        // game3 (l2SeqNum=3000) > anchor (2000) — valid parent.
+        vm.startPrank(proposer);
+        factory.create{value: 1 ether}(
+            gameType, Claim.wrap(keccak256("claim4")), abi.encodePacked(uint256(4000), uint32(2))
+        );
+        vm.stopPrank();
+
+        // game (l2SeqNum=2000) <= anchor (2000) — invalid parent.
+        vm.startPrank(proposer);
+        vm.deal(proposer, 1 ether);
+        vm.expectRevert(InvalidParentGame.selector);
+        factory.create{value: 1 ether}(
+            gameType, Claim.wrap(keccak256("claim5")), abi.encodePacked(uint256(4000), uint32(1))
+        );
+        vm.stopPrank();
+    }
+
+    // =========================================
+    // Test: Retirement recovery resumes from anchor, not genesis
+    // =========================================
+    function testRetirementRecoveryFromAnchor() public {
+        // Finalize game (index 1) so it becomes anchor at l2SeqNum=2000.
+        _finalizeAndClose(game);
+
+        // Guardian retires all games.
+        anchorStateRegistry.updateRetirementTimestamp();
+
+        // uint32.max should still work and start from current anchor, not genesis.
+        vm.startPrank(proposer);
+        vm.deal(proposer, 1 ether);
+        OPSuccinctFaultDisputeGame recovered = OPSuccinctFaultDisputeGame(
             address(
                 factory.create{value: 1 ether}(
-                    gameType, newRootClaim, abi.encodePacked(uint256(4000), type(uint32).max)
+                    gameType, Claim.wrap(keccak256("recovered")), abi.encodePacked(uint256(3000), type(uint32).max)
                 )
             )
         );
-
         vm.stopPrank();
 
-        // The two games must be distinct contracts with different starting states.
-        assertTrue(address(byIndex) != address(byGenesis), "should be distinct games");
-        assertEq(byIndex.startingRootHash().raw(), game3.rootClaim().raw());
-        assertEq(byIndex.startingBlockNumber(), game3.l2SequenceNumber());
-        assertEq(byGenesis.startingRootHash().raw(), keccak256("genesis"));
-        assertEq(byGenesis.startingBlockNumber(), 0);
+        // Starts from anchor (l2SeqNum=2000), not genesis (l2SeqNum=0).
+        assertEq(recovered.startingBlockNumber(), 2000);
+        assertEq(recovered.startingRootHash().raw(), rootClaim.raw());
     }
 }
