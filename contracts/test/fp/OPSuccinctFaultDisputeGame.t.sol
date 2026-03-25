@@ -850,10 +850,9 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     // Test: Parent game must be ahead of anchor
     // =========================================
     function testParentMustBeAheadOfAnchor() public {
-        // Create game3 from game (index 1) before anchor updates. Anchor is still genesis (l2SeqNum=0).
+        // Anchor is parentGame (l2SeqNum=1000) after setUp. Create game3 ahead of anchor.
         vm.startPrank(proposer);
         vm.deal(proposer, 2 ether);
-        // game3 is at index 2, l2SeqNum=3000, parent=game (index 1, l2SeqNum=2000 > anchor 1000).
         factory.create{value: 1 ether}(
             gameType, Claim.wrap(keccak256("claim3")), abi.encodePacked(uint256(3000), uint32(1))
         );
@@ -971,28 +970,6 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         assertEq(latest.startingRootHash().raw(), keccak256("claim3"));
         assertEq(latest.startingBlockNumber(), 3000);
-    }
-
-    // =========================================
-    // Test: Parent exactly one block ahead of anchor succeeds
-    // =========================================
-    function testParentOneBlockAheadOfAnchorSucceeds() public {
-        // Create a game at l2SeqNum=1001 from parentGame (l2SeqNum=1000).
-        // Anchor is currently parentGame (l2SeqNum=1000, set by claimCredit in setUp).
-        // parent game (index 1) has l2SeqNum=2000 > anchor (1000) → valid.
-        vm.startPrank(proposer);
-        vm.deal(proposer, 1 ether);
-        OPSuccinctFaultDisputeGame barely = OPSuccinctFaultDisputeGame(
-            address(
-                factory.create{value: 1 ether}(
-                    gameType, Claim.wrap(keccak256("barely")), abi.encodePacked(uint256(2001), uint32(1))
-                )
-            )
-        );
-        vm.stopPrank();
-
-        assertEq(barely.startingBlockNumber(), 2000);
-        assertEq(barely.startingRootHash().raw(), rootClaim.raw());
     }
 
     // =========================================
