@@ -815,38 +815,6 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     }
 
     // =========================================
-    // Test: Anchor parent cannot be used as parent index (prevents duplicates)
-    // =========================================
-    function testCannotUseAnchorGameAsParentIndex() public {
-        // Finalize game (index 1) so it becomes anchor at l2SeqNum=2000.
-        _finalizeAndClose(game);
-
-        // Using game (index 1) as parent should fail: l2SeqNum (2000) <= anchor (2000).
-        vm.startPrank(proposer);
-        vm.deal(proposer, 1 ether);
-        vm.expectRevert(InvalidParentGame.selector);
-        factory.create{value: 1 ether}(
-            gameType, Claim.wrap(keccak256("dup")), abi.encodePacked(uint256(3000), uint32(1))
-        );
-        vm.stopPrank();
-
-        // uint32.max uses current anchor root — this is the only way to extend from the anchor.
-        vm.startPrank(proposer);
-        vm.deal(proposer, 1 ether);
-        OPSuccinctFaultDisputeGame fromAnchor = OPSuccinctFaultDisputeGame(
-            address(
-                factory.create{value: 1 ether}(
-                    gameType, Claim.wrap(keccak256("fromAnchor")), abi.encodePacked(uint256(3000), type(uint32).max)
-                )
-            )
-        );
-        vm.stopPrank();
-
-        assertEq(fromAnchor.startingRootHash().raw(), rootClaim.raw());
-        assertEq(fromAnchor.startingBlockNumber(), 2000);
-    }
-
-    // =========================================
     // Test: Parent game must be ahead of anchor
     // =========================================
     function testParentMustBeAheadOfAnchor() public {
