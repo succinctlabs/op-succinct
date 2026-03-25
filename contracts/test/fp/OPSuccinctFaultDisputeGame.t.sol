@@ -494,12 +494,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         vm.startPrank(proposer);
         vm.deal(proposer, 1 ether);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                UnexpectedRootClaim.selector,
-                Claim.wrap(keccak256("rootClaim"))
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedRootClaim.selector, Claim.wrap(keccak256("rootClaim"))));
 
         factory.create{value: 1 ether}(
             gameType,

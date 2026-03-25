@@ -282,8 +282,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
         } else {
             // When there is no parent game, start from the current anchor root. This allows
             // resuming from the latest anchor after game type switches (e.g., retirement recovery).
-            (Hash anchorRoot, uint256 anchorL2SeqNum) =
-                IAnchorStateRegistry(ANCHOR_STATE_REGISTRY).getAnchorRoot();
+            (Hash anchorRoot, uint256 anchorL2SeqNum) = IAnchorStateRegistry(ANCHOR_STATE_REGISTRY).getAnchorRoot();
             startingOutputRoot = Proposal({root: anchorRoot, l2SequenceNumber: anchorL2SeqNum});
         }
 
