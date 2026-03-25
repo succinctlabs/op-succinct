@@ -7,6 +7,15 @@ on:
     branches:
       - main
   merge_group:
+  pull_request:
+    paths:
+      - '.github/workflows/integration-tests.yml'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'justfile'
+      - 'fault-proof/**'
+      - 'bindings/**'
+      - 'utils/**'
   issue_comment:
     types: [created]
 
@@ -15,6 +24,75 @@ concurrency:
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/main' }}
 
 jobs:
+  # Reduced matrix on PRs — sync test only
+  fp-integration-tests-pr:
+    if: github.event_name == 'pull_request'
+    name: Fault Proof (sync)
+    runs-on:
+      - runs-on
+      - runner=64cpu-linux-x64
+      - run-id=${{ github.run_id }}
+      - spot=false
+      - disk=large
+      - extras=s3-cache
+    timeout-minutes: 60
+
+    steps:
+    - name: Configure runs-on cache
+      uses: runs-on/action@v2
+
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup Rust
+      run: rustup toolchain install stable --profile minimal
+
+    - name: Install protobuf compiler
+      run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+    - name: Install Go
+      run: |
+        GO_ARCH=$(dpkg --print-architecture)
+        curl -LO https://go.dev/dl/go1.24.0.linux-${GO_ARCH}.tar.gz
+        sudo tar -C /usr/local -xzf go1.24.0.linux-${GO_ARCH}.tar.gz
+        echo "/usr/local/go/bin" >> $GITHUB_PATH
+
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+      with:
+        version: nightly-d592b3e0f142d694c3be539702704a4a73238773
+
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: |
+          .
+          bindings
+
+    - name: Install just
+      uses: extractions/setup-just@v3
+
+    - name: Run tests
+      run: just fp-integration-tests sync ethereum
+      env:
+        L1_RPC: ${{ secrets.L1_RPC }}
+        L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
+        L2_RPC: ${{ secrets.L2_RPC }}
+        L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+
+    - name: Upload test logs on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: fp-sync-ethereum-pr-logs
+        path: |
+          **/*.log
+          target/debug/deps/*.log
+        retention-days: 7
+
+  # Full matrix on push to main, merge queue, and /integration comment
   fp-integration-tests:
     if: >-
       github.event_name == 'push' ||
@@ -129,6 +207,7 @@ jobs:
           target/debug/deps/*.log
         retention-days: 7
 
+  # Full DA host tests — merge queue, main push, and /integration only
   da-integration-tests:
     if: >-
       github.event_name == 'push' ||
