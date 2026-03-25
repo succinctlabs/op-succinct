@@ -1934,7 +1934,7 @@ where
             let anchor_index = state.anchor_game.as_ref().map(|a| a.index);
             let parent_game_index = state
                 .canonical_head_index
-                .filter(|&idx| anchor_index.map_or(true, |a| idx != a))
+                .filter(|&idx| anchor_index != Some(idx))
                 .map(|index| index.to::<u32>())
                 .unwrap_or(u32::MAX);
 

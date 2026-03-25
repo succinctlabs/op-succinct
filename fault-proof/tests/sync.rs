@@ -132,7 +132,11 @@ mod proposer_sync {
         let (env, proposer, init_bond) = setup().await?;
 
         let mut starting_blocks: HashMap<u32, u64> = HashMap::new();
+        let mut game_addresses: Vec<alloy_primitives::Address> = Vec::new();
 
+        // Phase 1: Create all games before setting any anchors. The contract now requires
+        // parent.l2SeqNum > anchor.l2SeqNum, so games that reference an anchor game as
+        // parent must be created before that game is set as anchor.
         let starting_l2_block = env.anvil.starting_l2_block_number;
         let mut block = starting_l2_block;
         for (i, _) in parent_ids.iter().take(num_games).enumerate() {
@@ -143,27 +147,25 @@ mod proposer_sync {
             let root_claim = env.compute_output_root_at_block(end_block).await?;
             env.create_game(root_claim, end_block, cur_parent_id, init_bond).await?;
             let (index, address) = env.last_game_info().await?;
+            game_addresses.push(address);
             tracing::info!("✓ Created game {index} with parent {cur_parent_id}");
 
-            if anchor_ids.contains(&i) {
-                env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
-                env.resolve_game(address).await?;
-                env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
-                env.set_anchor_state(address).await?;
-                tracing::info!("Anchor game set to index {index}");
-            }
-
-            // Determine the starting block for the next game
-            //
-            // If the next game's parent is the current game, the next game's starting block
-            // is the end block of the current game.
-            // Otherwise, look up the starting block from the map.
             let next_parent_id = parent_ids.get(i + 1).copied().unwrap_or(M);
             if cur_parent_id.wrapping_add(1) == next_parent_id {
                 block = end_block;
             } else {
                 block = *starting_blocks.get(&next_parent_id).unwrap_or(&end_block);
             }
+        }
+
+        // Phase 2: Set anchors in order after all games exist.
+        for &anchor_id in anchor_ids {
+            let address = game_addresses[anchor_id];
+            env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+            env.resolve_game(address).await?;
+            env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+            env.set_anchor_state(address).await?;
+            tracing::info!("Anchor game set to index {anchor_id}");
         }
 
         proposer.sync_state().await?;
@@ -317,16 +319,25 @@ mod proposer_sync {
     async fn test_sync_state_with_max_game_deadline_gap() -> Result<()> {
         let (env, proposer, init_bond) = setup().await?;
 
-        let mut parent_id = M;
         let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Phase 1: Create all games before setting anchors. The contract requires
+        // parent.l2SeqNum > anchor.l2SeqNum, so children must exist before anchors are set.
+        let mut parent_id = M;
         let mut block = starting_l2_block;
-        for i in 0..3 {
+        let mut game_addresses = Vec::new();
+        for _ in 0..3 {
             block += 1;
             let root_claim = env.compute_output_root_at_block(block).await?;
             env.create_game(root_claim, block, parent_id, init_bond).await?;
             let (index, address) = env.last_game_info().await?;
-            tracing::info!("✓ Created game {index} with parent {M}");
+            game_addresses.push(address);
+            tracing::info!("✓ Created game {index} with parent {parent_id}");
+            parent_id = if parent_id == M { 0 } else { parent_id + 1 };
+        }
 
+        // Phase 2: Resolve and set anchors with appropriate time warps.
+        for (i, &address) in game_addresses.iter().enumerate() {
             env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
             env.resolve_game(address).await?;
 
@@ -336,9 +347,7 @@ mod proposer_sync {
                 env.warp_time(MAX_GAME_DEADLINE_LAG + 1).await?;
             }
             env.set_anchor_state(address).await?;
-            tracing::info!("Anchor game set to index {index}");
-
-            parent_id = if parent_id == M { 0 } else { parent_id + 1 };
+            tracing::info!("Anchor game set to index {i}");
         }
 
         proposer.sync_state().await?;
