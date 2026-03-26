@@ -660,8 +660,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     }
 
     function _finalizeAndClose(OPSuccinctFaultDisputeGame _game) internal {
-        (,,,,, Timestamp dl) = _game.claimData();
-        vm.warp(dl.raw() + 1);
+        (,,,,, Timestamp deadline) = _game.claimData();
+        vm.warp(deadline.raw() + 1);
         _game.resolve();
         vm.warp(_game.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
         _game.closeGame();
