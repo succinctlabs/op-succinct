@@ -753,10 +753,14 @@ mod integration {
                 let new_game = env.fault_dispute_game(new_game_info.proxy_).await?;
                 let claim_data = new_game.claimData().call().await?;
 
-                assert_eq!(
-                    claim_data.parentIndex,
-                    b1_index.to::<u32>(),
-                    "Proposer should build on the new anchor branch after reset"
+                // The proposer should either build on b1 (if it's ahead of anchor)
+                // or use u32::MAX (anchor path, if b1 IS the anchor after finalization).
+                assert!(
+                    claim_data.parentIndex == b1_index.to::<u32>() ||
+                        claim_data.parentIndex == u32::MAX,
+                    "Proposer should build on anchor branch (index {} or u32::MAX), got {}",
+                    b1_index,
+                    claim_data.parentIndex
                 );
 
                 info!(
