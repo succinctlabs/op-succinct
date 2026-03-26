@@ -321,12 +321,14 @@ mod proposer_sync {
 
         let starting_l2_block = env.anvil.starting_l2_block_number;
 
-        // Phase 1: Create all games before setting anchors. The contract requires
-        // parent.l2SeqNum > anchor.l2SeqNum, so children must exist before anchors are set.
+        // Phase 1: Create all games with time gaps between creations. The contract requires
+        // parent.l2SeqNum > anchor.l2SeqNum, so all games must exist before anchors are set.
+        // The time gaps ensure game 0 and 1 exceed MAX_GAME_DEADLINE_LAG from the anchor
+        // (game 2), so the deadline filter drops them during sync.
         let mut parent_id = M;
         let mut block = starting_l2_block;
         let mut game_addresses = Vec::new();
-        for _ in 0..3 {
+        for i in 0..3 {
             block += 1;
             let root_claim = env.compute_output_root_at_block(block).await?;
             env.create_game(root_claim, block, parent_id, init_bond).await?;
@@ -334,9 +336,18 @@ mod proposer_sync {
             game_addresses.push(address);
             tracing::info!("✓ Created game {index} with parent {parent_id}");
             parent_id = if parent_id == M { 0 } else { parent_id + 1 };
+
+            // Warp between creations to match original timing gaps.
+            if i == 0 {
+                env.warp_time(MAX_CHALLENGE_DURATION + 1 + DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1)
+                    .await?;
+            } else if i == 1 {
+                env.warp_time(MAX_CHALLENGE_DURATION + 1 + MAX_GAME_DEADLINE_LAG + 1)
+                    .await?;
+            }
         }
 
-        // Phase 2: Resolve and set anchors with appropriate time warps.
+        // Phase 2: Resolve and set anchors.
         for (i, &address) in game_addresses.iter().enumerate() {
             env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
             env.resolve_game(address).await?;
