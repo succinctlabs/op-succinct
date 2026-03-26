@@ -756,8 +756,8 @@ mod integration {
                 // The proposer should either build on b1 (if it's ahead of anchor)
                 // or use u32::MAX (anchor path, if b1 IS the anchor after finalization).
                 assert!(
-                    claim_data.parentIndex == b1_index.to::<u32>()
-                        || claim_data.parentIndex == u32::MAX,
+                    claim_data.parentIndex == b1_index.to::<u32>() ||
+                        claim_data.parentIndex == u32::MAX,
                     "Proposer should build on anchor branch (index {} or u32::MAX), got {}",
                     b1_index,
                     claim_data.parentIndex
