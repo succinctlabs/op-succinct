@@ -342,8 +342,7 @@ mod proposer_sync {
                 env.warp_time(MAX_CHALLENGE_DURATION + 1 + DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1)
                     .await?;
             } else if i == 1 {
-                env.warp_time(MAX_CHALLENGE_DURATION + 1 + MAX_GAME_DEADLINE_LAG + 1)
-                    .await?;
+                env.warp_time(MAX_CHALLENGE_DURATION + 1 + MAX_GAME_DEADLINE_LAG + 1).await?;
             }
         }
 
