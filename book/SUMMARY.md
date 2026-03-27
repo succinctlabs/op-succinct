@@ -29,6 +29,7 @@
   - [Contract Management](./fault_proofs/contracts.md)
     - [Deploy FP Contracts](./fault_proofs/deploy.md)
     - [Upgrade FP Contracts](./fault_proofs/upgrade.md)
+  - [Migration from Optimistic](./fault_proofs/migration.md)
   - [Running OP Succinct Lite](./fault_proofs/validity-mode.md)
     - [How to run the FP Proposer](./fault_proofs/proposer.md)
     - [How to run the FP Challenger](./fault_proofs/challenger.md)
