@@ -52,7 +52,7 @@ These are typically different keys. Confirm you have access to both before proce
 
 - L1 Archive Node RPC
 - L2 Execution Node RPC (`op-geth`)
-- L2 Rollup Node RPC (`op-node`), preferably with [SafeDB enabled](../fault_proofs/best_practices.md#safe-db-configuration)
+- L2 Rollup Node RPC (`op-node`), preferably with [SafeDB enabled](../fault_proofs/best_practices.md#safedb-configuration)
 - SP1 proving cluster or [Succinct Prover Network](https://docs.succinct.xyz/docs/sp1/prover-network/quickstart) access
 - L1 Beacon RPC (if using SafeDB or fast finality mode)
 - [Foundry](https://book.getfoundry.sh/getting-started/installation), [Rust](https://www.rust-lang.org/tools/install) (latest stable), [just](https://github.com/casey/just)
@@ -69,7 +69,7 @@ Before starting, understand how to revert if needed:
    ```
 3. Restart the old `op-proposer` and `op-challenger`.
 
-ZK games created during the migration window retain `wasRespectedGameTypeWhenCreated = true` and remain valid, but no new ZK games will be created after rollback.
+ZK games created during the migration window remain valid but no new ones will be created after rollback. The registered ZK implementation stays in the factory (there is no `removeImplementation`) but becomes inert once the respected type is switched back.
 
 ## Migration Steps
 
@@ -113,23 +113,23 @@ Save the proxy address from the output.
 
 ##### 1.4 Deploy OPSuccinctDisputeGame and register in factory
 
-With `L2OO_ADDRESS` set to the oracle proxy from the previous step, register the dispute game wrapper in your existing factory. See [OptimismPortal2 Support](../validity/contracts/optimism-portal-2.md#existing-disputegamefactory) for the full details.
+Since your chain already has a `DisputeGameFactory`, you need to deploy the `OPSuccinctDisputeGame` wrapper and register it manually — do **not** use `just deploy-dispute-game-factory` as that creates a new factory. See [OptimismPortal2 Support — Existing DisputeGameFactory](../validity/contracts/optimism-portal-2.md#existing-disputegamefactory) for details.
 
-The key steps are:
+1. Deploy the `OPSuccinctDisputeGame` contract (using `forge create` or a custom script with `L2OO_ADDRESS` set to the oracle proxy from step 1.3).
 
-1. Deploy `OPSuccinctDisputeGame` and register in factory:
+2. Register the game implementation in your existing factory:
    ```bash
-   # Set L2OO_ADDRESS and PROPOSER_ADDRESSES in .env, then:
-   just deploy-dispute-game-factory
+   cast send $FACTORY_ADDRESS "setImplementation(uint32,address)" 6 $DISPUTE_GAME_ADDRESS \
+     --rpc-url $L1_RPC --private-key $PRIVATE_KEY
    ```
 
-2. Link the factory to the oracle:
+3. Link the factory to the oracle:
    ```bash
    cast send $L2OO_ADDRESS "setDisputeGameFactory(address)" $FACTORY_ADDRESS \
      --rpc-url $L1_RPC --private-key $PRIVATE_KEY
    ```
 
-3. Set the initial bond:
+4. Set the initial bond:
    ```bash
    cast send $FACTORY_ADDRESS "setInitBond(uint32,uint256)" 6 $INITIAL_BOND_WEI \
      --rpc-url $L1_RPC --private-key $PRIVATE_KEY
