@@ -3,7 +3,7 @@
 //! On restart, the proposer can restore its cursor and game cache from a backup file,
 //! avoiding a full re-sync from the factory contract.
 
-use std::{collections::HashSet, io::Write, path::Path};
+use std::{io::Write, path::Path};
 
 use tempfile::NamedTempFile;
 
@@ -36,28 +36,21 @@ impl ProposerBackup {
     /// Checks for:
     /// - Cursor exists but no games (likely stale/corrupted)
     /// - Anchor game index references a non-existent game
-    /// - Games with parent indices that don't exist in the backup (orphaned games)
+    ///
+    /// NOTE: Orphaned parent references (parent not in backup) are intentionally allowed.
+    /// Anchor-based fetching and ASR filtering both produce partial DAGs where the oldest
+    /// games' parents are not present.
     pub fn validate(&self) -> Result<()> {
-        // Check: cursor exists but no games
         if let Some(cursor) = self.cursor {
             if self.games.is_empty() && cursor > U256::ZERO {
                 bail!("cursor exists but no games");
             }
         }
 
-        // Check: anchor game index references non-existent game
         if let Some(anchor_idx) = self.anchor_game_index {
             if !self.games.iter().any(|g| g.index == anchor_idx) {
                 bail!("anchor game index references non-existent game");
             }
-        }
-
-        // Check: games with orphaned parent references (parent_index == u32::MAX means genesis)
-        let game_indices: HashSet<U256> = self.games.iter().map(|g| g.index).collect();
-        if self.games.iter().any(|g| {
-            g.parent_index != u32::MAX && !game_indices.contains(&U256::from(g.parent_index))
-        }) {
-            bail!("games have orphaned parent references");
         }
 
         Ok(())
