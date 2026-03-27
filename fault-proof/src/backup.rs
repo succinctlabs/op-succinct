@@ -31,22 +31,17 @@ impl ProposerBackup {
         Self { version: BACKUP_VERSION, cursor, games, anchor_game_index }
     }
 
-    /// Validate backup integrity.
-    ///
-    /// Checks for:
-    /// - Cursor exists but no games (likely stale/corrupted)
-    /// - Anchor game index references a non-existent game
-    ///
-    /// NOTE: Orphaned parent references (parent not in backup) are intentionally allowed.
-    /// Anchor-based fetching and ASR filtering both produce partial DAGs where the oldest
-    /// games' parents are not present.
+    /// Validate backup integrity. Rejects stale/corrupted backups but allows orphaned parent
+    /// references, which are normal when anchor-based fetching or ASR filtering produce partial DAGs.
     pub fn validate(&self) -> Result<()> {
+        // Cursor with no games indicates a stale or corrupted backup.
         if let Some(cursor) = self.cursor {
             if self.games.is_empty() && cursor > U256::ZERO {
                 bail!("cursor exists but no games");
             }
         }
 
+        // Anchor must reference a game that exists in the backup.
         if let Some(anchor_idx) = self.anchor_game_index {
             if !self.games.iter().any(|g| g.index == anchor_idx) {
                 bail!("anchor game index references non-existent game");
