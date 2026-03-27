@@ -29,7 +29,6 @@
   - [Contract Management](./fault_proofs/contracts.md)
     - [Deploy FP Contracts](./fault_proofs/deploy.md)
     - [Upgrade FP Contracts](./fault_proofs/upgrade.md)
-  - [Migration from Optimistic](./fault_proofs/migration.md)
   - [Running OP Succinct Lite](./fault_proofs/validity-mode.md)
     - [How to run the FP Proposer](./fault_proofs/proposer.md)
     - [How to run the FP Challenger](./fault_proofs/challenger.md)
@@ -44,6 +43,7 @@
     - [EigenDA DA](./fault_proofs/experimental/eigenda.md)
 
 - [Advanced](./advanced/intro.md)
+  - [Migration from Optimistic](./advanced/migration.md)
   - [Self-Hosted Proving Cluster](./advanced/self-hosted-cluster.md)
   - [Cost Estimation Tools](./advanced/cost-estimation-tools.md)
   - [Prove Scripts](./advanced/prove-scripts.md)
