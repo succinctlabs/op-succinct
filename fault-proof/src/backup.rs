@@ -32,7 +32,8 @@ impl ProposerBackup {
     }
 
     /// Validate backup integrity. Rejects stale/corrupted backups but allows orphaned parent
-    /// references, which are normal when anchor-based fetching or ASR filtering produce partial DAGs.
+    /// references, which are normal when anchor-based fetching or ASR filtering produce partial
+    /// DAGs.
     pub fn validate(&self) -> Result<()> {
         // Cursor with no games indicates a stale or corrupted backup.
         if let Some(cursor) = self.cursor {
