@@ -1,6 +1,6 @@
-//! Simple file-based state persistence for proposer recovery.
+//! Simple file-based state persistence for proposer and challenger recovery.
 //!
-//! On restart, the proposer can restore its cursor and game cache from a backup file,
+//! On restart, the proposer/challenger can restore its cursor and game cache from a backup file,
 //! avoiding a full re-sync from the factory contract.
 
 use std::{collections::HashSet, io::Write, path::Path};
@@ -11,7 +11,7 @@ use alloy_primitives::U256;
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::proposer::Game;
+use crate::{challenger::Game as ChallengerGame, proposer::Game};
 
 /// Current backup format version. Increment when making breaking changes.
 pub const BACKUP_VERSION: u32 = 1;
@@ -117,6 +117,81 @@ impl ProposerBackup {
     }
 }
 
+// ==================== Challenger Backup ====================
+
+/// Current challenger backup format version. Increment when making breaking changes.
+pub const CHALLENGER_BACKUP_VERSION: u32 = 1;
+
+/// Serializable backup of the challenger state.
+#[derive(Serialize, Deserialize)]
+pub struct ChallengerBackup {
+    pub version: u32,
+    pub cursor: U256,
+    pub games: Vec<ChallengerGame>,
+}
+
+impl ChallengerBackup {
+    pub fn new(cursor: U256, games: Vec<ChallengerGame>) -> Self {
+        Self { version: CHALLENGER_BACKUP_VERSION, cursor, games }
+    }
+
+    /// Validate backup integrity.
+    pub fn validate(&self) -> Result<()> {
+        // Cursor with no games indicates a stale or corrupted backup.
+        if self.games.is_empty() && self.cursor > U256::ZERO {
+            bail!("cursor exists but no games");
+        }
+        Ok(())
+    }
+
+    /// Save the backup to a file as JSON (atomic via temp file + rename with fsync).
+    pub fn save(&self, path: &Path) -> Result<()> {
+        let json =
+            serde_json::to_string_pretty(self).context("failed to serialize challenger backup")?;
+
+        let dir = path.parent().unwrap_or(Path::new("."));
+        let mut temp =
+            NamedTempFile::new_in(dir).context("failed to create challenger backup temp file")?;
+        temp.write_all(json.as_bytes()).context("failed to write challenger backup temp file")?;
+        temp.as_file().sync_all().context("failed to sync challenger backup temp file")?;
+        temp.persist(path).context("failed to persist challenger backup file")?;
+
+        tracing::debug!(?path, games = self.games.len(), "Challenger state backed up");
+        Ok(())
+    }
+
+    /// Load and validate a backup from file. Returns None if unavailable or invalid.
+    pub fn load(path: &Path) -> Option<Self> {
+        let json = std::fs::read_to_string(path).ok()?;
+
+        let backup = match serde_json::from_str::<Self>(&json) {
+            Ok(b) => b,
+            Err(e) => {
+                tracing::warn!(?path, error = %e, "Failed to parse challenger backup, starting fresh");
+                return None;
+            }
+        };
+
+        if backup.version != CHALLENGER_BACKUP_VERSION {
+            tracing::warn!(
+                ?path,
+                backup_version = backup.version,
+                current_version = CHALLENGER_BACKUP_VERSION,
+                "Challenger backup version mismatch, starting fresh"
+            );
+            return None;
+        }
+
+        if let Err(e) = backup.validate() {
+            tracing::warn!(?path, error = %e, "Challenger backup validation failed, starting fresh");
+            return None;
+        }
+
+        tracing::info!(?path, games = backup.games.len(), "Challenger backup loaded");
+        Some(backup)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -178,6 +253,57 @@ mod tests {
             keys,
             vec!["anchor_game_index", "cursor", "games", "version"],
             "ProposerBackup schema changed! Bump BACKUP_VERSION in backup.rs"
+        );
+    }
+
+    #[test]
+    fn challenger_backup_schema_guard() {
+        use crate::contract::{GameStatus, ProposalStatus};
+        use alloy_primitives::Address;
+
+        let game = ChallengerGame {
+            index: U256::ZERO,
+            address: Address::ZERO,
+            parent_index: 0,
+            l2_block_number: U256::ZERO,
+            is_invalid: false,
+            status: GameStatus::IN_PROGRESS,
+            proposal_status: ProposalStatus::Unchallenged,
+            should_attempt_to_challenge: false,
+            should_attempt_to_resolve: false,
+            should_attempt_to_claim_bond: false,
+        };
+
+        let json = serde_json::to_value(&game).unwrap();
+        let mut keys: Vec<_> = json.as_object().unwrap().keys().cloned().collect();
+        keys.sort();
+
+        assert_eq!(
+            keys,
+            vec![
+                "address",
+                "index",
+                "is_invalid",
+                "l2_block_number",
+                "parent_index",
+                "proposal_status",
+                "should_attempt_to_challenge",
+                "should_attempt_to_claim_bond",
+                "should_attempt_to_resolve",
+                "status",
+            ],
+            "ChallengerGame schema changed! Bump CHALLENGER_BACKUP_VERSION in backup.rs"
+        );
+
+        let backup = ChallengerBackup::new(U256::ZERO, vec![]);
+        let json = serde_json::to_value(&backup).unwrap();
+        let mut keys: Vec<_> = json.as_object().unwrap().keys().cloned().collect();
+        keys.sort();
+
+        assert_eq!(
+            keys,
+            vec!["cursor", "games", "version"],
+            "ChallengerBackup schema changed! Bump CHALLENGER_BACKUP_VERSION in backup.rs"
         );
     }
 }

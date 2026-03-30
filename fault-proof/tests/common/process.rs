@@ -119,6 +119,7 @@ pub async fn new_challenger(
         game_type,
         metrics_port: 9001,
         malicious_challenge_percentage: malicious_percentage.unwrap_or(0.0),
+        backup_path: None,
     };
 
     let l1_provider = ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone());

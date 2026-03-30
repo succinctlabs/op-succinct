@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    path::Path,
     sync::{Arc, OnceLock},
     time::Duration,
 };
@@ -9,9 +10,11 @@ use alloy_primitives::{Address, U256};
 use alloy_provider::{Provider, ProviderBuilder};
 use anyhow::{bail, Context, Result};
 use rand::{rngs::StdRng, Rng, SeedableRng};
+use serde::{Deserialize, Serialize};
 use tokio::{sync::Mutex, time};
 
 use crate::{
+    backup::ChallengerBackup,
     config::ChallengerConfig,
     contract::{
         AnchorStateRegistry::AnchorStateRegistryInstance,
@@ -97,6 +100,8 @@ where
                 continue
             }
 
+            self.backup().await;
+
             if let Err(e) = self.handle_game_challenging().await {
                 tracing::warn!("Failed to handle game challenging: {:?}", e);
             }
@@ -137,10 +142,31 @@ where
         Ok(())
     }
 
-    /// Validates startup and initializes state.
+    /// Validates startup, initializes state, and restores from backup if available.
     async fn validate_and_init(&self) -> Result<()> {
         let bond = self.startup_validations().await?;
         self.init_state(bond);
+
+        if let Some(path) = &self.config.backup_path {
+            if let Some(parent) = path.parent() {
+                if !parent.as_os_str().is_empty() && !parent.exists() {
+                    anyhow::bail!("backup path parent directory does not exist: {:?}", parent);
+                }
+            }
+
+            let dir = path.parent().unwrap_or(Path::new("."));
+            tempfile::NamedTempFile::new_in(dir)
+                .with_context(|| format!("backup path is not writable: {:?}", path))?;
+
+            if let Some(restored) = ChallengerState::try_restore(path) {
+                let mut state = self.state.lock().await;
+                state.cursor = restored.cursor;
+                state.games = restored.games;
+            } else if path.exists() {
+                tracing::warn!(?path, "Failed to restore challenger state from backup");
+            }
+        }
+
         Ok(())
     }
 
@@ -648,6 +674,18 @@ where
         Ok(())
     }
 
+    /// Backup challenger state to disk. No-op if backup_path is not configured.
+    async fn backup(&self) {
+        let Some(path) = &self.config.backup_path else { return };
+        let backup = {
+            let state = self.state.lock().await;
+            state.to_backup()
+        };
+        if let Err(e) = backup.save(path) {
+            tracing::warn!("Failed to backup challenger state: {:?}", e);
+        }
+    }
+
     // ==================== Integration Test Helpers ====================
 
     /// Returns a copy of a game's full internal state for testing.
@@ -672,7 +710,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Game {
     pub index: U256,
     pub address: Address,
@@ -689,4 +727,29 @@ pub struct Game {
 pub struct ChallengerState {
     cursor: U256,
     games: HashMap<U256, Game>,
+}
+
+impl ChallengerState {
+    fn to_backup(&self) -> ChallengerBackup {
+        ChallengerBackup::new(self.cursor, self.games.values().cloned().collect())
+    }
+
+    fn from_backup(backup: ChallengerBackup) -> Self {
+        Self {
+            cursor: backup.cursor,
+            games: backup.games.into_iter().map(|g| (g.index, g)).collect(),
+        }
+    }
+
+    pub fn try_restore(path: &Path) -> Option<Self> {
+        let backup = ChallengerBackup::load(path)?;
+        let state = Self::from_backup(backup);
+        tracing::info!(
+            ?path,
+            games = state.games.len(),
+            cursor = %state.cursor,
+            "Challenger state restored from backup"
+        );
+        Some(state)
+    }
 }
