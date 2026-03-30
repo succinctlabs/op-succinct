@@ -681,9 +681,12 @@ where
             let state = self.state.lock().await;
             state.to_backup()
         };
-        if let Err(e) = backup.save(path) {
-            tracing::warn!("Failed to backup challenger state: {:?}", e);
-        }
+        let path = path.clone();
+        tokio::task::spawn_blocking(move || {
+            if let Err(e) = backup.save(&path) {
+                tracing::warn!("Failed to backup challenger state: {:?}", e);
+            }
+        });
     }
 
     // ==================== Integration Test Helpers ====================

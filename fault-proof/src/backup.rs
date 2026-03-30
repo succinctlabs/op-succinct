@@ -13,6 +13,22 @@ use serde::{Deserialize, Serialize};
 
 use crate::{challenger::Game as ChallengerGame, proposer::Game};
 
+/// Atomically save a serializable value as pretty-printed JSON (temp file + fsync + rename).
+fn save_json(value: &impl Serialize, path: &Path, label: &str) -> Result<()> {
+    let json = serde_json::to_string_pretty(value)
+        .with_context(|| format!("failed to serialize {label} backup"))?;
+    let dir = path.parent().unwrap_or(Path::new("."));
+    let mut temp = NamedTempFile::new_in(dir)
+        .with_context(|| format!("failed to create {label} backup temp file"))?;
+    temp.write_all(json.as_bytes())
+        .with_context(|| format!("failed to write {label} backup temp file"))?;
+    temp.as_file()
+        .sync_all()
+        .with_context(|| format!("failed to sync {label} backup temp file"))?;
+    temp.persist(path).with_context(|| format!("failed to persist {label} backup file"))?;
+    Ok(())
+}
+
 /// Current backup format version. Increment when making breaking changes.
 pub const BACKUP_VERSION: u32 = 1;
 
@@ -63,18 +79,8 @@ impl ProposerBackup {
         Ok(())
     }
 
-    /// Save the backup to a file as JSON (atomic via temp file + rename with fsync).
     pub fn save(&self, path: &Path) -> Result<()> {
-        let json =
-            serde_json::to_string_pretty(self).context("failed to serialize proposer backup")?;
-
-        let dir = path.parent().unwrap_or(Path::new("."));
-        let mut temp =
-            NamedTempFile::new_in(dir).context("failed to create proposer backup temp file")?;
-        temp.write_all(json.as_bytes()).context("failed to write proposer backup temp file")?;
-        temp.as_file().sync_all().context("failed to sync proposer backup temp file")?;
-        temp.persist(path).context("failed to persist proposer backup file")?;
-
+        save_json(self, path, "proposer")?;
         tracing::debug!(?path, games = self.games.len(), "Proposer state backed up");
         Ok(())
     }
@@ -144,18 +150,8 @@ impl ChallengerBackup {
         Ok(())
     }
 
-    /// Save the backup to a file as JSON (atomic via temp file + rename with fsync).
     pub fn save(&self, path: &Path) -> Result<()> {
-        let json =
-            serde_json::to_string_pretty(self).context("failed to serialize challenger backup")?;
-
-        let dir = path.parent().unwrap_or(Path::new("."));
-        let mut temp =
-            NamedTempFile::new_in(dir).context("failed to create challenger backup temp file")?;
-        temp.write_all(json.as_bytes()).context("failed to write challenger backup temp file")?;
-        temp.as_file().sync_all().context("failed to sync challenger backup temp file")?;
-        temp.persist(path).context("failed to persist challenger backup file")?;
-
+        save_json(self, path, "challenger")?;
         tracing::debug!(?path, games = self.games.len(), "Challenger state backed up");
         Ok(())
     }

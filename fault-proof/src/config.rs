@@ -319,7 +319,7 @@ impl ChallengerConfig {
             malicious_challenge_percentage: env::var("MALICIOUS_CHALLENGE_PERCENTAGE")
                 .unwrap_or("0.0".to_string())
                 .parse()?,
-            backup_path: env::var("BACKUP_PATH").ok().map(PathBuf::from),
+            backup_path: env::var("CHALLENGER_BACKUP_PATH").ok().map(PathBuf::from),
         })
     }
 
