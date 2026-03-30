@@ -1134,6 +1134,11 @@ where
 
         let agg_proof = self.prover.generate_agg_proof(sp1_stdin).await?;
 
+        // Final guard: check if the game ended during proof generation (minutes to hours).
+        if game.gameOver().call().await? {
+            bail!("Game is over (expired or already proven), aborting proof submission");
+        }
+
         let transaction_request = game.prove(agg_proof.bytes().into()).into_transaction_request();
         let receipt = self
             .signer
@@ -2165,7 +2170,13 @@ where
             }
         }
 
-        // Check deadline if provided
+        // Check on-chain gameOver() — covers both expiry and already-proven cases.
+        let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+        if contract.gameOver().call().await? {
+            tracing::info!(?game_address, "Game is over (expired or already proven), skipping");
+            return Ok(true);
+        }
+
         if let Some(deadline) = deadline {
             let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
 
