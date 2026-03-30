@@ -787,6 +787,13 @@ where
 
                 match status {
                     GameStatus::IN_PROGRESS => {
+                        // Challenged + expired = guaranteed CHALLENGER_WINS, cascades to
+                        // descendants.
+                        if claim_data.status == ProposalStatus::Challenged && now_ts >= deadline {
+                            actions.push(GameSyncAction::RemoveSubtree(index));
+                            continue;
+                        }
+
                         let game_type = contract.gameType().call().await?;
                         let parent_resolved =
                             is_parent_resolved(parent_index, self.factory.as_ref()).await?;
