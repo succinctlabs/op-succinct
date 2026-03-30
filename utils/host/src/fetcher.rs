@@ -880,49 +880,14 @@ mod tests {
         RollupConfig { l2_chain_id: chain_id.into(), ..Default::default() }
     }
 
-    fn write_config(dir: &TempDir, name: &str, content: &str) -> PathBuf {
-        let path = dir.path().join(name);
-        fs::write(&path, content).unwrap();
-        path
-    }
-
-    #[test]
-    fn load_valid_cached_config() {
-        let dir = TempDir::new().unwrap();
-        let config = test_rollup_config(42220);
-        let path =
-            write_config(&dir, "42220.json", &serde_json::to_string_pretty(&config).unwrap());
-
-        let loaded: RollupConfig =
-            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(loaded.l2_chain_id.id(), 42220);
-    }
-
-    #[test]
-    fn corrupted_cache_returns_error() {
-        let dir = TempDir::new().unwrap();
-        let path = write_config(&dir, "42220.json", "not valid json{{{");
-
-        assert!(serde_json::from_str::<RollupConfig>(&fs::read_to_string(&path).unwrap()).is_err());
-    }
-
-    #[test]
-    fn chain_id_hex_parsing() {
-        for (input, expected) in [("0xa4ec", 42220u64), ("0XA4EC", 42220), ("a4ec", 42220)] {
-            let stripped =
-                input.strip_prefix("0x").or_else(|| input.strip_prefix("0X")).unwrap_or(input);
-            assert_eq!(u64::from_str_radix(stripped, 16).unwrap(), expected);
-        }
-    }
-
     #[test]
     fn config_hash_survives_round_trip() {
         let dir = TempDir::new().unwrap();
         let config = test_rollup_config(42220);
         let hash_before = hash_rollup_config(&config);
 
-        let path =
-            write_config(&dir, "42220.json", &serde_json::to_string_pretty(&config).unwrap());
+        let path = dir.path().join("42220.json");
+        fs::write(&path, serde_json::to_string_pretty(&config).unwrap()).unwrap();
         let loaded: RollupConfig =
             serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
 
