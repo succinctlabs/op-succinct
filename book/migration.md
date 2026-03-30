@@ -52,7 +52,7 @@ These are typically different keys. Confirm you have access to both before proce
 
 - L1 Archive Node RPC
 - L2 Execution Node RPC (`op-geth`)
-- L2 Rollup Node RPC (`op-node`), preferably with [SafeDB enabled](../fault_proofs/best_practices.md#safedb-configuration)
+- L2 Rollup Node RPC (`op-node`), preferably with [SafeDB enabled](./fault_proofs/best_practices.md#safedb-configuration)
 - SP1 proving cluster or [Succinct Prover Network](https://docs.succinct.xyz/docs/sp1/prover-network/quickstart) access
 - L1 Beacon RPC (if using SafeDB or fast finality mode)
 - [Foundry](https://book.getfoundry.sh/getting-started/installation), [Rust](https://www.rust-lang.org/tools/install) (latest stable), [just](https://github.com/casey/just)
@@ -92,7 +92,7 @@ cd ..
 
 ##### 1.2 Configure environment
 
-Create a `.env` file in the project root. See [Environment Variables](../validity/contracts/environment.md) for the full reference.
+Create a `.env` file in the project root. See [Environment Variables](./validity/contracts/environment.md) for the full reference.
 
 Key variables for migration:
 
@@ -103,7 +103,7 @@ Key variables for migration:
 
 ##### 1.3 Deploy OPSuccinctL2OutputOracle
 
-Deploy the oracle contract following the [validity deployment guide](../validity/contracts/deploy.md):
+Deploy the oracle contract following the [validity deployment guide](./validity/contracts/deploy.md):
 
 ```bash
 just deploy-oracle
@@ -113,7 +113,7 @@ Save the proxy address from the output.
 
 ##### 1.4 Deploy OPSuccinctDisputeGame and register in factory
 
-Since your chain already has a `DisputeGameFactory`, you need to deploy the `OPSuccinctDisputeGame` wrapper and register it manually — do **not** use `just deploy-dispute-game-factory` as that creates a new factory. See [OptimismPortal2 Support — Existing DisputeGameFactory](../validity/contracts/optimism-portal-2.md#existing-disputegamefactory) for details.
+Since your chain already has a `DisputeGameFactory`, you need to deploy the `OPSuccinctDisputeGame` wrapper and register it manually — do **not** use `just deploy-dispute-game-factory` as that creates a new factory. See [OptimismPortal2 Support — Existing DisputeGameFactory](./validity/contracts/optimism-portal-2.md#existing-disputegamefactory) for details.
 
 1. Deploy the `OPSuccinctDisputeGame` contract (using `forge create` or a custom script with `L2OO_ADDRESS` set to the oracle proxy from step 1.3).
 
@@ -151,7 +151,7 @@ cast call $FACTORY_ADDRESS "initBonds(uint32)" 6 --rpc-url $L1_RPC
 
 ##### 1.2 Configure environment
 
-Create a `.env` file in the project root. This uses the same environment variables as a fresh deployment — see [Contract Configuration](../fault_proofs/deploy.md#contract-configuration) for the full reference.
+Create a `.env` file in the project root. This uses the same environment variables as a fresh deployment — see [Contract Configuration](./fault_proofs/deploy.md#contract-configuration) for the full reference.
 
 Key differences for migration (vs. greenfield deploy):
 
@@ -165,11 +165,11 @@ Key differences for migration (vs. greenfield deploy):
 
 ##### 1.3 Access control configuration
 
-Configure proposer and challenger access control as described in the [deployment guide](../fault_proofs/deploy.md#required-environment-variables). Permissioned mode (`PERMISSIONLESS_MODE=false`) is recommended for initial migration. See [Fallback Timeout Mechanism](../fault_proofs/deploy.md#fallback-timeout-mechanism) for details on permissionless fallback behavior.
+Configure proposer and challenger access control as described in the [deployment guide](./fault_proofs/deploy.md#required-environment-variables). Permissioned mode (`PERMISSIONLESS_MODE=false`) is recommended for initial migration. See [Fallback Timeout Mechanism](./fault_proofs/deploy.md#fallback-timeout-mechanism) for details on permissionless fallback behavior.
 
 ##### 1.4 Deploy and register
 
-Use the [upgrade script](../fault_proofs/upgrade.md#upgrade-command) to deploy `OPSuccinctFaultDisputeGame` and register it in your existing factory. The script calls `DisputeGameFactory.setImplementation(42, newImpl)`.
+Use the [upgrade script](./fault_proofs/upgrade.md#upgrade-command) to deploy `OPSuccinctFaultDisputeGame` and register it in your existing factory. The script calls `DisputeGameFactory.setImplementation(42, newImpl)`.
 
 ```bash
 # Dry run first to verify
@@ -186,7 +186,7 @@ cast send $FACTORY_ADDRESS "setInitBond(uint32,uint256)" 42 $INITIAL_BOND_WEI \
   --rpc-url $L1_RPC --private-key $PRIVATE_KEY
 ```
 
-For bond sizing guidance, see the [deployment guide](../fault_proofs/deploy.md#optional-environment-variables).
+For bond sizing guidance, see the [deployment guide](./fault_proofs/deploy.md#optional-environment-variables).
 
 ##### 1.5 Verify registration
 
@@ -198,7 +198,7 @@ cast call $FACTORY_ADDRESS "gameImpls(uint32)" 42 --rpc-url $L1_RPC
 cast call $FACTORY_ADDRESS "initBonds(uint32)" 42 --rpc-url $L1_RPC
 ```
 
-See the [upgrade verification](../fault_proofs/upgrade.md#verification) guide for more details.
+See the [upgrade verification](./fault_proofs/upgrade.md#verification) guide for more details.
 
 ---
 
@@ -222,12 +222,14 @@ cast call $ANCHOR_STATE_REGISTRY_ADDRESS "respectedGameType()" --rpc-url $L1_RPC
 ```
 
 ```admonish important
-Only start the OP Succinct proposer **after** `setRespectedGameType` is confirmed. Games created before this call will have `wasRespectedGameTypeWhenCreated = false` and cannot be used for withdrawal proofs.
+**Fault proof mode only:** Only start the proposer **after** `setRespectedGameType` is confirmed. `OPSuccinctFaultDisputeGame` dynamically checks the respected game type at initialization — games created before this call will have `wasRespectedGameTypeWhenCreated = false` and cannot be used for withdrawal proofs.
+
+**Validity mode:** `OPSuccinctDisputeGame` always sets `wasRespectedGameTypeWhenCreated = true`, so proposer start order relative to `setRespectedGameType` does not affect game validity. However, you should still set the respected game type first so that `OptimismPortal2` recognizes the new games for withdrawal finalization.
 ```
 
 #### 2.2 Start the proposer
 
-**Validity mode:** Create a `.env` file with proposer configuration. See [Proposer Configuration](../validity/proposer.md) for the full list of variables.
+**Validity mode:** Create a `.env` file with proposer configuration. See [Proposer Configuration](./validity/proposer.md) for the full list of variables.
 
 Migration-specific notes:
 - Set `L2OO_ADDRESS` to the `OPSuccinctL2OutputOracle` proxy deployed in Phase 1.
@@ -238,7 +240,7 @@ Migration-specific notes:
 docker compose up
 ```
 
-**Fault proof mode:** Create `.env.proposer` in the `fault-proof` directory. See [Proposer Configuration](../fault_proofs/proposer.md#configuration) for the full list of variables.
+**Fault proof mode:** Create `.env.proposer` in the `fault-proof` directory. See [Proposer Configuration](./fault_proofs/proposer.md#configuration) for the full list of variables.
 
 Migration-specific notes:
 - Use the `ANCHOR_STATE_REGISTRY_ADDRESS` and `FACTORY_ADDRESS` from your existing deployment.
@@ -256,7 +258,7 @@ Watch for logs confirming ZK games are being created (e.g., `Game created succes
 
 This step only applies to **OP Succinct Lite (fault proof mode)**. Validity mode does not require a separate challenger.
 
-Create `.env.challenger` in the `fault-proof` directory. See [Challenger Configuration](../fault_proofs/challenger.md#configuration) for the full reference.
+Create `.env.challenger` in the `fault-proof` directory. See [Challenger Configuration](./fault_proofs/challenger.md#configuration) for the full reference.
 
 ```bash
 cargo run --bin challenger
@@ -312,7 +314,7 @@ This marks all games created at or before `block.timestamp` as retired (`isGameR
 | Challenger active | Log: `Game challenged successfully` (fault proof mode only) |
 | Old games winding down | Decreasing count of unresolved old-type games |
 
-For metrics endpoints, see [Validity Proposer](../validity/proposer.md) (`METRICS_PORT`) or [FP Proposer](../fault_proofs/proposer.md#optional-environment-variables) (`PROPOSER_METRICS_PORT`) and [FP Challenger](../fault_proofs/challenger.md#optional-environment-variables) (`CHALLENGER_METRICS_PORT`).
+For metrics endpoints, see [Validity Proposer](./validity/proposer.md) (`METRICS_PORT`) or [FP Proposer](./fault_proofs/proposer.md#optional-environment-variables) (`PROPOSER_METRICS_PORT`) and [FP Challenger](./fault_proofs/challenger.md#optional-environment-variables) (`CHALLENGER_METRICS_PORT`).
 
 ## Withdrawal Safety Details
 
@@ -321,7 +323,8 @@ For operators who want a deeper understanding of withdrawal behavior during migr
 ### How withdrawals work across the game type switch
 
 - **Old games** (created before switch): `wasRespectedGameTypeWhenCreated = true` (immutable). Withdrawals can be proven and finalized against these games normally.
-- **New ZK games**: `wasRespectedGameTypeWhenCreated = true` since the new type is now respected. Work normally.
+- **New ZK games (fault proof mode)**: `wasRespectedGameTypeWhenCreated` is dynamically set at game creation based on the current respected type. Games created after `setRespectedGameType` will have the flag set to `true`.
+- **New ZK games (validity mode)**: `OPSuccinctDisputeGame` always hardcodes `wasRespectedGameTypeWhenCreated = true`, regardless of the respected game type at creation time.
 
 ### Withdrawal timeline
 
