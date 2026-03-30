@@ -103,12 +103,12 @@ kona-registry = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.2
 kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.2.7", default-features = false }
 
 # celo-kona
-celo-driver = { git = "https://github.com/celo-org/celo-kona", rev = "9a8c04e" }
-celo-proof = { git = "https://github.com/celo-org/celo-kona", rev = "9a8c04e" }
-celo-host = { git = "https://github.com/celo-org/celo-kona", rev = "9a8c04e" }
-celo-protocol = { git = "https://github.com/celo-org/celo-kona", rev = "9a8c04e", default-features = false }
-celo-genesis = { git = "https://github.com/celo-org/celo-kona", rev = "9a8c04e", default-features = false }
-celo-registry = { git = "https://github.com/celo-org/celo-kona", rev = "9a8c04e", default-features = false }
+celo-driver = { git = "https://github.com/celo-org/celo-kona", rev = "87b7eef" }
+celo-proof = { git = "https://github.com/celo-org/celo-kona", rev = "87b7eef" }
+celo-host = { git = "https://github.com/celo-org/celo-kona", rev = "87b7eef" }
+celo-protocol = { git = "https://github.com/celo-org/celo-kona", rev = "87b7eef", default-features = false }
+celo-genesis = { git = "https://github.com/celo-org/celo-kona", rev = "87b7eef", default-features = false }
+celo-registry = { git = "https://github.com/celo-org/celo-kona", rev = "87b7eef", default-features = false }
 
 # hana
 hana-blobstream = { git = "https://github.com/celestiaorg/hana", tag = "1.5.0-mocha" }
@@ -201,10 +201,10 @@ op-alloy-rpc-types-engine = { version = "0.22.4", default-features = false }
 op-alloy-network = { version = "0.22.4", default-features = false }
 
 # Celo Alloy
-celo-alloy-consensus = { git = "https://github.com/celo-org/celo-kona", rev = "9a8c04e", default-features = false }
-celo-alloy-rpc-types = { git = "https://github.com/celo-org/celo-kona", rev = "9a8c04e", default-features = false }
-celo-alloy-rpc-types-engine = { git = "https://github.com/celo-org/celo-kona", rev = "9a8c04e", default-features = false }
-celo-alloy-network = { git = "https://github.com/celo-org/celo-kona", rev = "9a8c04e", default-features = false }
+celo-alloy-consensus = { git = "https://github.com/celo-org/celo-kona", rev = "87b7eef", default-features = false }
+celo-alloy-rpc-types = { git = "https://github.com/celo-org/celo-kona", rev = "87b7eef", default-features = false }
+celo-alloy-rpc-types-engine = { git = "https://github.com/celo-org/celo-kona", rev = "87b7eef", default-features = false }
+celo-alloy-network = { git = "https://github.com/celo-org/celo-kona", rev = "87b7eef", default-features = false }
 
 # Execution
 alloy-evm = { version = "0.24.2", default-features = false }
@@ -218,7 +218,7 @@ revm-precompile = { version = "31.0.0", default-features = false }
 op-revm = { version = "14.1.0", default-features = false }
 
 # Celo Execution
-alloy-celo-evm = { git = "https://github.com/celo-org/celo-kona", rev = "9a8c04e", default-features = false }
+alloy-celo-evm = { git = "https://github.com/celo-org/celo-kona", rev = "87b7eef", default-features = false }
 
 # SP1
 sp1-sdk = { version = "=5.2.4", default-features = false, features = ["network"] }
@@ -280,15 +280,41 @@ reth-trie = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kon
 reth-trie-common = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
 
 [patch."https://github.com/op-rs/kona"]
-kona-mpt = { git = "https://github.com/celo-org/kona", rev = "ce6c778e" }
-kona-derive = { git = "https://github.com/celo-org/kona", rev = "ce6c778e"}
-kona-driver = { git = "https://github.com/celo-org/kona", rev = "ce6c778e" }
-kona-preimage = { git = "https://github.com/celo-org/kona", rev = "ce6c778e"}
-kona-executor = { git = "https://github.com/celo-org/kona", rev = "ce6c778e" }
-kona-proof = { git = "https://github.com/celo-org/kona", rev = "ce6c778e" }
-kona-client = { git = "https://github.com/celo-org/kona", rev = "ce6c778e" }
-kona-host = { git = "https://github.com/celo-org/kona", rev = "ce6c778e" }
-kona-providers-alloy = { git = "https://github.com/celo-org/kona", rev = "ce6c778e" }
-kona-protocol = { git = "https://github.com/celo-org/kona", rev = "ce6c778e"}
-kona-registry = { git = "https://github.com/celo-org/kona", rev = "ce6c778e"}
-kona-genesis = { git = "https://github.com/celo-org/kona", rev = "ce6c778e"}
+kona-mpt = { git = "https://github.com/celo-org/kona", rev = "cf790b7" }
+kona-derive = { git = "https://github.com/celo-org/kona", rev = "cf790b7" }
+kona-driver = { git = "https://github.com/celo-org/kona", rev = "cf790b7" }
+kona-preimage = { git = "https://github.com/celo-org/kona", rev = "cf790b7" }
+kona-executor = { git = "https://github.com/celo-org/kona", rev = "cf790b7" }
+kona-proof = { git = "https://github.com/celo-org/kona", rev = "cf790b7" }
+kona-client = { git = "https://github.com/celo-org/kona", rev = "cf790b7" }
+kona-host = { git = "https://github.com/celo-org/kona", rev = "cf790b7" }
+kona-providers-alloy = { git = "https://github.com/celo-org/kona", rev = "cf790b7" }
+kona-protocol = { git = "https://github.com/celo-org/kona", rev = "cf790b7" }
+kona-registry = { git = "https://github.com/celo-org/kona", rev = "cf790b7" }
+kona-genesis = { git = "https://github.com/celo-org/kona", rev = "cf790b7" }
+
+# TODO: Remove this patch once Hokulea is upgraded to a version that includes
+# the Kona update from:
+# https://github.com/ethereum-optimism/optimism/commit/b08e543ddfb2c49be51a351c10135bdedcb8152d
+[patch."https://github.com/Layr-Labs/hokulea"]
+hokulea-compute-proof = { git = "https://github.com/celo-org/hokulea", branch = "kona-proof-fix" }
+hokulea-eigenda = { git = "https://github.com/celo-org/hokulea", branch = "kona-proof-fix" }
+hokulea-host-bin = { git = "https://github.com/celo-org/hokulea", branch = "kona-proof-fix" }
+hokulea-proof = { git = "https://github.com/celo-org/hokulea", branch = "kona-proof-fix" }
+hokulea-witgen = { git = "https://github.com/celo-org/hokulea", branch = "kona-proof-fix" }
+hokulea-zkvm-verification = { git = "https://github.com/celo-org/hokulea", branch = "kona-proof-fix" }
+canoe-sp1-cc-host = { git = "https://github.com/celo-org/hokulea", branch = "kona-proof-fix" }
+canoe-sp1-cc-verifier = { git = "https://github.com/celo-org/hokulea", branch = "kona-proof-fix" }
+canoe-verifier-address-fetcher = { git = "https://github.com/celo-org/hokulea", branch = "kona-proof-fix" }
+eigenda-cert = { git = "https://github.com/celo-org/hokulea", branch = "kona-proof-fix" }
+
+# TODO: Remove this patch once Hana is upgraded to a version that includes
+# the Kona update from:
+# https://github.com/ethereum-optimism/optimism/commit/b08e543ddfb2c49be51a351c10135bdedcb8152d
+[patch."https://github.com/celestiaorg/hana"]
+hana-client = { git = "https://github.com/succinctlabs/hana", rev = "6626aee" }
+hana-host = { git = "https://github.com/succinctlabs/hana", rev = "6626aee" }
+hana-blobstream = { git = "https://github.com/succinctlabs/hana", rev = "6626aee" }
+hana-celestia = { git = "https://github.com/succinctlabs/hana", rev = "6626aee" }
+hana-oracle = { git = "https://github.com/succinctlabs/hana", rev = "6626aee" }
+hana-proofs = { git = "https://github.com/succinctlabs/hana", rev = "6626aee" }
