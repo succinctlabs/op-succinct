@@ -355,6 +355,21 @@ where
                 expected_game_type = self.config.game_type,
                 "Dropping game due to invalid game type"
             );
+            self.state.lock().await.cursor = index;
+            return Ok(());
+        }
+
+        // Drop games with different anchor state registry.
+        let anchor_state_registry = contract.anchorStateRegistry().call().await?;
+        if anchor_state_registry != self.config.anchor_state_registry_address {
+            tracing::debug!(
+                game_index = %index,
+                ?game_address,
+                ?anchor_state_registry,
+                expected_anchor_state_registry = ?self.config.anchor_state_registry_address,
+                "Dropping game with different anchor state registry"
+            );
+            self.state.lock().await.cursor = index;
             return Ok(());
         }
 
