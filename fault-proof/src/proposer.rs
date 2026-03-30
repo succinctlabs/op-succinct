@@ -1134,8 +1134,11 @@ where
 
         let agg_proof = self.prover.generate_agg_proof(sp1_stdin).await?;
 
-        // Final guard: check if the game ended during proof generation (minutes to hours).
         if game.gameOver().call().await? {
+            tracing::warn!(
+                ?game_address,
+                "Game ended during proof generation, aborting submission"
+            );
             bail!("Game is over (expired or already proven), aborting proof submission");
         }
 
@@ -2137,22 +2140,14 @@ where
         Ok(true)
     }
 
-    /// Check if proving should be skipped for any reason.
-    ///
-    /// Returns `Ok(true)` if proving should be skipped:
-    /// - Game not found in cache
-    /// - Game not owned (vkeys don't match)
-    /// - Deadline has passed
-    ///
-    /// Returns `Ok(false)` if proving should proceed.
-    /// Logs a warning if the deadline is approaching.
+    /// Check if proving should be skipped. Checks are ordered cheapest-first:
+    /// cache lookup → deadline (local) → gameOver() (on-chain RPC).
     async fn should_skip_proving(
         &self,
         game_address: Address,
         deadline: Option<u64>,
         is_defense: bool,
     ) -> Result<bool> {
-        // Check ownership - only prove games we own
         {
             let state = self.state.read().await;
             let game = state.games.values().find(|g| g.address == game_address);
@@ -2168,13 +2163,6 @@ where
                 }
                 _ => {}
             }
-        }
-
-        // Check on-chain gameOver() — covers both expiry and already-proven cases.
-        let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
-        if contract.gameOver().call().await? {
-            tracing::info!(?game_address, "Game is over (expired or already proven), skipping");
-            return Ok(true);
         }
 
         if let Some(deadline) = deadline {
@@ -2211,6 +2199,14 @@ where
                 }
                 DeadlineStatus::Ok => {}
             }
+        }
+
+        // On-chain check for cases the deadline check can't catch (e.g., already proven by another
+        // party).
+        let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+        if contract.gameOver().call().await? {
+            tracing::info!(?game_address, "Game is over (expired or already proven), skipping");
+            return Ok(true);
         }
 
         Ok(false)
