@@ -1376,6 +1376,7 @@ where
     ///
     /// Drop game if:
     /// - The game type is not supported.
+    /// - The game's anchor state registry does not match the configured registry.
     /// - The game type does not respect the expected type when created.
     /// - The output root claim is invalid.
     pub async fn fetch_game(&self, index: U256) -> Result<GameFetchResult> {
@@ -2479,92 +2480,6 @@ mod tests {
                 }
                 other => panic!("Expected Approaching, got {:?}", other),
             }
-        }
-    }
-
-    mod asr_filtering {
-        use super::super::*;
-        use alloy_primitives::{Address, B256, U256};
-
-        fn game_with(index: u64, parent_index: u32, l2_block: u64) -> Game {
-            Game {
-                index: U256::from(index),
-                address: Address::left_padding_from(&[index as u8]),
-                parent_index,
-                l2_block: U256::from(l2_block),
-                status: crate::contract::GameStatus::IN_PROGRESS,
-                proposal_status: crate::contract::ProposalStatus::Unchallenged,
-                deadline: 0,
-                should_attempt_to_resolve: false,
-                should_attempt_to_claim_bond: false,
-                aggregation_vkey: B256::ZERO,
-                range_vkey_commitment: B256::ZERO,
-                rollup_config_hash: B256::ZERO,
-            }
-        }
-
-        #[test]
-        fn old_asr_games_pollute_canonical_head() {
-            let mut state = ProposerState::default();
-
-            state.games.insert(U256::from(0), game_with(0, u32::MAX, 1000));
-            state.games.insert(U256::from(1), game_with(1, 0, 2000));
-            state.games.insert(U256::from(2), game_with(2, 1, 3000));
-
-            let anchor = game_with(3, u32::MAX, 100);
-            state.games.insert(U256::from(3), anchor.clone());
-            state.games.insert(U256::from(4), game_with(4, 3, 200));
-            state.anchor_game = Some(anchor);
-
-            let descendants = state.descendants_of(U256::from(3));
-            assert!(descendants.contains(&U256::from(4)));
-            assert!(!descendants.contains(&U256::from(0)));
-            assert!(!descendants.contains(&U256::from(2)));
-
-            // override_head would pick Game 0: genesis-rooted with higher L2 block than Game 4.
-            assert!(state.games[&U256::from(0)].l2_block > state.games[&U256::from(4)].l2_block);
-            assert_eq!(state.games[&U256::from(0)].parent_index, u32::MAX);
-        }
-
-        #[test]
-        fn filtered_dag_produces_correct_canonical_head() {
-            let mut state = ProposerState::default();
-
-            let anchor = game_with(3, u32::MAX, 100);
-            state.games.insert(U256::from(3), anchor.clone());
-            state.games.insert(U256::from(4), game_with(4, 3, 200));
-            state.anchor_game = Some(anchor);
-
-            let descendants = state.descendants_of(U256::from(3));
-            let best = state
-                .games
-                .values()
-                .filter(|g| descendants.contains(&g.index))
-                .max_by_key(|g| g.l2_block)
-                .unwrap();
-            assert_eq!(best.index, U256::from(4));
-            assert!(state.games.values().all(|g| descendants.contains(&g.index)));
-        }
-
-        #[test]
-        fn descendants_excludes_unrelated_chains() {
-            let mut state = ProposerState::default();
-
-            state.games.insert(U256::from(0), game_with(0, u32::MAX, 100));
-            state.games.insert(U256::from(1), game_with(1, 0, 200));
-            state.games.insert(U256::from(2), game_with(2, 1, 300));
-            state.games.insert(U256::from(3), game_with(3, u32::MAX, 150));
-            state.games.insert(U256::from(4), game_with(4, 3, 250));
-
-            let chain_a = state.descendants_of(U256::from(0));
-            assert_eq!(chain_a.len(), 3);
-            assert!(chain_a.contains(&U256::from(2)));
-            assert!(!chain_a.contains(&U256::from(3)));
-
-            let chain_b = state.descendants_of(U256::from(3));
-            assert_eq!(chain_b.len(), 2);
-            assert!(chain_b.contains(&U256::from(4)));
-            assert!(!chain_b.contains(&U256::from(0)));
         }
     }
 }
