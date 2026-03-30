@@ -1134,12 +1134,24 @@ where
 
         let agg_proof = self.prover.generate_agg_proof(sp1_stdin).await?;
 
-        if game.gameOver().call().await? {
-            tracing::warn!(
-                ?game_address,
-                "Game ended during proof generation, aborting submission"
-            );
-            bail!("Game is over (expired or already proven), aborting proof submission");
+        // Best-effort check: don't discard an expensive proof on a transient RPC failure.
+        // If the game is truly over, the on-chain prove() will revert (cheap gas).
+        match game.gameOver().call().await {
+            Ok(true) => {
+                tracing::warn!(
+                    ?game_address,
+                    "Game ended during proof generation, aborting submission"
+                );
+                bail!("Game is over (expired or already proven), aborting proof submission");
+            }
+            Ok(false) => {}
+            Err(e) => {
+                tracing::warn!(
+                    ?game_address,
+                    error = ?e,
+                    "Failed to check gameOver(), proceeding with submission"
+                );
+            }
         }
 
         let transaction_request = game.prove(agg_proof.bytes().into()).into_transaction_request();
