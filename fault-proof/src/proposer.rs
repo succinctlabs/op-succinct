@@ -1928,8 +1928,15 @@ where
                 return Ok((false, U256::ZERO, u32::MAX));
             };
 
-            let parent_game_index =
-                state.canonical_head_index.map(|index| index.to::<u32>()).unwrap_or(u32::MAX);
+            // When the canonical head IS the anchor game, use u32::MAX (anchor path) instead of
+            // referencing it by index. The contract requires parent.l2SeqNum > anchor.l2SeqNum,
+            // so the anchor itself cannot be used as a parent via index.
+            let anchor_index = state.anchor_game.as_ref().map(|a| a.index);
+            let parent_game_index = state
+                .canonical_head_index
+                .filter(|&idx| anchor_index != Some(idx))
+                .map(|index| index.to::<u32>())
+                .unwrap_or(u32::MAX);
 
             (canonical_head_l2_block, parent_game_index)
         };
