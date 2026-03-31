@@ -914,5 +914,4 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         assertEq(latest.startingRootHash().raw(), keccak256("claim3"));
         assertEq(latest.startingBlockNumber(), 3000);
     }
-
 }
