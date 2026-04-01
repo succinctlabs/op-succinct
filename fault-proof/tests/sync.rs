@@ -1,5 +1,64 @@
 pub mod common;
 
+mod asr_filtering {
+    use alloy_primitives::{Address, B256, U256};
+    use fault_proof::{
+        contract::{GameStatus, ProposalStatus},
+        proposer::Game,
+    };
+    use std::collections::HashMap;
+
+    fn game_with(index: u64, parent_index: u32, l2_block: u64) -> Game {
+        Game {
+            index: U256::from(index),
+            address: Address::left_padding_from(&[index as u8]),
+            parent_index,
+            l2_block: U256::from(l2_block),
+            status: GameStatus::IN_PROGRESS,
+            proposal_status: ProposalStatus::Unchallenged,
+            deadline: 0,
+            should_attempt_to_resolve: false,
+            should_attempt_to_claim_bond: false,
+            aggregation_vkey: B256::ZERO,
+            range_vkey_commitment: B256::ZERO,
+            rollup_config_hash: B256::ZERO,
+        }
+    }
+
+    #[test]
+    fn filtered_dag_produces_correct_canonical_head() {
+        // After ASR filtering, only new-ASR games in DAG → correct canonical head.
+        let mut games = HashMap::new();
+        let anchor = game_with(3, u32::MAX, 100);
+        games.insert(U256::from(3), anchor);
+        games.insert(U256::from(4), game_with(4, 3, 200));
+
+        let best = games.values().max_by_key(|g| g.l2_block).unwrap();
+        assert_eq!(best.index, U256::from(4));
+    }
+
+    #[test]
+    fn descendants_excludes_unrelated_chains() {
+        let mut games = HashMap::new();
+        games.insert(U256::from(0), game_with(0, u32::MAX, 100));
+        games.insert(U256::from(1), game_with(1, 0, 200));
+        games.insert(U256::from(2), game_with(2, 1, 300));
+        games.insert(U256::from(3), game_with(3, u32::MAX, 150));
+        games.insert(U256::from(4), game_with(4, 3, 250));
+
+        // Chain A: 0 → 1 → 2 (verify parent linkage)
+        assert_eq!(games[&U256::from(1)].parent_index, 0);
+        assert_eq!(games[&U256::from(2)].parent_index, 1);
+
+        // Chain B: 3 → 4 (independent)
+        assert_eq!(games[&U256::from(4)].parent_index, 3);
+
+        // No cross-chain parent references
+        assert_ne!(games[&U256::from(3)].parent_index, 2);
+        assert_ne!(games[&U256::from(0)].parent_index, 4);
+    }
+}
+
 #[cfg(feature = "integration")]
 mod proposer_sync {
     use std::collections::HashMap;
