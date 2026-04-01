@@ -48,7 +48,7 @@ jobs:
     needs: changes
     if: always() && github.event_name == 'pull_request'
     name: (${{ matrix.target }})
-    runs-on: ${{ needs.changes.outputs.code == 'true' && fromJSON(format('["runs-on","runner=64cpu-linux-x64","run-id={0}","spot=false","disk=large"]', github.run_id)) || 'ubuntu-latest' }}
+    runs-on: ${{ needs.changes.result == 'success' && needs.changes.outputs.code != 'true' && 'ubuntu-latest' || fromJSON(format('["runs-on","runner=64cpu-linux-x64","run-id={0}","spot=false","disk=large"]', github.run_id)) }}
     timeout-minutes: 60
 
     strategy:
@@ -60,21 +60,21 @@ jobs:
 
     steps:
       - name: Skip — docs-only PR
-        if: needs.changes.outputs.code != 'true'
+        if: needs.changes.result == 'success' && needs.changes.outputs.code != 'true'
         run: echo "Docs-only change, skipping e2e tests"
 
       - name: Checkout sources
-        if: needs.changes.outputs.code == 'true'
+        if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
         uses: actions/checkout@v5
         with:
           submodules: true
 
       - name: Setup E2E environment
-        if: needs.changes.outputs.code == 'true'
+        if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
         uses: ./.github/actions/setup-e2e-sysgo
 
       - name: Run Sysgo E2E Tests
-        if: needs.changes.outputs.code == 'true'
+        if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
         working-directory: tests
         run: |
           echo "Running tests..."

@@ -38,7 +38,7 @@ jobs:
 
   lint:
     needs: changes
-    if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.code == 'true')
+    if: always() && (github.event_name != 'pull_request' || needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
     name: Formatting & Clippy
     runs-on:
       - runs-on

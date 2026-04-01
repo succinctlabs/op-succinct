@@ -42,34 +42,34 @@ jobs:
     needs: changes
     if: always() && github.event_name == 'pull_request'
     name: Fault Proof (sync)
-    runs-on: ${{ needs.changes.outputs.code == 'true' && fromJSON(format('["runs-on","runner=64cpu-linux-x64","run-id={0}","spot=false","disk=large","extras=s3-cache"]', github.run_id)) || 'ubuntu-latest' }}
+    runs-on: ${{ needs.changes.result == 'success' && needs.changes.outputs.code != 'true' && 'ubuntu-latest' || fromJSON(format('["runs-on","runner=64cpu-linux-x64","run-id={0}","spot=false","disk=large","extras=s3-cache"]', github.run_id)) }}
     timeout-minutes: 60
 
     steps:
     - name: Skip — docs-only PR
-      if: needs.changes.outputs.code != 'true'
+      if: needs.changes.result == 'success' && needs.changes.outputs.code != 'true'
       run: echo "Docs-only change, skipping integration tests"
 
     - name: Configure runs-on cache
-      if: needs.changes.outputs.code == 'true'
+      if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
       uses: runs-on/action@v2
 
     - name: Checkout code
-      if: needs.changes.outputs.code == 'true'
+      if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
       uses: actions/checkout@v4
       with:
         submodules: recursive
 
     - name: Setup Rust
-      if: needs.changes.outputs.code == 'true'
+      if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
       run: rustup toolchain install stable --profile minimal
 
     - name: Install protobuf compiler
-      if: needs.changes.outputs.code == 'true'
+      if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
       run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
     - name: Install Go
-      if: needs.changes.outputs.code == 'true'
+      if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
       run: |
         GO_ARCH=$(dpkg --print-architecture)
         curl -LO https://go.dev/dl/go1.24.0.linux-${GO_ARCH}.tar.gz
@@ -77,13 +77,13 @@ jobs:
         echo "/usr/local/go/bin" >> $GITHUB_PATH
 
     - name: Install Foundry
-      if: needs.changes.outputs.code == 'true'
+      if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
       uses: foundry-rs/foundry-toolchain@v1
       with:
         version: nightly-d592b3e0f142d694c3be539702704a4a73238773
 
     - name: Cache Rust dependencies
-      if: needs.changes.outputs.code == 'true'
+      if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
       uses: Swatinem/rust-cache@v2
       with:
         workspaces: |
@@ -91,11 +91,11 @@ jobs:
           bindings
 
     - name: Install just
-      if: needs.changes.outputs.code == 'true'
+      if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
       uses: extractions/setup-just@v3
 
     - name: Run tests
-      if: needs.changes.outputs.code == 'true'
+      if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
       run: just fp-integration-tests sync ethereum
       env:
         L1_RPC: ${{ secrets.L1_RPC }}
