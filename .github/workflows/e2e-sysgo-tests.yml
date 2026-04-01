@@ -8,20 +8,6 @@ on:
       - main
   merge_group:
   pull_request:
-    paths:
-      - '.github/workflows/e2e-sysgo-tests.yml'
-      - '.github/actions/setup-e2e-sysgo/**'
-      - 'e2e/**'
-      - 'tests/**'
-      - 'programs/**'
-      - 'elf/**'
-      - 'crates/**'
-      - 'fault-proof/**'
-      - 'validity/**'
-      - 'bindings/**'
-      - 'utils/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
   issue_comment:
     types: [created]
 
@@ -30,9 +16,35 @@ concurrency:
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/main' }}
 
 jobs:
+  changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - '.github/workflows/e2e-sysgo-tests.yml'
+              - '.github/actions/setup-e2e-sysgo/**'
+              - 'e2e/**'
+              - 'tests/**'
+              - 'programs/**'
+              - 'elf/**'
+              - 'crates/**'
+              - 'fault-proof/**'
+              - 'validity/**'
+              - 'bindings/**'
+              - 'utils/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+
   # Reduced matrix on PRs for fast feedback
   e2e-sysgo-tests-pr:
-    if: github.event_name == 'pull_request'
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
     name: (${{ matrix.target }})
     runs-on:
       - runs-on

@@ -8,14 +8,6 @@ on:
       - main
   merge_group:
   pull_request:
-    paths:
-      - '.github/workflows/integration-tests.yml'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'justfile'
-      - 'fault-proof/**'
-      - 'bindings/**'
-      - 'utils/**'
   issue_comment:
     types: [created]
 
@@ -24,9 +16,29 @@ concurrency:
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/main' }}
 
 jobs:
+  changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - '.github/workflows/integration-tests.yml'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'justfile'
+              - 'fault-proof/**'
+              - 'bindings/**'
+              - 'utils/**'
+
   # Reduced matrix on PRs — sync test only
   fp-integration-tests-pr:
-    if: github.event_name == 'pull_request'
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
     name: Fault Proof (sync)
     runs-on:
       - runs-on
