@@ -29,6 +29,7 @@ jobs:
             code:
               - '.github/workflows/e2e-sysgo-tests.yml'
               - '.github/actions/setup-e2e-sysgo/**'
+              - 'contracts/**'
               - 'e2e/**'
               - 'tests/**'
               - 'programs/**'
@@ -40,6 +41,7 @@ jobs:
               - 'utils/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
+              - 'rust-toolchain.toml'
 
   # Reduced matrix on PRs for fast feedback.
   # Always runs on PRs so the matrix expands and required check names are reported.

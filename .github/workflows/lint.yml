@@ -29,12 +29,14 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
               - 'justfile'
+              - 'rust-toolchain.toml'
               - 'crates/**'
               - 'programs/**'
               - 'scripts/**'
               - 'utils/**'
               - 'fault-proof/**'
               - 'validity/**'
+              - 'bindings/**'
 
   lint:
     needs: changes
