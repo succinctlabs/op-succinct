@@ -38,7 +38,7 @@ jobs:
   # Reduced matrix on PRs — sync test only
   fp-integration-tests-pr:
     needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
+    if: always() && github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
     name: Fault Proof (sync)
     runs-on:
       - runs-on

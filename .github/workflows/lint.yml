@@ -38,9 +38,9 @@ jobs:
 
   lint:
     needs: changes
-    if: github.event_name != 'pull_request' || needs.changes.outputs.code == 'true'
+    if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.code == 'true')
     name: Formatting & Clippy
-    runs-on: 
+    runs-on:
       - runs-on
       - runner=32cpu-linux-arm64
       - run-id=${{ github.run_id }}
