@@ -97,7 +97,13 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
-      
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: lint
+          cache-on-failure: true
+
       - name: Run cargo check
         uses: actions-rs/cargo@v1
         with:
