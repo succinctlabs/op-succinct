@@ -33,6 +33,12 @@ contract JSONDecoder {
         address[] challengerAddresses;
         uint256 challengerBondWei;
         uint256 disputeGameFinalityDelaySeconds;
+        // If non-zero, use this existing ASR instead of deploying a new one.
+        // Required for e2e tests where games must reference the same ASR as OptimismPortal2.
+        address existingAnchorStateRegistry;
+        // If non-zero, use this existing DGF instead of deploying a new one.
+        // Required for e2e tests where OptimismPortal2 must use the same DGF.
+        address existingDisputeGameFactoryProxy;
         uint256 fallbackTimeoutFpSecs;
         uint32 gameType;
         uint256 initialBondWei;

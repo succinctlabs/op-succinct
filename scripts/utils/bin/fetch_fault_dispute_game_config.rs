@@ -129,6 +129,24 @@ async fn update_fdg_config() -> Result<()> {
         "0x0000000000000000000000000000000000000000".to_string()
     });
 
+    // Existing AnchorStateRegistry to reuse during deployment.
+    // Named EXISTING_* to distinguish from the runtime ANCHOR_STATE_REGISTRY_ADDRESS env var.
+    // If provided, the deployment will use this existing ASR instead of deploying a new one.
+    let existing_anchor_state_registry =
+        env::var("EXISTING_ANCHOR_STATE_REGISTRY").unwrap_or_else(|_| {
+            // Default to zero address - will deploy a new AnchorStateRegistry
+            "0x0000000000000000000000000000000000000000".to_string()
+        });
+
+    // Existing DisputeGameFactory to reuse during deployment.
+    // Named EXISTING_* to distinguish from runtime DGF address references.
+    // If provided, the deployment will register game type 42 in this existing factory.
+    let existing_dispute_game_factory_proxy = env::var("EXISTING_DISPUTE_GAME_FACTORY_PROXY")
+        .unwrap_or_else(|_| {
+            // Default to zero address - will deploy a new DisputeGameFactory
+            "0x0000000000000000000000000000000000000000".to_string()
+        });
+
     // SystemConfig configuration - derive from rollup config by default.
     // For production deployments, this is required for proper guardian functionality.
     // For testing, if zero address, a MockSystemConfig will be deployed.
@@ -198,6 +216,8 @@ async fn update_fdg_config() -> Result<()> {
         challenger_addresses,
         challenger_bond_wei,
         dispute_game_finality_delay_seconds,
+        existing_anchor_state_registry,
+        existing_dispute_game_factory_proxy,
         fallback_timeout_fp_secs,
         game_type,
         initial_bond_wei,

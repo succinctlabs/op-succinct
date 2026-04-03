@@ -344,6 +344,14 @@ pub struct FaultDisputeGameConfig {
     pub challenger_addresses: Vec<String>,
     pub challenger_bond_wei: u64,
     pub dispute_game_finality_delay_seconds: u64,
+    /// Optional existing AnchorStateRegistry address. If provided (non-zero), the deployment
+    /// script will use this existing ASR instead of deploying a new one. Useful when integrating
+    /// with an existing OptimismPortal2 deployment that already references a specific ASR.
+    pub existing_anchor_state_registry: String,
+    /// Optional existing DisputeGameFactory address. If provided (non-zero), the deployment
+    /// script will register game type 42 in this existing factory instead of creating a new one.
+    /// Useful when integrating with an existing OptimismPortal2 that already uses a specific DGF.
+    pub existing_dispute_game_factory_proxy: String,
     pub fallback_timeout_fp_secs: u64,
     pub game_type: u32,
     pub initial_bond_wei: u64,
