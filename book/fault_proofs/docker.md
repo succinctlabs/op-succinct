@@ -52,6 +52,7 @@ PRIVATE_KEY=                         # Private key for transaction signing
 
 # Optional Configuration
 FETCH_INTERVAL=30                    # Polling interval in seconds
+CHALLENGER_BACKUP_PATH=              # persist state across restarts (e.g. /backup/challenger_state.json)
 ```
 
 2. Start the services:

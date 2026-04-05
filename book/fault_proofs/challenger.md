@@ -56,6 +56,7 @@ Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for t
 | `FETCH_INTERVAL` | Polling interval in seconds | `30` |
 | `CHALLENGER_METRICS_PORT` | The port to expose metrics on. Update prometheus.yml to use this port, if using docker compose. | `9001` |
 | `MALICIOUS_CHALLENGE_PERCENTAGE` | Percentage (0.0-100.0) of valid games to challenge for testing defense mechanisms | `0.0` |
+| `CHALLENGER_BACKUP_PATH` | Path to backup file for persisting challenger state across restarts. Enables faster recovery by restoring cached state instead of re-syncing from the factory. | (disabled) |
 
 ```env
 # Required Configuration
@@ -72,6 +73,7 @@ CHALLENGER_METRICS_PORT=9001          # The port to expose metrics on
 
 # Testing Configuration (Optional)
 MALICIOUS_CHALLENGE_PERCENTAGE=0.0    # Percentage of valid games to challenge for testing (0.0 = disabled)
+CHALLENGER_BACKUP_PATH=               # persist state across restarts (e.g. /backup/challenger_state.json)
 ```
 
 ## Running
