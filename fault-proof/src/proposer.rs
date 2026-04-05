@@ -788,6 +788,13 @@ where
 
                 match status {
                     GameStatus::IN_PROGRESS => {
+                        // Challenged + expired = guaranteed CHALLENGER_WINS, cascades to
+                        // descendants.
+                        if claim_data.status == ProposalStatus::Challenged && now_ts >= deadline {
+                            actions.push(GameSyncAction::RemoveSubtree(index));
+                            continue;
+                        }
+
                         let game_type = contract.gameType().call().await?;
                         let parent_resolved =
                             is_parent_resolved(parent_index, self.factory.as_ref()).await?;
@@ -1134,6 +1141,26 @@ where
         };
 
         let agg_proof = self.prover.generate_agg_proof(sp1_stdin).await?;
+
+        // Best-effort check: don't discard an expensive proof on a transient RPC failure.
+        // If the game is truly over, the on-chain prove() will revert (cheap gas).
+        match game.gameOver().call().await {
+            Ok(true) => {
+                tracing::warn!(
+                    ?game_address,
+                    "Game ended during proof generation, aborting submission"
+                );
+                bail!("Game is over (expired or already proven), aborting proof submission");
+            }
+            Ok(false) => {}
+            Err(e) => {
+                tracing::warn!(
+                    ?game_address,
+                    error = ?e,
+                    "Failed to check gameOver(), proceeding with submission"
+                );
+            }
+        }
 
         let transaction_request = game.prove(agg_proof.bytes().into()).into_transaction_request();
         let receipt = self
@@ -2148,22 +2175,14 @@ where
         Ok(true)
     }
 
-    /// Check if proving should be skipped for any reason.
-    ///
-    /// Returns `Ok(true)` if proving should be skipped:
-    /// - Game not found in cache
-    /// - Game not owned (vkeys don't match)
-    /// - Deadline has passed
-    ///
-    /// Returns `Ok(false)` if proving should proceed.
-    /// Logs a warning if the deadline is approaching.
+    /// Check if proving should be skipped. Checks are ordered cheapest-first:
+    /// cache lookup → deadline (local) → gameOver() (on-chain RPC).
     async fn should_skip_proving(
         &self,
         game_address: Address,
         deadline: Option<u64>,
         is_defense: bool,
     ) -> Result<bool> {
-        // Check ownership - only prove games we own
         {
             let state = self.state.read().await;
             let game = state.games.values().find(|g| g.address == game_address);
@@ -2181,7 +2200,6 @@ where
             }
         }
 
-        // Check deadline if provided
         if let Some(deadline) = deadline {
             let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
 
@@ -2216,6 +2234,14 @@ where
                 }
                 DeadlineStatus::Ok => {}
             }
+        }
+
+        // On-chain check for cases the deadline check can't catch (e.g., already proven by another
+        // party).
+        let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+        if contract.gameOver().call().await? {
+            tracing::info!(?game_address, "Game is over (expired or already proven), skipping");
+            return Ok(true);
         }
 
         Ok(false)
