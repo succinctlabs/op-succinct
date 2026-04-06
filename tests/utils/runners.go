@@ -10,6 +10,7 @@ import (
 // Test timeouts.
 func ShortTimeout() time.Duration { return 20 * time.Minute }
 func LongTimeout() time.Duration  { return 40 * time.Minute }
+func ClusterTimeout() time.Duration { return 180 * time.Minute }
 
 // MaxProposerLag returns the maximum allowed lag between L2 finalized and proposer submissions.
 func MaxProposerLag() uint64 {
