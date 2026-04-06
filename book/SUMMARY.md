@@ -42,6 +42,8 @@
     - [Celestia DA](./fault_proofs/experimental/celestia.md)
     - [EigenDA DA](./fault_proofs/experimental/eigenda.md)
 
+- [Migration from Optimistic](./migration.md)
+
 - [Advanced](./advanced/intro.md)
   - [Self-Hosted Proving Cluster](./advanced/self-hosted-cluster.md)
   - [Cost Estimation Tools](./advanced/cost-estimation-tools.md)
