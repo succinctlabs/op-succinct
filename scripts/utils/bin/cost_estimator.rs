@@ -201,15 +201,17 @@ fn aggregate_execution_stats(
 
     // For statistics that are per-block or per-transaction, we take the average over the entire
     // range.
+    let safe_div = |a: u64, b: u64| if b > 0 { a / b } else { 0 };
     aggregate_stats.cycles_per_block =
-        aggregate_stats.total_instruction_count / aggregate_stats.nb_blocks;
+        safe_div(aggregate_stats.total_instruction_count, aggregate_stats.nb_blocks);
     aggregate_stats.cycles_per_transaction =
-        aggregate_stats.total_instruction_count / aggregate_stats.nb_transactions;
+        safe_div(aggregate_stats.total_instruction_count, aggregate_stats.nb_transactions);
     aggregate_stats.transactions_per_block =
-        aggregate_stats.nb_transactions / aggregate_stats.nb_blocks;
-    aggregate_stats.gas_used_per_block = aggregate_stats.eth_gas_used / aggregate_stats.nb_blocks;
+        safe_div(aggregate_stats.nb_transactions, aggregate_stats.nb_blocks);
+    aggregate_stats.gas_used_per_block =
+        safe_div(aggregate_stats.eth_gas_used, aggregate_stats.nb_blocks);
     aggregate_stats.gas_used_per_transaction =
-        aggregate_stats.eth_gas_used / aggregate_stats.nb_transactions;
+        safe_div(aggregate_stats.eth_gas_used, aggregate_stats.nb_transactions);
 
     // Use the earliest start and latest end across all blocks.
     aggregate_stats.batch_start = batch_start;
@@ -255,9 +257,10 @@ async fn main() -> Result<()> {
     let safe_db_activated = data_fetcher.is_safe_db_activated().await?;
 
     let split_ranges = if safe_db_activated {
-        split_range_based_on_safe_heads(l2_start_block, l2_end_block, args.batch_size).await?
+        split_range_based_on_safe_heads(l2_start_block, l2_end_block, args.effective_batch_size())
+            .await?
     } else {
-        split_range_basic(l2_start_block, l2_end_block, args.batch_size)
+        split_range_basic(l2_start_block, l2_end_block, args.effective_batch_size())
     };
 
     info!("The span batch ranges which will be executed: {split_ranges:?}");

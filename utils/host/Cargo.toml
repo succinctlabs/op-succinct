@@ -80,3 +80,6 @@ opentelemetry_sdk.workspace = true
 opentelemetry-stdout.workspace = true
 opentelemetry-otlp.workspace = true
 opentelemetry-appender-tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

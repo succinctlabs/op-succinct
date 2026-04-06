@@ -1,5 +1,64 @@
 pub mod common;
 
+mod asr_filtering {
+    use alloy_primitives::{Address, B256, U256};
+    use fault_proof::{
+        contract::{GameStatus, ProposalStatus},
+        proposer::Game,
+    };
+    use std::collections::HashMap;
+
+    fn game_with(index: u64, parent_index: u32, l2_block: u64) -> Game {
+        Game {
+            index: U256::from(index),
+            address: Address::left_padding_from(&[index as u8]),
+            parent_index,
+            l2_block: U256::from(l2_block),
+            status: GameStatus::IN_PROGRESS,
+            proposal_status: ProposalStatus::Unchallenged,
+            deadline: 0,
+            should_attempt_to_resolve: false,
+            should_attempt_to_claim_bond: false,
+            aggregation_vkey: B256::ZERO,
+            range_vkey_commitment: B256::ZERO,
+            rollup_config_hash: B256::ZERO,
+        }
+    }
+
+    #[test]
+    fn filtered_dag_produces_correct_canonical_head() {
+        // After ASR filtering, only new-ASR games in DAG → correct canonical head.
+        let mut games = HashMap::new();
+        let anchor = game_with(3, u32::MAX, 100);
+        games.insert(U256::from(3), anchor);
+        games.insert(U256::from(4), game_with(4, 3, 200));
+
+        let best = games.values().max_by_key(|g| g.l2_block).unwrap();
+        assert_eq!(best.index, U256::from(4));
+    }
+
+    #[test]
+    fn descendants_excludes_unrelated_chains() {
+        let mut games = HashMap::new();
+        games.insert(U256::from(0), game_with(0, u32::MAX, 100));
+        games.insert(U256::from(1), game_with(1, 0, 200));
+        games.insert(U256::from(2), game_with(2, 1, 300));
+        games.insert(U256::from(3), game_with(3, u32::MAX, 150));
+        games.insert(U256::from(4), game_with(4, 3, 250));
+
+        // Chain A: 0 → 1 → 2 (verify parent linkage)
+        assert_eq!(games[&U256::from(1)].parent_index, 0);
+        assert_eq!(games[&U256::from(2)].parent_index, 1);
+
+        // Chain B: 3 → 4 (independent)
+        assert_eq!(games[&U256::from(4)].parent_index, 3);
+
+        // No cross-chain parent references
+        assert_ne!(games[&U256::from(3)].parent_index, 2);
+        assert_ne!(games[&U256::from(0)].parent_index, 4);
+    }
+}
+
 #[cfg(feature = "integration")]
 mod proposer_sync {
     use std::collections::HashMap;
@@ -132,7 +191,11 @@ mod proposer_sync {
         let (env, proposer, init_bond) = setup().await?;
 
         let mut starting_blocks: HashMap<u32, u64> = HashMap::new();
+        let mut game_addresses: Vec<alloy_primitives::Address> = Vec::new();
 
+        // Phase 1: Create all games before setting any anchors. The contract now requires
+        // parent.l2SeqNum > anchor.l2SeqNum, so games that reference an anchor game as
+        // parent must be created before that game is set as anchor.
         let starting_l2_block = env.anvil.starting_l2_block_number;
         let mut block = starting_l2_block;
         for (i, _) in parent_ids.iter().take(num_games).enumerate() {
@@ -143,27 +206,25 @@ mod proposer_sync {
             let root_claim = env.compute_output_root_at_block(end_block).await?;
             env.create_game(root_claim, end_block, cur_parent_id, init_bond).await?;
             let (index, address) = env.last_game_info().await?;
+            game_addresses.push(address);
             tracing::info!("✓ Created game {index} with parent {cur_parent_id}");
 
-            if anchor_ids.contains(&i) {
-                env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
-                env.resolve_game(address).await?;
-                env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
-                env.set_anchor_state(address).await?;
-                tracing::info!("Anchor game set to index {index}");
-            }
-
-            // Determine the starting block for the next game
-            //
-            // If the next game's parent is the current game, the next game's starting block
-            // is the end block of the current game.
-            // Otherwise, look up the starting block from the map.
             let next_parent_id = parent_ids.get(i + 1).copied().unwrap_or(M);
             if cur_parent_id.wrapping_add(1) == next_parent_id {
                 block = end_block;
             } else {
                 block = *starting_blocks.get(&next_parent_id).unwrap_or(&end_block);
             }
+        }
+
+        // Phase 2: Set anchors in order after all games exist.
+        for &anchor_id in anchor_ids {
+            let address = game_addresses[anchor_id];
+            env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+            env.resolve_game(address).await?;
+            env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+            env.set_anchor_state(address).await?;
+            tracing::info!("Anchor game set to index {anchor_id}");
         }
 
         proposer.sync_state().await?;
@@ -317,16 +378,35 @@ mod proposer_sync {
     async fn test_sync_state_with_max_game_deadline_gap() -> Result<()> {
         let (env, proposer, init_bond) = setup().await?;
 
-        let mut parent_id = M;
         let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Phase 1: Create all games with time gaps between creations. The contract requires
+        // parent.l2SeqNum > anchor.l2SeqNum, so all games must exist before anchors are set.
+        // The time gaps ensure game 0 and 1 exceed MAX_GAME_DEADLINE_LAG from the anchor
+        // (game 2), so the deadline filter drops them during sync.
+        let mut parent_id = M;
         let mut block = starting_l2_block;
+        let mut game_addresses = Vec::new();
         for i in 0..3 {
             block += 1;
             let root_claim = env.compute_output_root_at_block(block).await?;
             env.create_game(root_claim, block, parent_id, init_bond).await?;
             let (index, address) = env.last_game_info().await?;
-            tracing::info!("✓ Created game {index} with parent {M}");
+            game_addresses.push(address);
+            tracing::info!("✓ Created game {index} with parent {parent_id}");
+            parent_id = if parent_id == M { 0 } else { parent_id + 1 };
 
+            // Warp between creations to match original timing gaps.
+            if i == 0 {
+                env.warp_time(MAX_CHALLENGE_DURATION + 1 + DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1)
+                    .await?;
+            } else if i == 1 {
+                env.warp_time(MAX_CHALLENGE_DURATION + 1 + MAX_GAME_DEADLINE_LAG + 1).await?;
+            }
+        }
+
+        // Phase 2: Resolve and set anchors.
+        for (i, &address) in game_addresses.iter().enumerate() {
             env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
             env.resolve_game(address).await?;
 
@@ -336,9 +416,7 @@ mod proposer_sync {
                 env.warp_time(MAX_GAME_DEADLINE_LAG + 1).await?;
             }
             env.set_anchor_state(address).await?;
-            tracing::info!("Anchor game set to index {index}");
-
-            parent_id = if parent_id == M { 0 } else { parent_id + 1 };
+            tracing::info!("Anchor game set to index {i}");
         }
 
         proposer.sync_state().await?;

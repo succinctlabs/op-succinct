@@ -8,13 +8,91 @@ on:
       - main
   merge_group:
   pull_request:
+  issue_comment:
+    types: [created]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/main' }}
 
 jobs:
+  changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - '.github/workflows/e2e-sysgo-tests.yml'
+              - '.github/actions/setup-e2e-sysgo/**'
+              - 'contracts/**'
+              - 'e2e/**'
+              - 'tests/**'
+              - 'programs/**'
+              - 'elf/**'
+              - 'crates/**'
+              - 'fault-proof/**'
+              - 'validity/**'
+              - 'bindings/**'
+              - 'utils/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'rust-toolchain.toml'
+
+  # Reduced matrix on PRs for fast feedback.
+  # Always runs on PRs so the matrix expands and required check names are reported.
+  # On docs-only PRs, exits immediately at step level.
+  e2e-sysgo-tests-pr:
+    needs: changes
+    if: always() && github.event_name == 'pull_request'
+    name: (${{ matrix.target }})
+    runs-on: ${{ needs.changes.result == 'success' && needs.changes.outputs.code != 'true' && 'ubuntu-latest' || fromJSON(format('["runs-on","runner=64cpu-linux-x64","run-id={0}","spot=false","disk=large"]', github.run_id)) }}
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - "./e2e/validity/bootstrap/..."
+          - "./e2e/faultproof/bootstrap/..."
+
+    steps:
+      - name: Skip — docs-only PR
+        if: needs.changes.result == 'success' && needs.changes.outputs.code != 'true'
+        run: echo "Docs-only change, skipping e2e tests"
+
+      - name: Checkout sources
+        if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - name: Setup E2E environment
+        if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
+        uses: ./.github/actions/setup-e2e-sysgo
+
+      - name: Run Sysgo E2E Tests
+        if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
+        working-directory: tests
+        run: |
+          echo "Running tests..."
+          just test-e2e-sysgo "${{ matrix.target }}"
+
+  # Full matrix on push to main, merge queue, and /sysgo comment
   e2e-sysgo-tests:
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'merge_group' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       contains(github.event.comment.body, '/sysgo') &&
+       (github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR' ||
+        github.event.comment.author_association == 'OWNER'))
     name: (${{ matrix.target }})
     runs-on:
       - runs-on
@@ -37,9 +115,35 @@ jobs:
           - "./e2e/faultproof/defense/..."
 
     steps:
+      - name: Get PR ref
+        if: github.event_name == 'issue_comment'
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            core.setOutput('sha', pr.data.head.sha);
+
+      - name: React to comment
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket',
+            });
+
       - name: Checkout sources
         uses: actions/checkout@v5
         with:
+          ref: ${{ steps.pr.outputs.sha || github.sha }}
           submodules: true
 
       - name: Setup E2E environment
@@ -51,8 +155,17 @@ jobs:
           echo "Running tests..."
           just test-e2e-sysgo "${{ matrix.target }}"
 
-  # Long-running tests with mock proving (runs on every PR and push)
+  # Long-running tests — merge queue, main push, and /sysgo only
   e2e-sysgo-long-running:
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'merge_group' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       contains(github.event.comment.body, '/sysgo') &&
+       (github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR' ||
+        github.event.comment.author_association == 'OWNER'))
     name: Long Running (${{ matrix.target }})
     runs-on:
       - runs-on
@@ -70,9 +183,23 @@ jobs:
           - "./e2e/faultproof/long-running/progress_test.go"
 
     steps:
+      - name: Get PR ref
+        if: github.event_name == 'issue_comment'
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            core.setOutput('sha', pr.data.head.sha);
+
       - name: Checkout sources
         uses: actions/checkout@v5
         with:
+          ref: ${{ steps.pr.outputs.sha || github.sha }}
           submodules: true
 
       - name: Setup E2E environment

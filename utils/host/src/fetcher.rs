@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
     str::FromStr,
     sync::Arc,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use crate::rpc_types::{OutputResponse, SafeHeadResponse};
@@ -22,7 +22,7 @@ use kona_protocol::L2BlockInfo;
 use kona_registry::L1_CONFIGS;
 use op_alloy_consensus::OpBlock;
 use op_alloy_network::{primitives::HeaderResponse, BlockResponse, Network, Optimism};
-use op_succinct_client_utils::boot::BootInfoStruct;
+use op_succinct_client_utils::boot::{hash_rollup_config, BootInfoStruct};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -190,20 +190,38 @@ impl OPSuccinctDataFetcher {
             .map(|block_number| async move {
                 let block =
                     self.l2_provider.get_block_by_number(block_number.into()).await?.unwrap();
-                let receipts =
-                    self.l2_provider.get_block_receipts(block_number.into()).await?.unwrap();
-                let total_l1_fees: u128 =
-                    receipts.iter().map(|tx| tx.l1_block_info.l1_fee.unwrap_or(0)).sum();
-                let total_tx_fees: u128 = receipts
-                    .iter()
-                    .map(|tx| {
-                        // tx.inner.effective_gas_price * tx.inner.gas_used +
-                        // tx.l1_block_info.l1_fee is the total fee for the transaction.
-                        // tx.inner.effective_gas_price * tx.inner.gas_used is the tx fee on L2.
-                        tx.inner.effective_gas_price * tx.inner.gas_used as u128 +
-                            tx.l1_block_info.l1_fee.unwrap_or(0)
-                    })
-                    .sum();
+                let (total_l1_fees, total_tx_fees) =
+                    match self.l2_provider.get_block_receipts(block_number.into()).await {
+                        Ok(Some(receipts)) => {
+                            let l1_fees: u128 = receipts
+                                .iter()
+                                .map(|tx| tx.l1_block_info.l1_fee.unwrap_or(0))
+                                .sum();
+                            let tx_fees: u128 = receipts
+                                .iter()
+                                .map(|tx| {
+                                    tx.inner.effective_gas_price * tx.inner.gas_used as u128 +
+                                        tx.l1_block_info.l1_fee.unwrap_or(0)
+                                })
+                                .sum();
+                            (l1_fees, tx_fees)
+                        }
+                        Ok(None) => {
+                            tracing::warn!(
+                                block_number,
+                                "eth_getBlockReceipts returned None; fee data will be zero"
+                            );
+                            (0u128, 0u128)
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                block_number,
+                                error = %e,
+                                "eth_getBlockReceipts failed; fee data will be zero"
+                            );
+                            (0u128, 0u128)
+                        }
+                    };
 
                 Ok(BlockInfo {
                     block_number,
@@ -308,33 +326,125 @@ impl OPSuccinctDataFetcher {
         }
     }
 
-    /// Fetch and save the rollup config to a temporary file.
+    /// Load rollup config from cache (`{L2_CONFIG_DIR}/{chain_id}.json`) if available,
+    /// otherwise fetch from RPC and cache it. Compares cached vs RPC to detect hardfork
+    /// transitions.
     async fn fetch_and_save_rollup_config(
         rpc_config: &RPCConfig,
     ) -> Result<(RollupConfig, PathBuf)> {
+        let chain_id_hex: String = Self::fetch_rpc_data(&rpc_config.l2_rpc, "eth_chainId", vec![])
+            .await
+            .context("Failed to fetch chain ID from L2 RPC — is L2_RPC reachable?")?;
+        let chain_id_stripped = chain_id_hex
+            .strip_prefix("0x")
+            .or_else(|| chain_id_hex.strip_prefix("0X"))
+            .unwrap_or(&chain_id_hex);
+        let chain_id = u64::from_str_radix(chain_id_stripped, 16).with_context(|| {
+            format!("Failed to parse chain ID from eth_chainId response: {chain_id_hex}")
+        })?;
+
+        let l2_config_dir = env::var("L2_CONFIG_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("configs/L2"));
+        let rollup_config_path = l2_config_dir.join(format!("{chain_id}.json"));
+
+        if rollup_config_path.exists() {
+            let file_contents = fs::read_to_string(&rollup_config_path)?;
+            match serde_json::from_str::<RollupConfig>(&file_contents) {
+                Ok(rollup_config) => {
+                    if rollup_config.l2_chain_id.id() != chain_id {
+                        bail!(
+                            "Cached rollup config at {} has chain ID {} but L2 RPC reports {}. \
+                             Delete the cached file and restart.",
+                            rollup_config_path.display(),
+                            rollup_config.l2_chain_id.id(),
+                            chain_id
+                        );
+                    }
+
+                    tracing::info!(
+                        chain_id,
+                        path = %rollup_config_path.display(),
+                        "Loaded rollup config from cached file"
+                    );
+                    Self::compare_config_with_rpc(&rollup_config, rpc_config).await;
+                    return Ok((rollup_config, rollup_config_path));
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        error = %e,
+                        path = %rollup_config_path.display(),
+                        "Cached rollup config is corrupted, fetching from RPC"
+                    );
+                    if let Err(del_err) = fs::remove_file(&rollup_config_path) {
+                        tracing::warn!(error = %del_err, "Failed to delete corrupted cache file");
+                    }
+                }
+            }
+        }
+
+        // Fetch from RPC (no cache, or corrupted cache was deleted).
         let rollup_config: RollupConfig =
             Self::fetch_rpc_data(&rpc_config.l2_node_rpc, "optimism_rollupConfig", vec![]).await?;
 
-        // Create configs directory if it doesn't exist
-        let default_dir = PathBuf::from("configs/L2");
-        let l2_config_dir = env::var("L2_CONFIG_DIR").map(PathBuf::from).unwrap_or(default_dir);
-        fs::create_dir_all(&l2_config_dir)?;
+        // Validate that the config's chain ID matches what l2_rpc reported. These come from
+        // different endpoints (l2_rpc = execution client, l2_node_rpc = op-node), so a mismatch
+        // indicates misconfiguration.
+        if rollup_config.l2_chain_id.id() != chain_id {
+            bail!(
+                "Rollup config from op-node has chain ID {} but L2 execution RPC reports {}. \
+                 Check that L2_RPC and L2_NODE_RPC point to the same chain.",
+                rollup_config.l2_chain_id.id(),
+                chain_id
+            );
+        }
 
-        // Save rollup config to a file named by chain ID
-        let rollup_config_path = l2_config_dir.join(format!("{}.json", rollup_config.l2_chain_id));
-
-        // Write the rollup config to the file
-        let rollup_config_str = serde_json::to_string_pretty(&rollup_config)?;
-        fs::write(&rollup_config_path, rollup_config_str)?;
-
+        // SingleChainHost reads this file for witness generation, so write failure is fatal.
+        fs::create_dir_all(&l2_config_dir)
+            .with_context(|| format!("Failed to create {}", l2_config_dir.display()))?;
+        fs::write(&rollup_config_path, serde_json::to_string_pretty(&rollup_config)?)
+            .with_context(|| format!("Failed to write {}", rollup_config_path.display()))?;
         tracing::info!(
-            "Saved L2 config for chain ID {} to {}",
-            rollup_config.l2_chain_id,
-            rollup_config_path.display()
+            chain_id,
+            path = %rollup_config_path.display(),
+            "Cached rollup config from RPC"
         );
 
-        // Return both the rollup config and the path to the temporary file
         Ok((rollup_config, rollup_config_path))
+    }
+
+    /// Best-effort: compare cached config against node RPC, warn on mismatch (5s timeout).
+    /// Intentionally warn-only — mismatches are expected during hardfork transitions and the
+    /// on-chain vkey check is the authoritative gate for game creation.
+    async fn compare_config_with_rpc(cached: &RollupConfig, rpc_config: &RPCConfig) {
+        let rpc_fetch = Self::fetch_rpc_data::<RollupConfig>(
+            &rpc_config.l2_node_rpc,
+            "optimism_rollupConfig",
+            vec![],
+        );
+
+        match tokio::time::timeout(Duration::from_secs(5), rpc_fetch).await {
+            Ok(Ok(rpc_rollup_config)) => {
+                let cached_hash = hash_rollup_config(cached);
+                let rpc_hash = hash_rollup_config(&rpc_rollup_config);
+                if cached_hash == rpc_hash {
+                    tracing::info!("Cached rollup config matches node RPC");
+                } else {
+                    tracing::warn!(
+                        cached_hash = %cached_hash,
+                        rpc_hash = %rpc_hash,
+                        "Cached rollup config differs from node RPC — \
+                         expected during hardfork transitions"
+                    );
+                }
+            }
+            Ok(Err(e)) => {
+                tracing::warn!(error = %e, "Could not fetch RPC config for comparison");
+            }
+            Err(_) => {
+                tracing::warn!("RPC config comparison timed out (5s)");
+            }
+        }
     }
 
     /// Fetch and save the L1 config based on the rollup config's L1 chain ID.
@@ -758,5 +868,38 @@ impl OPSuccinctDataFetcher {
             l1_config_path: self.l1_config_path.clone(),
             enable_experimental_witness_endpoint: false,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn test_rollup_config(chain_id: u64) -> RollupConfig {
+        RollupConfig { l2_chain_id: chain_id.into(), ..Default::default() }
+    }
+
+    #[test]
+    fn config_hash_survives_round_trip() {
+        let dir = TempDir::new().unwrap();
+        let config = test_rollup_config(42220);
+        let hash_before = hash_rollup_config(&config);
+
+        let path = dir.path().join("42220.json");
+        fs::write(&path, serde_json::to_string_pretty(&config).unwrap()).unwrap();
+        let loaded: RollupConfig =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+
+        assert_eq!(hash_before, hash_rollup_config(&loaded));
+    }
+
+    #[test]
+    fn different_configs_produce_different_hashes() {
+        let config_a = test_rollup_config(42220);
+        let mut config_b = test_rollup_config(42220);
+        config_b.block_time = config_a.block_time + 1;
+
+        assert_ne!(hash_rollup_config(&config_a), hash_rollup_config(&config_b));
     }
 }
