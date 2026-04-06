@@ -25,42 +25,29 @@ At this time, we will not be accepting contributions that only fix spelling or g
 
 ## Backporting Changes
 
-OP Succinct maintains multiple release lines (e.g., `main` for v4.x development, `release/v3.x` for v3.x maintenance). When a fix or non-breaking feature should be applied to a maintenance branch, we use automated backporting.
+OP Succinct maintains multiple release lines (e.g., `main` for v4.x development, `release/v3.x` for v3.x maintenance). When a fix or non-breaking feature should be applied to a maintenance branch, it needs to be backported.
 
-### How It Works
+### How to Backport
 
-1. **Add the label**: When creating a PR to `main`, add the `backport/v3.x` label if the change should also be applied to the v3.x release line.
-2. **Merge to main**: Get your PR reviewed and merged as usual.
-3. **Automation creates backport PR**: A GitHub Action automatically cherry-picks your changes and creates a PR targeting `release/v3.x`.
-4. **Review and merge**: Review the backport PR and merge it.
-
-### When to Use Labels
-
-| Label | When to Use |
-|-------|-------------|
-| `backport/v3.x` | Bug fixes, non-breaking features, documentation updates that should also be in v3.x |
-| `no-backport` | Breaking changes, features that depend on v4.x-only code, changes not applicable to v3.x |
-
-### Handling Conflicts
-
-If the cherry-pick fails due to conflicts:
-1. The automation will post a comment on your original PR explaining the conflict.
-2. You'll need to manually cherry-pick and resolve conflicts:
+1. Create a branch from `release/v3.x` and cherry-pick the merge commit:
    ```bash
-   git checkout release/v3.x
-   git checkout -b backport/your-pr-number
-   git cherry-pick <commit-sha>
-   # Resolve conflicts
-   git push origin backport/your-pr-number
+   git fetch origin release/v3.x
+   git checkout -b backport/<pr-number> origin/release/v3.x
+   git cherry-pick -m 1 <merge-commit-sha>
    ```
-3. Open a PR from your backport branch to `release/v3.x`.
+2. Resolve any conflicts:
+   - **Cargo.lock**: Don't merge manually — resolve `Cargo.toml` first, then run `cargo update`.
+   - **ELF binaries**: Accept the current `release/v3.x` ELFs during cherry-pick, then rebuild from the backport branch with the correct SP1 toolchain. Never copy ELFs from `main`.
+   - **Cargo.toml**: Keep the `release/v3.x` workspace version. Apply dependency changes from the source PR.
+3. Run `cargo fmt --all` and `cargo clippy --all-features --all-targets -- -D warnings -A incomplete-features`.
+4. Open a PR targeting `release/v3.x`.
 
-### Changes Requiring Modification
+### When to Backport
 
-Some changes may need modification when backported (e.g., different API names between versions). In these cases:
-1. Do not use the `backport/v3.x` label.
-2. Manually cherry-pick and adjust the code as needed.
-3. Open a PR with the modified backport.
+| Decision | When |
+|----------|------|
+| Backport | Bug fixes, non-breaking features, dependency upgrades (e.g., SP1 bumps) that should also be in v3.x |
+| Skip | Breaking changes, features that depend on v4.x-only code, changes not applicable to v3.x |
 
 *Adapted from the [Reth contributing guide](https://github.com/paradigmxyz/reth/blob/main/CONTRIBUTING.md).*  
 
