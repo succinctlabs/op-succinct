@@ -49,6 +49,7 @@ configs/
 
 # Contract Bindings
 **/codegen
+!bindings/src/codegen/
 # Grafana alloy config
 config.alloy
 
