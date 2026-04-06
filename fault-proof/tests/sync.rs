@@ -1105,33 +1105,13 @@ mod proposer_sync {
             tracing::info!("✓ Game {game_address} resolved");
         }
 
-        // Step 4: Sync state
+        // Step 4: Sync state — game 3 is Challenged + expired, so it and its child (game 4)
+        // are evicted immediately by the RemoveSubtree path.
         proposer.sync_state().await?;
 
-        // Verify: All games are cached
         let snapshot = proposer.state_snapshot().await;
-        snapshot.assert_game_len(6);
+        snapshot.assert_game_len(4); // 0, 1, 2, 5 (games 3, 4 evicted)
 
-        // Verify: Canonical head is game 5 (highest L2 block among valid games)
-        snapshot.assert_canonical_head(Some(5), 6, starting_l2_block);
-
-        // Step 5: Resolve game 3, 4 and 5
-        for game_address in game_addresses.iter().skip(3) {
-            env.resolve_game(*game_address).await?;
-            tracing::info!("✓ Game {game_address} resolved");
-        }
-
-        // Step 6: Sync state
-        proposer.sync_state().await?;
-
-        // Verify: Games 0, 1, 2, 5 retained; games 3, 4 removed
-        let snapshot = proposer.state_snapshot().await;
-        snapshot.assert_game_len(4); // 0, 1, 2, 5
-
-        // Canonical head should be game 5 (highest block among reachable games)
-        snapshot.assert_canonical_head(Some(5), 6, starting_l2_block);
-
-        // Verify specific games are present
         let game_indices: Vec<U256> = snapshot.games.iter().map(|(idx, _)| *idx).collect();
         assert!(game_indices.contains(&U256::from(0)), "Game 0 should be retained");
         assert!(game_indices.contains(&U256::from(1)), "Game 1 should be retained");
@@ -1139,12 +1119,27 @@ mod proposer_sync {
         assert!(game_indices.contains(&U256::from(5)), "Game 5 should be retained");
         assert!(
             !game_indices.contains(&U256::from(3)),
-            "Game 3 should be removed (CHALLENGER_WINS)"
+            "Game 3 should be evicted (Challenged + expired)"
         );
         assert!(
             !game_indices.contains(&U256::from(4)),
-            "Game 4 should be removed (child of CHALLENGER_WINS)"
+            "Game 4 should be evicted (child of Challenged + expired)"
         );
+
+        snapshot.assert_canonical_head(Some(5), 6, starting_l2_block);
+
+        // Step 5: Resolve remaining on-chain games (3, 4, 5) and re-sync.
+        // Games 3 and 4 were already evicted; this confirms a second sync is stable.
+        for game_address in game_addresses.iter().skip(3) {
+            env.resolve_game(*game_address).await?;
+            tracing::info!("✓ Game {game_address} resolved");
+        }
+
+        proposer.sync_state().await?;
+
+        let snapshot = proposer.state_snapshot().await;
+        snapshot.assert_game_len(4); // still 0, 1, 2, 5
+        snapshot.assert_canonical_head(Some(5), 6, starting_l2_block);
 
         Ok(())
     }
@@ -1330,18 +1325,20 @@ mod proposer_sync {
         env.warp_time(MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION + 1).await?;
         env.resolve_game(game_addresses[0]).await?;
 
-        // Sync and inspect per-branch flags.
+        // Sync — game 1 is Challenged + expired, so it is evicted. Game 2 (proved) is retained.
         proposer.sync_state().await?;
 
-        let game_1 = proposer.get_game(U256::from(1)).await.unwrap();
-        assert_eq!(game_1.proposal_status, ProposalStatus::Challenged);
-        assert!(!game_1.should_attempt_to_resolve, "Challenged game should not auto-resolve");
+        assert!(
+            proposer.get_game(U256::from(1)).await.is_none(),
+            "Game 1 should be evicted (Challenged + expired)"
+        );
 
         let game_2 = proposer.get_game(U256::from(2)).await.unwrap();
         assert_eq!(game_2.proposal_status, ProposalStatus::UnchallengedAndValidProofProvided);
         assert!(game_2.should_attempt_to_resolve, "Proof-provided game should attempt to resolve");
 
         let snapshot = proposer.state_snapshot().await;
+        snapshot.assert_game_len(2); // only root (0) and game 2 remain
         snapshot.assert_canonical_head(Some(2), 3, starting_l2_block);
 
         Ok(())
