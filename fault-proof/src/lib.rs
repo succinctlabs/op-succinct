@@ -25,6 +25,15 @@ pub type L1Provider = RootProvider;
 pub type L2Provider = RootProvider<Optimism>;
 pub type L2NodeProvider = RootProvider<Optimism>;
 
+/// MPT root of an empty withdrawals list (Canyon → pre-Isthmus).
+/// Only from Isthmus onward does `withdrawals_root` contain the L2ToL1MessagePasser storage root.
+/// Ref: https://specs.optimism.io/protocol/isthmus/exec-engine.html
+const EMPTY_WITHDRAWALS_ROOT: B256 = B256::new([
+    0x56, 0xe8, 0x1f, 0x17, 0x1b, 0xcc, 0x55, 0xa6, 0xff, 0x83, 0x45, 0xe6, 0x92, 0xc0, 0xf8,
+    0x6e, 0x5b, 0x48, 0xe0, 0x1b, 0x99, 0x6c, 0xad, 0xc0, 0x01, 0x62, 0x2f, 0xb5, 0xe3, 0x63,
+    0xb4, 0x21,
+]);
+
 pub const NUM_CONFIRMATIONS: u64 = 3;
 pub const TIMEOUT_SECONDS: u64 = 60;
 
@@ -85,12 +94,18 @@ impl L2ProviderTrait for L2Provider {
             .await?;
         let l2_state_root = l2_block.header.state_root;
         let l2_claim_hash = l2_block.header.hash;
-        let l2_storage_root = self
-            .get_l2_storage_root(
-                address!("0x4200000000000000000000000000000000000016"),
-                BlockNumberOrTag::Number(l2_block_number.to::<u64>()),
-            )
-            .await?;
+        let l2_storage_root = match l2_block.header.withdrawals_root {
+            // Post-Isthmus: the header carries the L2ToL1MessagePasser storage root directly.
+            Some(root) if root != EMPTY_WITHDRAWALS_ROOT => root,
+            // Pre-Isthmus (nil or empty MPT root): fall back to eth_getProof.
+            _ => {
+                self.get_l2_storage_root(
+                    address!("0x4200000000000000000000000000000000000016"),
+                    BlockNumberOrTag::Number(l2_block_number.to::<u64>()),
+                )
+                .await?
+            }
+        };
 
         let l2_claim_encoded = L2Output {
             zero: 0,
