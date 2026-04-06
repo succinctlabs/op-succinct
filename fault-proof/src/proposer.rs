@@ -718,6 +718,7 @@ where
                         break
                     }
                 }
+                GameFetchResult::UnsupportedAnchorStateRegistry { .. } => {}
                 GameFetchResult::InvalidGame { index } => {
                     invalid_game_ids.push(index);
                 }
@@ -1375,6 +1376,7 @@ where
     ///
     /// Drop game if:
     /// - The game type is not supported.
+    /// - The game's anchor state registry does not match the configured registry.
     /// - The game type does not respect the expected type when created.
     /// - The output root claim is invalid.
     pub async fn fetch_game(&self, index: U256) -> Result<GameFetchResult> {
@@ -1403,6 +1405,20 @@ where
         }
 
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+
+        // Drop games with a different anchor state registry. During hardfork transitions,
+        // old ASR games must not enter the DAG or they can pollute canonical head selection.
+        let game_asr = contract.anchorStateRegistry().call().await?;
+        if game_asr != *self.anchor_state_registry.address() {
+            tracing::warn!(
+                game_index = %index,
+                ?game_address,
+                ?game_asr,
+                expected = ?self.anchor_state_registry.address(),
+                "Skipping game with different anchor state registry"
+            );
+            return Ok(GameFetchResult::UnsupportedAnchorStateRegistry { game_address });
+        }
 
         let l2_block = contract.l2BlockNumber().call().await?;
         let output_root = self.l2_provider.compute_output_root_at_block(l2_block).await?;
@@ -2241,6 +2257,8 @@ pub enum GameFetchResult {
     ValidGame { game_address: Address, deadline: u64 },
     /// Game type is unsupported
     UnsupportedType { game_address: Address },
+    /// Game's anchor state registry does not match the configured registry
+    UnsupportedAnchorStateRegistry { game_address: Address },
     /// Game is invalid
     InvalidGame { index: U256 },
     /// Game was already present in the cache
