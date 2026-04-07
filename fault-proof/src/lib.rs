@@ -25,6 +25,10 @@ pub type L1Provider = RootProvider;
 pub type L2Provider = RootProvider<Optimism>;
 pub type L2NodeProvider = RootProvider<Optimism>;
 
+/// L2ToL1MessagePasser predeploy address (OP Stack).
+/// Ref: `op_alloy_consensus::L2_TO_L1_MESSAGE_PASSER_ADDRESS` (available from op-alloy v0.23+).
+const L2_TO_L1_MESSAGE_PASSER: Address = address!("0x4200000000000000000000000000000000000016");
+
 pub const NUM_CONFIRMATIONS: u64 = 3;
 pub const TIMEOUT_SECONDS: u64 = 60;
 
@@ -85,12 +89,18 @@ impl L2ProviderTrait for L2Provider {
             .await?;
         let l2_state_root = l2_block.header.state_root;
         let l2_claim_hash = l2_block.header.hash;
-        let l2_storage_root = self
-            .get_l2_storage_root(
-                address!("0x4200000000000000000000000000000000000016"),
-                BlockNumberOrTag::Number(l2_block_number.to::<u64>()),
-            )
-            .await?;
+        // Post-Isthmus: withdrawals_root carries the L2ToL1MessagePasser storage root.
+        // Pre-Isthmus: it's nil or EMPTY_ROOT_HASH, so fall back to eth_getProof.
+        let l2_storage_root = match l2_block.header.withdrawals_root {
+            Some(root) if root != alloy_trie::EMPTY_ROOT_HASH => root,
+            _ => {
+                self.get_l2_storage_root(
+                    L2_TO_L1_MESSAGE_PASSER,
+                    BlockNumberOrTag::Number(l2_block_number.to::<u64>()),
+                )
+                .await?
+            }
+        };
 
         let l2_claim_encoded = L2Output {
             zero: 0,

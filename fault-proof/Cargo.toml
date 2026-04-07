@@ -35,6 +35,7 @@ sp1-cluster-utils.workspace = true
 # alloy
 alloy-contract.workspace = true
 alloy-eips.workspace = true
+alloy-trie.workspace = true
 alloy-network.workspace = true
 alloy-primitives = { workspace = true, features = ["serde"] }
 alloy-provider = { workspace = true, features = ["reqwest"] }
