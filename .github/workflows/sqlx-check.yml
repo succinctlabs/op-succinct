@@ -8,6 +8,7 @@ on:
       - 'sqlx-data.json'
       - 'Cargo.toml'
       - 'Cargo.lock'
+  merge_group:
   workflow_dispatch:
 
 concurrency:

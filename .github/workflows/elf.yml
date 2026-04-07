@@ -9,6 +9,7 @@ on:
     paths-ignore:
       - '**/*.pdf'
       - '**/*.md'
+  merge_group:
   push:
     tags:
       - v[0-9]+.*

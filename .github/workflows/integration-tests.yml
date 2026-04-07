@@ -138,7 +138,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # sync is DA-agnostic (runs once), integration is DA-specific
+        # sync is DA-agnostic (runs once), integration is DA-specific.
+        # eigenda integration is excluded from merge_group (flaky due to
+        # external EigenDA dependency); it still runs on push-to-main and
+        # /integration comment triggers.
         include:
           - test: sync
             da: ethereum
@@ -146,6 +149,9 @@ jobs:
             da: ethereum
           - test: integration
             da: eigenda
+        exclude:
+          - test: ${{ github.event_name == 'merge_group' && 'integration' || 'NONE' }}
+            da: ${{ github.event_name == 'merge_group' && 'eigenda' || 'NONE' }}
 
     steps:
     - name: Get PR ref
