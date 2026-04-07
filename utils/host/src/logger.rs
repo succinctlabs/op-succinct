@@ -13,11 +13,8 @@ use tracing_subscriber::{
 static INIT: OnceLock<Result<()>> = OnceLock::new();
 
 fn build_env_filter() -> EnvFilter {
-    EnvFilter::try_from_default_env()
-        .unwrap_or_else(|e| {
-            println!("failed to setup env filter: {e:?}");
-            EnvFilter::new("info")
-        })
+    // Defaults first: suppress noisy internal modules from kona/sp1.
+    let mut filter = EnvFilter::new("info")
         .add_directive("single_hint_handler=error".parse().unwrap())
         .add_directive("execute=error".parse().unwrap())
         .add_directive("sp1_prover=error".parse().unwrap())
@@ -33,7 +30,19 @@ fn build_env_filter() -> EnvFilter {
         .add_directive("host_server=error".parse().unwrap())
         .add_directive("kona_protocol=error".parse().unwrap())
         .add_directive("sp1_core_executor=off".parse().unwrap())
-        .add_directive("sp1_core_machine=error".parse().unwrap())
+        .add_directive("sp1_core_machine=error".parse().unwrap());
+
+    // RUST_LOG directives added last so they override matching defaults.
+    if let Ok(var) = env::var(EnvFilter::DEFAULT_ENV) {
+        for directive in var.split(',') {
+            match directive.trim().parse() {
+                Ok(d) => filter = filter.add_directive(d),
+                Err(e) => eprintln!("ignoring invalid RUST_LOG directive {directive:?}: {e}"),
+            }
+        }
+    }
+
+    filter
 }
 
 /// Set up the logger with optional OpenTelemetry export.
