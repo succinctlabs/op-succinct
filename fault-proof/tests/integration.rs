@@ -865,8 +865,7 @@ mod integration {
         info!("=== Phase 4: Verify Proposer recovers automatically ===");
         info!("Proposer should create a new game from the last valid game at index 1");
 
-        let current_game_count = factory.gameCount().call().await?;
-        info!("Current game count: {}", current_game_count);
+        info!("Current game count: {}", factory.gameCount().call().await?);
 
         const FIRST_NEW_GAME_INDEX: u64 = 3;
         const EXPECTED_PARENT_INDEX: u32 = 1;
@@ -878,22 +877,22 @@ mod integration {
         let mut scanned_up_to = U256::from(FIRST_NEW_GAME_INDEX);
         let mut found = false;
 
-        while tokio::time::Instant::now() < deadline {
+        'poll: while tokio::time::Instant::now() < deadline {
             let current_game_count = factory.gameCount().call().await?;
+            let had_new_games = scanned_up_to < current_game_count;
             while scanned_up_to < current_game_count {
                 let new_game_info = factory.gameAtIndex(scanned_up_to).call().await?;
                 let new_game = env.fault_dispute_game(new_game_info.proxy_).await?;
                 let claim_data = new_game.claimData().call().await?;
                 if claim_data.parentIndex == EXPECTED_PARENT_INDEX {
                     found = true;
-                    break;
+                    break 'poll;
                 }
                 scanned_up_to += U256::from(1);
             }
-            if found {
-                break;
+            if !had_new_games {
+                tokio::time::sleep(Duration::from_secs(1)).await;
             }
-            tokio::time::sleep(Duration::from_secs(1)).await;
         }
         assert!(found, "Proposer should create a new game from the last valid game");
 
