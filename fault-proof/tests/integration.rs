@@ -865,7 +865,7 @@ mod integration {
         info!("=== Phase 4: Verify Proposer recovers automatically ===");
         info!("Proposer should create a new game from the last valid game at index 1");
 
-        let mut current_game_count = factory.gameCount().call().await?;
+        let current_game_count = factory.gameCount().call().await?;
         info!("Current game count: {}", current_game_count);
 
         const FIRST_NEW_GAME_INDEX: u64 = 3;
