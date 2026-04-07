@@ -70,6 +70,7 @@ mod proposer_sync {
         },
         TestEnvironment,
     };
+    use alloy_eips::BlockId;
     use alloy_primitives::{Bytes, FixedBytes, Uint, U256};
     use alloy_sol_types::{SolCall, SolValue};
     use anyhow::{Context, Result};
@@ -261,7 +262,7 @@ mod proposer_sync {
         proposer.sync_state().await?;
 
         for i in 0..10 {
-            let fetch_result = proposer.fetch_game(U256::from(i)).await?;
+            let fetch_result = proposer.fetch_game(U256::from(i), BlockId::latest()).await?;
             assert!(matches!(fetch_result, GameFetchResult::AlreadyExists));
         }
 
@@ -287,7 +288,7 @@ mod proposer_sync {
 
         proposer.sync_state().await?;
 
-        let fetch_result = proposer.fetch_game(U256::from(0)).await?;
+        let fetch_result = proposer.fetch_game(U256::from(0), BlockId::latest()).await?;
         assert!(matches!(fetch_result, GameFetchResult::InvalidGame { .. }));
 
         let snapshot = proposer.state_snapshot().await;
@@ -551,14 +552,15 @@ mod proposer_sync {
         snapshot.assert_canonical_head(Some(1), 3, starting_l2_block);
 
         // Verify: fetch_game on non-respected game returns InvalidGame
-        let non_respected_fetch_result = proposer.fetch_game(U256::from(0)).await?;
+        let non_respected_fetch_result =
+            proposer.fetch_game(U256::from(0), BlockId::latest()).await?;
         assert!(
             matches!(non_respected_fetch_result, GameFetchResult::InvalidGame { .. }),
             "Game created with non-respected type should be filtered as InvalidGame"
         );
 
         // Verify: fetch_game on the latest valid game returns AlreadyExists
-        let valid_fetch_result = proposer.fetch_game(U256::from(1)).await?;
+        let valid_fetch_result = proposer.fetch_game(U256::from(1), BlockId::latest()).await?;
         assert!(
             matches!(valid_fetch_result, GameFetchResult::AlreadyExists),
             "Valid game at index 1 should be cached"

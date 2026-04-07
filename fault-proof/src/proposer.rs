@@ -10,7 +10,7 @@ use std::{
 
 use tempfile::NamedTempFile;
 
-use alloy_eips::BlockNumberOrTag;
+use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_primitives::{Address, FixedBytes, TxHash, B256, U256};
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_sol_types::{SolEvent, SolValue};
@@ -623,11 +623,18 @@ where
     /// 2. `sync_anchor_game` aligns the cached anchor pointer with the registry contract.
     /// 3. `compute_canonical_head` recomputes the head game used for proposal selection.
     pub async fn sync_state(&self) -> Result<()> {
+        // Pin L1 block number for the entire sync cycle so all state reads see a consistent
+        // snapshot. Without this, load-balanced RPCs can return data from different block
+        // heights, breaking atomicity between related reads (e.g. credit vs anchorGame).
+        // Ref: https://github.com/celo-org/op-succinct/issues/132
+        let l1_block_number = self.l1_provider.get_block_number().await?;
+        let pinned_block = BlockId::number(l1_block_number);
+
         // Pull new games and synchronize cached game statuses.
-        self.sync_games().await?;
+        self.sync_games(pinned_block).await?;
 
         // Align anchor information after the cached game statuses have been synchronized.
-        self.sync_anchor_game().await?;
+        self.sync_anchor_game(pinned_block).await?;
 
         // With the cached game statuses and anchor synchronized, recompute the canonical head.
         self.compute_canonical_head().await;
@@ -650,15 +657,17 @@ where
     /// 3. Evict games from the cache.
     ///    - Games that are finalized but there is no credit left to claim.
     ///    - The entire subtree of a CHALLENGER_WINS game.
-    pub async fn sync_games(&self) -> Result<()> {
+    pub async fn sync_games(&self, pinned_block: BlockId) -> Result<()> {
         // 1. Load new games.
-        let latest_index = if let Some(index) = self.factory.fetch_latest_game_index().await? {
-            Cursor::from(index)
-        } else {
-            return Ok(());
-        };
+        let latest_index =
+            if let Some(index) = self.factory.fetch_latest_game_index(pinned_block).await? {
+                Cursor::from(index)
+            } else {
+                return Ok(());
+            };
 
-        let anchor_address = self.anchor_state_registry.anchorGame().call().await?;
+        let anchor_address =
+            self.anchor_state_registry.anchorGame().block(pinned_block).call().await?;
 
         let cursor = {
             let state = self.state.read().await;
@@ -689,7 +698,7 @@ where
             }
 
             let i = index.index().expect("must have an index here");
-            let fetch_result = self.fetch_game(i).await?;
+            let fetch_result = self.fetch_game(i, pinned_block).await?;
 
             match fetch_result {
                 GameFetchResult::ValidGame { game_address, deadline } => {
@@ -753,9 +762,9 @@ where
         if !games.is_empty() {
             let now_ts = self
                 .l1_provider
-                .get_block_by_number(BlockNumberOrTag::Latest)
+                .get_block_by_number(BlockNumberOrTag::Number(pinned_block.as_u64().unwrap()))
                 .await?
-                .context("Failed to fetch latest L1 block timestamp")?
+                .context("Failed to fetch pinned L1 block")?
                 .header
                 .timestamp;
             let signer_address = self.signer.address();
@@ -778,26 +787,31 @@ where
             for (index, game_address) in games {
                 let contract =
                     OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
-                let claim_data = contract.claimData().call().await?;
-                let status = contract.status().call().await?;
+                let claim_data = contract.claimData().block(pinned_block).call().await?;
+                let status = contract.status().block(pinned_block).call().await?;
                 let deadline = U256::from(claim_data.deadline).to::<u64>();
                 let parent_index = claim_data.parentIndex;
 
-                let is_finalized =
-                    self.anchor_state_registry.isGameFinalized(game_address).call().await?;
+                let is_finalized = self
+                    .anchor_state_registry
+                    .isGameFinalized(game_address)
+                    .block(pinned_block)
+                    .call()
+                    .await?;
 
                 match status {
                     GameStatus::IN_PROGRESS => {
-                        let game_type = contract.gameType().call().await?;
+                        let game_type = contract.gameType().block(pinned_block).call().await?;
                         let parent_resolved =
-                            is_parent_resolved(parent_index, self.factory.as_ref()).await?;
+                            is_parent_resolved(parent_index, self.factory.as_ref(), pinned_block)
+                                .await?;
                         let is_game_over = match claim_data.status {
                             ProposalStatus::Unchallenged => now_ts >= deadline,
                             ProposalStatus::UnchallengedAndValidProofProvided |
                             ProposalStatus::ChallengedAndValidProofProvided => true,
                             _ => false,
                         };
-                        let creator = contract.gameCreator().call().await?;
+                        let creator = contract.gameCreator().block(pinned_block).call().await?;
                         let is_own_game = match claim_data.status {
                             ProposalStatus::Unchallenged => creator == signer_address,
                             ProposalStatus::UnchallengedAndValidProofProvided |
@@ -822,7 +836,8 @@ where
                         });
                     }
                     GameStatus::DEFENDER_WINS => {
-                        let credit = contract.credit(signer_address).call().await?;
+                        let credit =
+                            contract.credit(signer_address).block(pinned_block).call().await?;
 
                         if is_finalized && credit == U256::ZERO {
                             // Game removal policy:
@@ -845,6 +860,7 @@ where
                                 let anchor_game_address = self
                                     .anchor_state_registry
                                     .anchorGame()
+                                    .block(pinned_block)
                                     .call()
                                     .await
                                     .context("Failed to fetch anchor game for removal check")?;
@@ -921,8 +937,9 @@ where
     }
 
     /// Synchronizes the anchor game from the registry.
-    async fn sync_anchor_game(&self) -> Result<()> {
-        let anchor_address = self.anchor_state_registry.anchorGame().call().await?;
+    async fn sync_anchor_game(&self, pinned_block: BlockId) -> Result<()> {
+        let anchor_address =
+            self.anchor_state_registry.anchorGame().block(pinned_block).call().await?;
 
         if anchor_address != Address::ZERO {
             let mut state = self.state.write().await;
@@ -1379,7 +1396,7 @@ where
     /// - The game's anchor state registry does not match the configured registry.
     /// - The game type does not respect the expected type when created.
     /// - The output root claim is invalid.
-    pub async fn fetch_game(&self, index: U256) -> Result<GameFetchResult> {
+    pub async fn fetch_game(&self, index: U256, pinned_block: BlockId) -> Result<GameFetchResult> {
         {
             let state = self.state.read().await;
 
@@ -1388,7 +1405,7 @@ where
             }
         }
 
-        let game = self.factory.gameAtIndex(index).call().await?;
+        let game = self.factory.gameAtIndex(index).block(pinned_block).call().await?;
         let game_address = game.proxy;
         let game_type = game.gameType;
 
@@ -1408,7 +1425,7 @@ where
 
         // Drop games with a different anchor state registry. During hardfork transitions,
         // old ASR games must not enter the DAG or they can pollute canonical head selection.
-        let game_asr = contract.anchorStateRegistry().call().await?;
+        let game_asr = contract.anchorStateRegistry().block(pinned_block).call().await?;
         if game_asr != *self.anchor_state_registry.address() {
             tracing::warn!(
                 game_index = %index,
@@ -1420,12 +1437,13 @@ where
             return Ok(GameFetchResult::UnsupportedAnchorStateRegistry { game_address });
         }
 
-        let l2_block = contract.l2BlockNumber().call().await?;
+        let l2_block = contract.l2BlockNumber().block(pinned_block).call().await?;
         let output_root = self.l2_provider.compute_output_root_at_block(l2_block).await?;
-        let claim = contract.rootClaim().call().await?;
-        let was_respected = contract.wasRespectedGameTypeWhenCreated().call().await?;
-        let status = contract.status().call().await?;
-        let claim_data = contract.claimData().call().await?;
+        let claim = contract.rootClaim().block(pinned_block).call().await?;
+        let was_respected =
+            contract.wasRespectedGameTypeWhenCreated().block(pinned_block).call().await?;
+        let status = contract.status().block(pinned_block).call().await?;
+        let claim_data = contract.claimData().block(pinned_block).call().await?;
 
         let (parent_index, proposal_status, deadline) = (
             claim_data.parentIndex,
@@ -1433,9 +1451,12 @@ where
             U256::from(claim_data.deadline).to::<u64>(),
         );
 
-        let aggregation_vkey = B256::from(contract.aggregationVkey().call().await?.0);
-        let range_vkey_commitment = B256::from(contract.rangeVkeyCommitment().call().await?.0);
-        let rollup_config_hash = B256::from(contract.rollupConfigHash().call().await?.0);
+        let aggregation_vkey =
+            B256::from(contract.aggregationVkey().block(pinned_block).call().await?.0);
+        let range_vkey_commitment =
+            B256::from(contract.rangeVkeyCommitment().block(pinned_block).call().await?.0);
+        let rollup_config_hash =
+            B256::from(contract.rollupConfigHash().block(pinned_block).call().await?.0);
 
         // Drop games whose type does not respect the expected type.
         if !was_respected {
