@@ -3,7 +3,7 @@
 //! On restart, the proposer/challenger can restore its cursor and game cache from a backup file,
 //! avoiding a full re-sync from the factory contract.
 
-use std::{collections::HashSet, io::Write, path::Path};
+use std::{io::Write, path::Path};
 
 use tempfile::NamedTempFile;
 
@@ -47,33 +47,22 @@ impl ProposerBackup {
         Self { version: BACKUP_VERSION, cursor, games, anchor_game_index }
     }
 
-    /// Validate backup integrity.
-    ///
-    /// Checks for:
-    /// - Cursor exists but no games (likely stale/corrupted)
-    /// - Anchor game index references a non-existent game
-    /// - Games with parent indices that don't exist in the backup (orphaned games)
+    /// Validate backup integrity. Rejects stale/corrupted backups but allows orphaned parent
+    /// references, which are normal when anchor-based fetching or ASR filtering produce partial
+    /// DAGs.
     pub fn validate(&self) -> Result<()> {
-        // Check: cursor exists but no games
+        // Cursor with no games indicates a stale or corrupted backup.
         if let Some(cursor) = self.cursor {
             if self.games.is_empty() && cursor > U256::ZERO {
                 bail!("cursor exists but no games");
             }
         }
 
-        // Check: anchor game index references non-existent game
+        // Anchor must reference a game that exists in the backup.
         if let Some(anchor_idx) = self.anchor_game_index {
             if !self.games.iter().any(|g| g.index == anchor_idx) {
                 bail!("anchor game index references non-existent game");
             }
-        }
-
-        // Check: games with orphaned parent references (parent_index == u32::MAX means genesis)
-        let game_indices: HashSet<U256> = self.games.iter().map(|g| g.index).collect();
-        if self.games.iter().any(|g| {
-            g.parent_index != u32::MAX && !game_indices.contains(&U256::from(g.parent_index))
-        }) {
-            bail!("games have orphaned parent references");
         }
 
         Ok(())

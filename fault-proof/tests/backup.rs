@@ -36,13 +36,21 @@ mod validation {
     const M: u32 = u32::MAX;
 
     #[rstest]
+    // Valid cases
     #[case::empty(None, &[], None, true)]
     #[case::cursor_zero_no_games(Some(0), &[], None, true)]
     #[case::single_genesis_game(Some(0), &[(0, M)], None, true)]
     #[case::chain_with_anchor(Some(1), &[(0, M), (1, 0)], Some(1), true)]
+    // Orphan cases — valid because anchor-based fetch and ASR filtering create partial DAGs
+    #[case::orphaned_parent(Some(1), &[(0, M), (1, 99)], None, true)]
+    #[case::anchor_fetch_orphan(Some(5), &[(3, 2), (4, 3), (5, 4)], Some(3), true)]
+    #[case::asr_filtered_gap(Some(4), &[(2, 1), (4, 3)], Some(4), true)]
+    #[case::multiple_orphan_roots(Some(5), &[(2, 1), (5, 4)], None, true)]
+    #[case::single_orphan(Some(5), &[(5, 3)], None, true)]
+    #[case::all_genesis_rooted(Some(1), &[(0, M), (1, M)], Some(0), true)]
+    // Invalid cases — real corruption
     #[case::cursor_without_games(Some(5), &[], None, false)]
     #[case::invalid_anchor_index(Some(0), &[(0, M)], Some(99), false)]
-    #[case::orphaned_parent(Some(1), &[(0, M), (1, 99)], None, false)]
     fn test_validation(
         #[case] cursor: Option<u64>,
         #[case] games: &[(u64, u32)],
