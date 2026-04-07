@@ -865,31 +865,34 @@ mod integration {
         info!("=== Phase 4: Verify Proposer recovers automatically ===");
         info!("Proposer should create a new game from the last valid game at index 1");
 
-        let mut current_game_count = factory.gameCount().call().await?;
-        info!("Current game count: {}", current_game_count);
+        info!("Current game count: {}", factory.gameCount().call().await?);
 
         const FIRST_NEW_GAME_INDEX: u64 = 3;
         const EXPECTED_PARENT_INDEX: u32 = 1;
 
-        // Wait for proposer to create a new game beyond the invalidated canonical head
-        let mut i = U256::from(FIRST_NEW_GAME_INDEX);
-        while current_game_count <= i {
-            tokio::time::sleep(Duration::from_secs(1)).await;
-            current_game_count = factory.gameCount().call().await?;
-        }
-
-        // Check newly created games to find one that builds on the last valid game
+        // Poll until the proposer creates a game with the expected parent, or timeout.
+        // The proposer may need several sync cycles to detect the invalidation and
+        // recover, so we keep scanning newly created games until we find the right one.
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(WAIT_TIMEOUT);
+        let mut scanned_up_to = U256::from(FIRST_NEW_GAME_INDEX);
         let mut found = false;
-        while i < current_game_count {
-            // Verify the new game is built on the last valid game at index 1
-            let new_game_info = factory.gameAtIndex(i).call().await?;
-            let new_game = env.fault_dispute_game(new_game_info.proxy_).await?;
-            let claim_data = new_game.claimData().call().await?;
-            if claim_data.parentIndex == EXPECTED_PARENT_INDEX {
-                found = true;
-                break;
+
+        'poll: while tokio::time::Instant::now() < deadline {
+            let current_game_count = factory.gameCount().call().await?;
+            let had_new_games = scanned_up_to < current_game_count;
+            while scanned_up_to < current_game_count {
+                let new_game_info = factory.gameAtIndex(scanned_up_to).call().await?;
+                let new_game = env.fault_dispute_game(new_game_info.proxy_).await?;
+                let claim_data = new_game.claimData().call().await?;
+                if claim_data.parentIndex == EXPECTED_PARENT_INDEX {
+                    found = true;
+                    break 'poll;
+                }
+                scanned_up_to += U256::from(1);
             }
-            i += U256::from(1);
+            if !had_new_games {
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
         }
         assert!(found, "Proposer should create a new game from the last valid game");
 
