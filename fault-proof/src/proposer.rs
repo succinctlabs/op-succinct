@@ -623,15 +623,20 @@ where
     /// 2. `sync_anchor_game` aligns the cached anchor pointer with the registry contract.
     /// 3. `compute_canonical_head` recomputes the head game used for proposal selection.
     pub async fn sync_state(&self) -> Result<()> {
-        // Pin L1 block number for the entire sync cycle so all state reads see a consistent
+        // Pin L1 block for the entire sync cycle so all state reads see a consistent
         // snapshot. Without this, load-balanced RPCs can return data from different block
         // heights, breaking atomicity between related reads (e.g. credit vs anchorGame).
         // Ref: https://github.com/celo-org/op-succinct/issues/132
-        let l1_block_number = self.l1_provider.get_block_number().await?;
-        let pinned_block = BlockId::number(l1_block_number);
+        let l1_block = self
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await?
+            .context("Failed to fetch latest L1 block")?;
+        let pinned_block = BlockId::number(l1_block.header.number);
+        let pinned_timestamp = l1_block.header.timestamp;
 
         // Pull new games and synchronize cached game statuses.
-        self.sync_games(pinned_block).await?;
+        self.sync_games(pinned_block, pinned_timestamp).await?;
 
         // Align anchor information after the cached game statuses have been synchronized.
         self.sync_anchor_game(pinned_block).await?;
@@ -657,7 +662,7 @@ where
     /// 3. Evict games from the cache.
     ///    - Games that are finalized but there is no credit left to claim.
     ///    - The entire subtree of a CHALLENGER_WINS game.
-    pub async fn sync_games(&self, pinned_block: BlockId) -> Result<()> {
+    pub async fn sync_games(&self, pinned_block: BlockId, pinned_timestamp: u64) -> Result<()> {
         // 1. Load new games.
         let latest_index =
             if let Some(index) = self.factory.fetch_latest_game_index(pinned_block).await? {
@@ -760,13 +765,7 @@ where
         };
 
         if !games.is_empty() {
-            let now_ts = self
-                .l1_provider
-                .get_block_by_number(BlockNumberOrTag::Number(pinned_block.as_u64().unwrap()))
-                .await?
-                .context("Failed to fetch pinned L1 block")?
-                .header
-                .timestamp;
+            let now_ts = pinned_timestamp;
             let signer_address = self.signer.address();
 
             enum GameSyncAction {
@@ -856,21 +855,11 @@ where
                             let should_remove = if canonical_head_index == Some(index) {
                                 tracing::debug!(game_index = %index, "Retaining game: canonical head");
                                 false
+                            } else if anchor_address == game_address {
+                                tracing::debug!(game_index = %index, "Retaining game: anchor game");
+                                false
                             } else {
-                                let anchor_game_address = self
-                                    .anchor_state_registry
-                                    .anchorGame()
-                                    .block(pinned_block)
-                                    .call()
-                                    .await
-                                    .context("Failed to fetch anchor game for removal check")?;
-
-                                if anchor_game_address == game_address {
-                                    tracing::debug!(game_index = %index, "Retaining game: anchor game");
-                                    false
-                                } else {
-                                    true
-                                }
+                                true
                             };
 
                             if should_remove {
