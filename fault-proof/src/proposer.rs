@@ -1669,6 +1669,7 @@ where
         } else {
             // Reset L2 block metrics when canonical head is cleared to avoid stale values.
             ProposerGauge::LatestGameL2BlockNumber.set(0.0);
+            ProposerGauge::FinalizedL2BlockNumber.set(0.0);
             ProposerGauge::AnchorGameL2BlockNumber.set(0.0);
         }
 
