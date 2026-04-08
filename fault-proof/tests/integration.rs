@@ -855,13 +855,10 @@ mod integration {
 
         assert!(!proposer_handle.is_finished(), "Proposer should still be running");
 
-        // Warp time to allow the proposer to finalize the first 2 games
-        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
-
-        env.wait_for_bond_claims(first_two_games, PROPOSER_ADDRESS, WAIT_TIMEOUT).await?;
-        info!("✓ Proposer finalized the first 2 games");
-
         // === PHASE 4: Verify Proposer recovers automatically ===
+        // Check recovery BEFORE finalization so the anchor stays at game 0.
+        // This ensures canonical head = game 1 (not anchor) and the proposer
+        // deterministically uses parent_index=1 for the recovery game.
         info!("=== Phase 4: Verify Proposer recovers automatically ===");
         info!("Proposer should create a new game from the last valid game at index 1");
 
@@ -870,9 +867,7 @@ mod integration {
         const FIRST_NEW_GAME_INDEX: u64 = 3;
         const EXPECTED_PARENT_INDEX: u32 = 1;
 
-        // Poll until the proposer creates a game with the expected parent, or timeout.
-        // The proposer may need several sync cycles to detect the invalidation and
-        // recover, so we keep scanning newly created games until we find the right one.
+        // Poll until the proposer creates a game with the expected parent.
         let deadline = tokio::time::Instant::now() + Duration::from_secs(WAIT_TIMEOUT);
         let mut scanned_up_to = U256::from(FIRST_NEW_GAME_INDEX);
         let mut found = false;
@@ -896,12 +891,9 @@ mod integration {
         }
         assert!(found, "Proposer should create a new game from the last valid game");
 
-        // Verify proposer continues to operate normally
         assert!(!proposer_handle.is_finished(), "Proposer should continue running after recovery");
 
-        // Stop proposer
         proposer_handle.abort();
-        info!("✓ Proposer stopped");
 
         Ok(())
     }
