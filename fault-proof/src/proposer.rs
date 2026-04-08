@@ -273,6 +273,9 @@ where
     /// L1 block number used in the last successful sync cycle. Sync is skipped when the
     /// pinned block hasn't advanced past this value.
     last_synced_l1_block: Arc<AtomicU64>,
+    /// L2 block number of the most recently created game. Used to prevent duplicate
+    /// game creation when the pinned sync cache lags behind the chain tip.
+    last_created_game_l2_block: Arc<AtomicU64>,
 }
 
 impl<P, H> OPSuccinctProposer<P, H>
@@ -381,6 +384,7 @@ where
             backup_semaphore: Arc::new(Semaphore::new(1)),
             identity,
             last_synced_l1_block: Arc::new(AtomicU64::new(0)),
+            last_created_game_l2_block: Arc::new(AtomicU64::new(0)),
         })
     }
 
@@ -682,6 +686,15 @@ where
         self.compute_canonical_head().await;
 
         self.last_synced_l1_block.store(confirmed_number, Ordering::Relaxed);
+
+        // Clear the creation guard once the cache has caught up to the created game.
+        let last_created = self.last_created_game_l2_block.load(Ordering::Relaxed);
+        if last_created > 0 {
+            let head_l2 = self.state.read().await.canonical_head_l2_block;
+            if head_l2.is_some_and(|h| h.to::<u64>() >= last_created) {
+                self.last_created_game_l2_block.store(0, Ordering::Relaxed);
+            }
+        }
 
         Ok(())
     }
@@ -1634,6 +1647,11 @@ where
 
         self.create_game(output_root, extra_data).await?;
 
+        // Record the L2 block so should_create_game() skips duplicate creation
+        // while the pinned cache hasn't caught up to this game.
+        self.last_created_game_l2_block
+            .store(next_l2_block_number_for_proposal.to::<u64>(), Ordering::Relaxed);
+
         Ok(())
     }
 
@@ -2059,6 +2077,19 @@ where
 
         let next_l2_block_number_for_proposal =
             canonical_head_l2_block + U256::from(self.config.proposal_interval_in_blocks);
+
+        // Guard against duplicate creation when the pinned cache lags behind the tip.
+        // If we recently created a game at or beyond this L2 block, skip until the
+        // cache catches up and advances canonical_head_l2_block.
+        let last_created = self.last_created_game_l2_block.load(Ordering::Relaxed);
+        if last_created > 0 && next_l2_block_number_for_proposal.to::<u64>() <= last_created {
+            tracing::debug!(
+                next_l2_block = %next_l2_block_number_for_proposal,
+                last_created,
+                "Skipping game creation: recently created game not yet visible in pinned cache"
+            );
+            return Ok((false, U256::ZERO, u32::MAX));
+        }
 
         let finalized_l2_head_block_number = self
             .host

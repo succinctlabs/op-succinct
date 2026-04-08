@@ -75,7 +75,7 @@ mod proposer_sync {
     use alloy_sol_types::{SolCall, SolValue};
     use anyhow::{Context, Result};
     use fault_proof::{
-        contract::ProposalStatus,
+        contract::{OPSuccinctFaultDisputeGame, ProposalStatus},
         proposer::{
             Game, GameFetchResult, OPSuccinctProposer, ProposerStateSnapshot, MAX_GAME_DEADLINE_LAG,
         },
@@ -1567,6 +1567,55 @@ mod proposer_sync {
         );
 
         tracing::info!("✓ Defense task correctly spawned for game 1: {:?}", game_addresses[1]);
+
+        Ok(())
+    }
+
+    /// Tests that handle_game_creation records the created L2 block, and a subsequent
+    /// call with the same parent/block bumps correctly without creating orphans.
+    ///
+    /// This verifies the while-loop in handle_game_creation: if a game already exists
+    /// at the target (L2 block, parent), it bumps to the next L2 block. Combined with
+    /// the creation guard in should_create_game (which checks last_created_game_l2_block),
+    /// this prevents duplicate sibling creation when the pinned cache lags.
+    #[tokio::test]
+    async fn test_handle_game_creation_bumps_past_existing() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Create game 0 as base.
+        let block_0 = starting_l2_block + 1;
+        let root_claim_0 = env.compute_output_root_at_block(block_0).await?;
+        env.create_game(root_claim_0, block_0, M, init_bond).await?;
+
+        proposer.sync_state().await?;
+        let snapshot = proposer.state_snapshot().await;
+        assert_eq!(snapshot.canonical_head_index, Some(U256::from(0)));
+
+        // First creation at target block.
+        let target_block = starting_l2_block + 2;
+        proposer.handle_game_creation(U256::from(target_block), 0).await?;
+
+        let factory = env.factory()?;
+        let count_after_first = factory.gameCount().call().await?;
+        assert_eq!(count_after_first, U256::from(2), "Should have 2 games");
+
+        // Second creation with same target and parent — should bump to target+1.
+        proposer.handle_game_creation(U256::from(target_block), 0).await?;
+
+        let count_after_second = factory.gameCount().call().await?;
+        assert_eq!(count_after_second, U256::from(3), "Should have 3 games (bumped L2 block)");
+
+        // Verify the third game is at target_block+1, not target_block (no duplicate).
+        let game_2 = factory.gameAtIndex(U256::from(2)).call().await?;
+        let game_contract =
+            OPSuccinctFaultDisputeGame::new(game_2.proxy, env.anvil.provider.clone());
+        let l2_block = game_contract.l2BlockNumber().call().await?;
+        assert_eq!(
+            l2_block,
+            U256::from(target_block + 1),
+            "Second game should be at target+1, not a duplicate at target"
+        );
 
         Ok(())
     }
