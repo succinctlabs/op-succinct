@@ -1622,6 +1622,15 @@ mod proposer_sync {
         let snapshot_after = proposer.state_snapshot().await;
         assert_eq!(snapshot_after.games.len(), 2, "Both games should be in cache after sync");
 
+        // Verify guard actually cleared: should_create_game should return the same as
+        // the baseline (true), not false. This proves the full guard lifecycle:
+        // set on creation → blocks while stale → clears after sync.
+        let (should_create_cleared, _, _) = proposer.should_create_game().await?;
+        assert_eq!(
+            should_create_cleared, should_create_before,
+            "After sync, guard should clear and should_create_game should match baseline"
+        );
+
         Ok(())
     }
 }

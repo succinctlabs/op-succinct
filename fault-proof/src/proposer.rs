@@ -557,18 +557,9 @@ where
                 .with_context(|| format!("backup path is not writable: {:?}", path))?;
 
             // Restore state from backup if available.
-            if let Some(restored) = ProposerState::try_restore(path) {
-                // Initialize creation guard from our own restored games so it survives
-                // restart. Only consider games with matching vkeys (is_owned) to avoid
-                // foreign or orphan games permanently blocking creation.
-                let max_own_l2 = restored
-                    .games
-                    .values()
-                    .filter(|g| g.is_owned(&self.identity))
-                    .map(|g| g.l2_block.to::<u64>())
-                    .max()
-                    .unwrap_or(0);
-                self.last_created_game_l2_block.store(max_own_l2, Ordering::Relaxed);
+            if let Some((restored, last_created)) = ProposerState::try_restore(path) {
+                // Restore the creation guard so duplicate-sibling protection survives restart.
+                self.last_created_game_l2_block.store(last_created, Ordering::Relaxed);
 
                 let mut state = self.state.write().await;
                 state.cursor = restored.cursor;
@@ -2130,7 +2121,8 @@ where
             return;
         };
 
-        let backup = self.state.read().await.to_backup();
+        let mut backup = self.state.read().await.to_backup();
+        backup.last_created_game_l2_block = self.last_created_game_l2_block.load(Ordering::Relaxed);
         let path = path.clone();
         tokio::task::spawn_blocking(move || {
             if let Err(e) = backup.save(&path) {
@@ -2515,16 +2507,18 @@ impl ProposerState {
     }
 
     /// Try to restore state from a backup file. Returns None if file doesn't exist or is invalid.
-    pub fn try_restore(path: &Path) -> Option<Self> {
+    pub fn try_restore(path: &Path) -> Option<(Self, u64)> {
         let backup = ProposerBackup::load(path)?;
+        let last_created = backup.last_created_game_l2_block;
         let state = Self::from_backup(backup);
         tracing::info!(
             ?path,
             games = state.games.len(),
             cursor = %state.cursor,
+            last_created,
             "Proposer state restored from backup"
         );
-        Some(state)
+        Some((state, last_created))
     }
 }
 
