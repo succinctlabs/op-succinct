@@ -1638,10 +1638,16 @@ where
 
     /// Fetch the proposer metrics.
     async fn fetch_proposer_metrics(&self) -> Result<()> {
-        let (canonical_head_l2_block, anchor_game) = {
+        let (canonical_head_l2_block, canonical_head_index, anchor_game) = {
             let state = self.state.read().await;
-            (state.canonical_head_l2_block, state.anchor_game.clone())
+            (state.canonical_head_l2_block, state.canonical_head_index, state.anchor_game.clone())
         };
+
+        // Index-based metrics use -1 as sentinel for "cleared/absent" since index 0 is valid.
+        ProposerGauge::CanonicalHeadGameIndex
+            .set(canonical_head_index.map_or(-1.0, |idx| idx.to::<u64>() as f64));
+        ProposerGauge::AnchorGameIndex
+            .set(anchor_game.as_ref().map_or(-1.0, |g| g.index.to::<u64>() as f64));
 
         if let Some(canonical_head_l2_block) = canonical_head_l2_block {
             ProposerGauge::LatestGameL2BlockNumber.set(canonical_head_l2_block.to::<u64>() as f64);
@@ -1660,7 +1666,9 @@ where
                 ProposerGauge::AnchorGameL2BlockNumber.set(0.0);
             }
         } else {
-            tracing::warn!("canonical_head_l2_block is None; skipping metrics update");
+            // Reset L2 block metrics when canonical head is cleared to avoid stale values.
+            ProposerGauge::LatestGameL2BlockNumber.set(0.0);
+            ProposerGauge::AnchorGameL2BlockNumber.set(0.0);
         }
 
         // Update active proving tasks metric
