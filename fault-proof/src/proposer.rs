@@ -270,6 +270,9 @@ where
     /// Proposer identity with version and vkey information for monitoring and compatibility
     /// checks.
     pub identity: ProposerIdentity,
+    /// L1 block number used in the last successful sync cycle. Sync is skipped when the
+    /// pinned block hasn't advanced past this value.
+    last_synced_l1_block: Arc<AtomicU64>,
 }
 
 impl<P, H> OPSuccinctProposer<P, H>
@@ -377,6 +380,7 @@ where
             state: Arc::new(RwLock::new(initial_state)),
             backup_semaphore: Arc::new(Semaphore::new(1)),
             identity,
+            last_synced_l1_block: Arc::new(AtomicU64::new(0)),
         })
     }
 
@@ -627,13 +631,37 @@ where
         // snapshot. Without this, load-balanced RPCs can return data from different block
         // heights, breaking atomicity between related reads (e.g. credit vs anchorGame).
         // Ref: https://github.com/celo-org/op-succinct/issues/132
-        let l1_block = self
+        let latest_block = self
             .l1_provider
             .get_block_by_number(BlockNumberOrTag::Latest)
             .await?
             .context("Failed to fetch latest L1 block")?;
-        let pinned_block = BlockId::number(l1_block.header.number);
-        let pinned_timestamp = l1_block.header.timestamp;
+
+        let confirmed_number =
+            latest_block.header.number.saturating_sub(self.config.sync_l1_confirmations);
+
+        // If L1 hasn't advanced past the last synced block, all on-chain state is identical.
+        let prev = self.last_synced_l1_block.load(Ordering::Relaxed);
+        if confirmed_number > 0 && confirmed_number <= prev {
+            tracing::debug!(
+                confirmed_number,
+                last_synced = prev,
+                "L1 head unchanged, skipping sync"
+            );
+            return Ok(());
+        }
+
+        // Fetch the confirmed block if an offset is configured; otherwise reuse latest.
+        let (pinned_block, pinned_timestamp) = if self.config.sync_l1_confirmations == 0 {
+            (BlockId::number(latest_block.header.number), latest_block.header.timestamp)
+        } else {
+            let confirmed = self
+                .l1_provider
+                .get_block_by_number(BlockNumberOrTag::Number(confirmed_number))
+                .await?
+                .context("Failed to fetch confirmed L1 block")?;
+            (BlockId::number(confirmed.header.number), confirmed.header.timestamp)
+        };
 
         // Pull new games and synchronize cached game statuses.
         self.sync_games(pinned_block, pinned_timestamp).await?;
@@ -643,6 +671,9 @@ where
 
         // With the cached game statuses and anchor synchronized, recompute the canonical head.
         self.compute_canonical_head().await;
+
+        self.last_synced_l1_block
+            .store(pinned_block.as_u64().unwrap_or(confirmed_number), Ordering::Relaxed);
 
         Ok(())
     }
