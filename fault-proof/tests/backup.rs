@@ -352,4 +352,72 @@ mod integration {
         info!("Backup restore pinned block no games test complete");
         Ok(())
     }
+
+    /// Tests that games pruned due to confirmation lag are rediscovered once confirmed.
+    ///
+    /// With sync_l1_confirmations=1, the first sync pins to the block before game creation
+    /// — cache is empty and cursor is reset. After mining one more block, the second sync
+    /// pins to the game creation block and rediscovers the game.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_backup_prune_then_rediscover_after_confirmation() -> Result<()> {
+        info!("=== Test: Prune Then Rediscover After Confirmation ===");
+
+        let env = TestEnvironment::setup().await?;
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        let backup_dir = TempDir::new()?;
+        let backup_path = backup_dir.path().join("proposer_backup.json");
+
+        // Create game 0 on-chain.
+        let factory = env.factory()?;
+        let init_bond = factory.initBonds(env.game_type).call().await?;
+        let block_0 = starting_l2_block + 1;
+        let root_claim = env.compute_output_root_at_block(block_0).await?;
+        env.create_game(root_claim, block_0, u32::MAX, init_bond).await?;
+        info!("✓ Created game 0 at L2 block {}", block_0);
+
+        // Sync game 0 into proposer and save real backup.
+        let proposer_setup =
+            Arc::new(env.new_proposer_with_options(Some(backup_path.clone()), 0).await?);
+        proposer_setup.try_init().await?;
+        proposer_setup.sync_state().await?;
+        let game_0 = proposer_setup.get_game(U256::from(0)).await.expect("game 0");
+
+        let backup = ProposerBackup::new(Some(U256::from(0)), vec![game_0], None);
+        backup.save(&backup_path)?;
+
+        // Restart with confirmations=1. Latest is the game creation block,
+        // so pinned = latest - 1 = block before game 0. Game gets pruned.
+        let proposer = Arc::new(env.new_proposer_with_options(Some(backup_path.clone()), 1).await?);
+        proposer.try_init().await?;
+
+        let snapshot_restored = proposer.state_snapshot().await;
+        assert_eq!(snapshot_restored.games.len(), 1, "Game 0 restored from backup");
+
+        proposer.sync_state().await?;
+
+        let snapshot_pruned = proposer.state_snapshot().await;
+        assert!(snapshot_pruned.games.is_empty(), "Game 0 pruned (not yet confirmed)");
+        assert!(snapshot_pruned.canonical_head_index.is_none(), "No canonical head");
+
+        // Mine one empty block so pinned = latest - 1 = game creation block.
+        env.warp_time(0).await?;
+
+        proposer.sync_state().await?;
+
+        let snapshot_rediscovered = proposer.state_snapshot().await;
+        assert_eq!(
+            snapshot_rediscovered.games.len(),
+            1,
+            "Game 0 should be rediscovered after confirmation"
+        );
+        assert_eq!(
+            snapshot_rediscovered.canonical_head_index,
+            Some(U256::from(0)),
+            "Canonical head should be game 0"
+        );
+
+        info!("Prune then rediscover test complete");
+        Ok(())
+    }
 }
