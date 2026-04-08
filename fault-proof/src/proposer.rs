@@ -1082,8 +1082,9 @@ where
                 );
             }
         } else {
-            // Clear stale canonical head index when no valid games exist.
+            // Clear stale canonical head when no valid games exist.
             state.canonical_head_index = None;
+            state.canonical_head_l2_block = None;
 
             if previous_canonical_index.is_some() {
                 tracing::info!(
