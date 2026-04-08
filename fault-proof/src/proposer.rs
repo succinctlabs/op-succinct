@@ -631,14 +631,9 @@ where
         // snapshot. Without this, load-balanced RPCs can return data from different block
         // heights, breaking atomicity between related reads (e.g. credit vs anchorGame).
         // Ref: https://github.com/celo-org/op-succinct/issues/132
-        let latest_block = self
-            .l1_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
-            .await?
-            .context("Failed to fetch latest L1 block")?;
-
-        let confirmed_number =
-            latest_block.header.number.saturating_sub(self.config.sync_l1_confirmations);
+        // Determine which block to pin: latest, or latest - confirmations offset.
+        let latest_number = self.l1_provider.get_block_number().await?;
+        let confirmed_number = latest_number.saturating_sub(self.config.sync_l1_confirmations);
 
         // If L1 hasn't advanced past the last synced block, all on-chain state is identical.
         let prev = self.last_synced_l1_block.load(Ordering::Relaxed);
@@ -651,17 +646,13 @@ where
             return Ok(());
         }
 
-        // Fetch the confirmed block if an offset is configured; otherwise reuse latest.
-        let (pinned_block, pinned_timestamp) = if self.config.sync_l1_confirmations == 0 {
-            (BlockId::number(latest_block.header.number), latest_block.header.timestamp)
-        } else {
-            let confirmed = self
-                .l1_provider
-                .get_block_by_number(BlockNumberOrTag::Number(confirmed_number))
-                .await?
-                .context("Failed to fetch confirmed L1 block")?;
-            (BlockId::number(confirmed.header.number), confirmed.header.timestamp)
-        };
+        let pinned_l1_block = self
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Number(confirmed_number))
+            .await?
+            .context("Failed to fetch pinned L1 block")?;
+        let pinned_block = BlockId::number(pinned_l1_block.header.number);
+        let pinned_timestamp = pinned_l1_block.header.timestamp;
 
         // Pull new games and synchronize cached game statuses.
         self.sync_games(pinned_block, pinned_timestamp).await?;
@@ -672,8 +663,7 @@ where
         // With the cached game statuses and anchor synchronized, recompute the canonical head.
         self.compute_canonical_head().await;
 
-        self.last_synced_l1_block
-            .store(pinned_block.as_u64().unwrap_or(confirmed_number), Ordering::Relaxed);
+        self.last_synced_l1_block.store(confirmed_number, Ordering::Relaxed);
 
         Ok(())
     }
