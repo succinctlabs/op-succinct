@@ -249,21 +249,13 @@ mod integration {
         let snapshot = proposer_phase2.state_snapshot().await;
         assert_eq!(snapshot.games.len(), 2, "Both games should be cached");
 
-        // Save backup manually: construct from known game data.
-        let games: Vec<_> = snapshot
-            .games
-            .iter()
-            .map(|(_, addr)| {
-                // Fetch from proposer's internal state by re-syncing — but we already have
-                // the data. Use the test_game helper with real addresses.
-                let idx = snapshot.games.iter().find(|(_, a)| a == &addr).unwrap().0;
-                super::test_game(idx.to::<u64>(), if idx == U256::ZERO { u32::MAX } else { 0 })
-            })
-            .collect();
+        // Save backup from real cached games (with correct on-chain addresses).
+        let game_0 = proposer_phase2.get_game(U256::from(0)).await.expect("game 0 in cache");
+        let game_1 = proposer_phase2.get_game(U256::from(1)).await.expect("game 1 in cache");
 
         let backup = ProposerBackup::new(
             Some(U256::from(1)), // cursor at game 1
-            games,
+            vec![game_0, game_1],
             None, // no anchor yet
         );
         backup.save(&backup_path)?;
@@ -321,7 +313,7 @@ mod integration {
         let backup_dir = TempDir::new()?;
         let backup_path = backup_dir.path().join("proposer_backup.json");
 
-        // Phase 1: Create a game on-chain.
+        // Phase 1: Create a game on-chain and sync it into the proposer.
         let factory = env.factory()?;
         let init_bond = factory.initBonds(env.game_type).call().await?;
         let block = starting_l2_block + 1;
@@ -329,9 +321,14 @@ mod integration {
         env.create_game(root_claim, block, u32::MAX, init_bond).await?;
         info!("✓ Created game 0");
 
-        // Phase 2: Save backup containing game 0.
-        let backup =
-            ProposerBackup::new(Some(U256::from(0)), vec![super::test_game(0, u32::MAX)], None);
+        let proposer_phase1 =
+            Arc::new(env.new_proposer_with_options(Some(backup_path.clone()), 0).await?);
+        proposer_phase1.try_init().await?;
+        proposer_phase1.sync_state().await?;
+        let game_0 = proposer_phase1.get_game(U256::from(0)).await.expect("game 0 in cache");
+
+        // Phase 2: Save backup with real game data.
+        let backup = ProposerBackup::new(Some(U256::from(0)), vec![game_0], None);
         backup.save(&backup_path)?;
 
         // Phase 3: Restart with huge confirmations so pinned block is before all games.
