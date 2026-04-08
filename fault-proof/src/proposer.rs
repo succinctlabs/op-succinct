@@ -742,6 +742,10 @@ where
         let latest_index = if let Some(index) = pinned_latest_index {
             Cursor::from(index)
         } else {
+            // No games at pinned block. Reset cursor so future sync cycles can discover
+            // games once they become confirmed.
+            let mut state = self.state.write().await;
+            state.cursor = Cursor::none();
             return Ok(());
         };
 
