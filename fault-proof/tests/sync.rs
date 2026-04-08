@@ -496,7 +496,7 @@ mod proposer_sync {
 
         // Verify: fetch_game on legacy games returns UnsupportedType
         for (index, (_, is_valid)) in game_sequence.iter().enumerate() {
-            let fetch_result = proposer.fetch_game(U256::from(index)).await?;
+            let fetch_result = proposer.fetch_game(U256::from(index), BlockId::latest()).await?;
             if *is_valid {
                 assert!(
                     matches!(fetch_result, GameFetchResult::AlreadyExists),
