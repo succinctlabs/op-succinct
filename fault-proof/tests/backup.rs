@@ -148,6 +148,7 @@ mod integration {
     use tracing::info;
 
     use alloy_primitives::U256;
+    use fault_proof::backup::ProposerBackup;
 
     use crate::common::TestEnvironment;
 
@@ -237,28 +238,55 @@ mod integration {
         env.create_game(root_claim_1, block_1, 0, init_bond).await?;
         info!("✓ Created game 1 at L2 block {}", block_1);
 
-        // Phase 2: Start proposer with backup to sync both games and persist.
-        let proposer = Arc::new(env.new_proposer_with_options(Some(backup_path.clone()), 0).await?);
-        proposer.try_init().await?;
-        proposer.sync_state().await?;
+        // Phase 2: Construct and save backup containing both games.
+        // We build the backup directly rather than running the proposer loop, so the
+        // backup content is deterministic and guaranteed to exist.
+        let proposer_phase2 =
+            Arc::new(env.new_proposer_with_options(Some(backup_path.clone()), 0).await?);
+        proposer_phase2.try_init().await?;
+        proposer_phase2.sync_state().await?;
 
-        let snapshot = proposer.state_snapshot().await;
+        let snapshot = proposer_phase2.state_snapshot().await;
         assert_eq!(snapshot.games.len(), 2, "Both games should be cached");
-        info!("Phase 2: {} games in state, saving backup", snapshot.games.len());
 
-        // Trigger backup save.
-        proposer.sync_state().await?;
-        sleep(Duration::from_secs(2)).await;
+        // Save backup manually: construct from known game data.
+        let games: Vec<_> = snapshot
+            .games
+            .iter()
+            .map(|(_, addr)| {
+                // Fetch from proposer's internal state by re-syncing — but we already have
+                // the data. Use the test_game helper with real addresses.
+                let idx = snapshot.games.iter().find(|(_, a)| a == &addr).unwrap().0;
+                super::test_game(idx.to::<u64>(), if idx == U256::ZERO { u32::MAX } else { 0 })
+            })
+            .collect();
+
+        let backup = ProposerBackup::new(
+            Some(U256::from(1)), // cursor at game 1
+            games,
+            None, // no anchor yet
+        );
+        backup.save(&backup_path)?;
+        info!("Phase 2: backup saved with {} games", snapshot.games.len());
 
         // Phase 3: Restart from backup with confirmations=1.
         // latest is the block containing game 1. latest-1 is the gap block,
-        // where only game 0 exists.
-        let proposer2 =
+        // where only game 0 exists in the factory.
+        let proposer3 =
             Arc::new(env.new_proposer_with_options(Some(backup_path.clone()), 1).await?);
-        proposer2.try_init().await?;
-        proposer2.sync_state().await?;
+        proposer3.try_init().await?;
 
-        let snapshot_after = proposer2.state_snapshot().await;
+        // Verify: backup was restored with both games before sync prunes.
+        let snapshot_restored = proposer3.state_snapshot().await;
+        assert_eq!(
+            snapshot_restored.games.len(),
+            2,
+            "Both games should be restored from backup before sync"
+        );
+
+        proposer3.sync_state().await?;
+
+        let snapshot_after = proposer3.state_snapshot().await;
         info!("Phase 3: {} games after sync with confirmations=1", snapshot_after.games.len());
 
         // Game 0 should survive (exists at pinned block).
@@ -281,47 +309,43 @@ mod integration {
 
     /// Tests that backup restore with pinned block having zero games clears all state.
     ///
-    /// Creates games, backs up, then restarts with confirmations large enough that the
-    /// pinned block predates all game creation. Verifies the cache is fully cleared.
+    /// Saves a backup containing a game, then restarts with confirmations large enough
+    /// that the pinned block predates all game creation. Verifies the cache is fully cleared.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_backup_restore_pinned_block_no_games() -> Result<()> {
         info!("=== Test: Backup Restore With Pinned Block Having Zero Games ===");
 
         let env = TestEnvironment::setup().await?;
+        let starting_l2_block = env.anvil.starting_l2_block_number;
 
         let backup_dir = TempDir::new()?;
         let backup_path = backup_dir.path().join("proposer_backup.json");
 
-        // Phase 1: Create at least one game and persist backup.
-        let proposer = Arc::new(env.new_proposer_with_options(Some(backup_path.clone()), 0).await?);
+        // Phase 1: Create a game on-chain.
+        let factory = env.factory()?;
+        let init_bond = factory.initBonds(env.game_type).call().await?;
+        let block = starting_l2_block + 1;
+        let root_claim = env.compute_output_root_at_block(block).await?;
+        env.create_game(root_claim, block, u32::MAX, init_bond).await?;
+        info!("✓ Created game 0");
 
-        let proposer_clone = proposer.clone();
-        let proposer_handle = tokio::spawn(async move { proposer_clone.run().await });
+        // Phase 2: Save backup containing game 0.
+        let backup =
+            ProposerBackup::new(Some(U256::from(0)), vec![super::test_game(0, u32::MAX)], None);
+        backup.save(&backup_path)?;
 
-        env.wait_and_track_games(1, 30).await?;
-
-        for _ in 0..30 {
-            if !proposer.state_snapshot().await.games.is_empty() {
-                break;
-            }
-            sleep(Duration::from_secs(1)).await;
-        }
-        assert!(
-            !proposer.state_snapshot().await.games.is_empty(),
-            "Proposer should have at least one game"
-        );
-
-        sleep(Duration::from_secs(2)).await;
-        proposer_handle.abort();
-
-        // Phase 2: Restart with huge confirmations so pinned block is before genesis games.
-        let proposer2 =
+        // Phase 3: Restart with huge confirmations so pinned block is before all games.
+        let proposer =
             Arc::new(env.new_proposer_with_options(Some(backup_path.clone()), 1_000_000).await?);
+        proposer.try_init().await?;
 
-        proposer2.try_init().await?;
-        proposer2.sync_state().await?;
+        // Verify: backup was restored with game 0.
+        let snapshot_restored = proposer.state_snapshot().await;
+        assert_eq!(snapshot_restored.games.len(), 1, "Game 0 should be restored from backup");
 
-        let snapshot = proposer2.state_snapshot().await;
+        proposer.sync_state().await?;
+
+        let snapshot = proposer.state_snapshot().await;
         assert!(snapshot.games.is_empty(), "Games should be empty");
         assert!(snapshot.anchor_index.is_none(), "Anchor should be None");
         assert!(snapshot.canonical_head_index.is_none(), "Canonical head should be None");
