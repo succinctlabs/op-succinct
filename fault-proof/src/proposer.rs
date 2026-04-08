@@ -558,6 +558,13 @@ where
 
             // Restore state from backup if available.
             if let Some(restored) = ProposerState::try_restore(path) {
+                // Initialize creation guard from restored games so it survives restart.
+                // Without this, a restart before pinned sync catches up would lose the
+                // guard and allow duplicate sibling game creation.
+                let max_l2 =
+                    restored.games.values().map(|g| g.l2_block.to::<u64>()).max().unwrap_or(0);
+                self.last_created_game_l2_block.store(max_l2, Ordering::Relaxed);
+
                 let mut state = self.state.write().await;
                 state.cursor = restored.cursor;
                 state.games = restored.games;
@@ -1677,6 +1684,8 @@ where
                 .await?
             {
                 ProposerGauge::FinalizedL2BlockNumber.set(finalized_l2_block_number as f64);
+            } else {
+                ProposerGauge::FinalizedL2BlockNumber.set(0.0);
             }
 
             if let Some(anchor_game) = anchor_game {
@@ -1925,7 +1934,7 @@ where
     /// proposal, and the parent game index.
     /// If a game should not be created, dummy values are returned for the next L2 block number for
     /// proposal and parent game index.
-    async fn should_create_game(&self) -> Result<(bool, U256, u32)> {
+    pub(crate) async fn should_create_game(&self) -> Result<(bool, U256, u32)> {
         // In fast finality mode, resume proving for existing games before creating new ones
         // TODO(fakedev9999): Consider unifying proving concurrency control for both fast finality
         // and defense proving with a priority system.
