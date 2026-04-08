@@ -64,6 +64,7 @@ pub async fn new_proposer(
             min_auction_period: 1,
             whitelist: None,
         },
+        sync_l1_confirmations: 0,
     };
 
     let l1_provider = ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone());
