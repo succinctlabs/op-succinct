@@ -147,7 +147,7 @@ mod integration {
     use tokio::time::{sleep, Duration};
     use tracing::info;
 
-    use crate::common::{new_proposer, TestEnvironment};
+    use crate::common::{new_proposer, new_proposer_with_confirmations, TestEnvironment};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_proposer_backup_persistence() -> Result<()> {
@@ -216,6 +216,167 @@ mod integration {
         );
 
         info!("Backup persistence test complete");
+        Ok(())
+    }
+
+    /// Tests that backup-restored games above the pinned latest index are pruned during sync.
+    ///
+    /// Simulates a restart with SYNC_L1_CONFIRMATIONS > 0 where the pinned block is behind
+    /// the newest restored games. Verifies that sync_state succeeds and the pruned games
+    /// don't appear in the snapshot or affect canonical head selection.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_backup_prune_future_games_with_confirmations() -> Result<()> {
+        info!("=== Test: Backup Prune Future Games With Confirmations ===");
+
+        let env = TestEnvironment::setup().await?;
+
+        let backup_dir = TempDir::new()?;
+        let backup_path = backup_dir.path().join("proposer_backup.json");
+
+        // Phase 1: Create games and persist backup with confirmations=0.
+        let proposer = Arc::new(
+            new_proposer(
+                &env.rpc_config,
+                env.private_keys.proposer,
+                &env.deployed.anchor_state_registry,
+                &env.deployed.factory,
+                env.game_type,
+                Some(backup_path.clone()),
+            )
+            .await?,
+        );
+
+        let proposer_clone = proposer.clone();
+        let proposer_handle = tokio::spawn(async move { proposer_clone.run().await });
+
+        env.wait_and_track_games(2, 60).await?;
+
+        for _ in 0..30 {
+            if proposer.state_snapshot().await.games.len() >= 2 {
+                break;
+            }
+            sleep(Duration::from_secs(1)).await;
+        }
+        let snapshot_before = proposer.state_snapshot().await;
+        let game_count_before = snapshot_before.games.len();
+        assert!(game_count_before >= 2, "Need at least 2 games for this test");
+        info!("Phase 1: {} games in state", game_count_before);
+
+        sleep(Duration::from_secs(2)).await;
+        proposer_handle.abort();
+
+        // Phase 2: Restart from backup with a large confirmation offset so the pinned
+        // block is behind the newest game(s).
+        let proposer2 = Arc::new(
+            new_proposer_with_confirmations(
+                &env.rpc_config,
+                env.private_keys.proposer,
+                &env.deployed.anchor_state_registry,
+                &env.deployed.factory,
+                env.game_type,
+                Some(backup_path.clone()),
+                1_000_000, // Large offset: pinned block will be 0, before all games.
+            )
+            .await?,
+        );
+
+        proposer2.try_init().await?;
+        proposer2.sync_state().await?;
+
+        let snapshot_after = proposer2.state_snapshot().await;
+        info!(
+            "Phase 2: {} games after sync with large confirmation offset",
+            snapshot_after.games.len()
+        );
+
+        // All games should have been pruned since pinned block is before any game.
+        assert!(
+            snapshot_after.games.is_empty(),
+            "All games should be pruned when pinned block is before first game"
+        );
+        assert!(
+            snapshot_after.anchor_index.is_none(),
+            "Anchor should be cleared when all games are pruned"
+        );
+        assert!(
+            snapshot_after.canonical_head_index.is_none(),
+            "Canonical head should be None when all games are pruned"
+        );
+
+        info!("Backup prune future games test complete");
+        Ok(())
+    }
+
+    /// Tests that backup restore with pinned block having zero games clears all state.
+    ///
+    /// Creates games, backs up, then restarts with confirmations large enough that the
+    /// pinned block predates all game creation. Verifies the cache is fully cleared.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_backup_restore_pinned_block_no_games() -> Result<()> {
+        info!("=== Test: Backup Restore With Pinned Block Having Zero Games ===");
+
+        let env = TestEnvironment::setup().await?;
+
+        let backup_dir = TempDir::new()?;
+        let backup_path = backup_dir.path().join("proposer_backup.json");
+
+        // Phase 1: Create at least one game and persist backup.
+        let proposer = Arc::new(
+            new_proposer(
+                &env.rpc_config,
+                env.private_keys.proposer,
+                &env.deployed.anchor_state_registry,
+                &env.deployed.factory,
+                env.game_type,
+                Some(backup_path.clone()),
+            )
+            .await?,
+        );
+
+        let proposer_clone = proposer.clone();
+        let proposer_handle = tokio::spawn(async move { proposer_clone.run().await });
+
+        env.wait_and_track_games(1, 30).await?;
+
+        for _ in 0..30 {
+            if !proposer.state_snapshot().await.games.is_empty() {
+                break;
+            }
+            sleep(Duration::from_secs(1)).await;
+        }
+        assert!(
+            !proposer.state_snapshot().await.games.is_empty(),
+            "Proposer should have at least one game"
+        );
+
+        sleep(Duration::from_secs(2)).await;
+        proposer_handle.abort();
+
+        // Phase 2: Restart with huge confirmations so pinned block is before genesis games.
+        let proposer2 = Arc::new(
+            new_proposer_with_confirmations(
+                &env.rpc_config,
+                env.private_keys.proposer,
+                &env.deployed.anchor_state_registry,
+                &env.deployed.factory,
+                env.game_type,
+                Some(backup_path.clone()),
+                1_000_000,
+            )
+            .await?,
+        );
+
+        proposer2.try_init().await?;
+        proposer2.sync_state().await?;
+
+        let snapshot = proposer2.state_snapshot().await;
+        assert!(snapshot.games.is_empty(), "Games should be empty");
+        assert!(snapshot.anchor_index.is_none(), "Anchor should be None");
+        assert!(snapshot.canonical_head_index.is_none(), "Canonical head should be None");
+        // Note: canonical_head_l2_block is intentionally not asserted — current semantics
+        // only clear canonical_head_index, not the stored baseline L2 block.
+
+        info!("Backup restore pinned block no games test complete");
         Ok(())
     }
 }
