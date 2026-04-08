@@ -631,9 +631,13 @@ where
         // snapshot. Without this, load-balanced RPCs can return data from different block
         // heights, breaking atomicity between related reads (e.g. credit vs anchorGame).
         // Ref: https://github.com/celo-org/op-succinct/issues/132
-        // Determine which block to pin: latest, or latest - confirmations offset.
-        let latest_number = self.l1_provider.get_block_number().await?;
-        let confirmed_number = latest_number.saturating_sub(self.config.sync_l1_confirmations);
+        let latest_block = self
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await?
+            .context("Failed to fetch latest L1 block")?;
+        let confirmed_number =
+            latest_block.header.number.saturating_sub(self.config.sync_l1_confirmations);
 
         // If L1 hasn't advanced past the last synced block, all on-chain state is identical.
         let prev = self.last_synced_l1_block.load(Ordering::Relaxed);
@@ -646,13 +650,27 @@ where
             return Ok(());
         }
 
-        let pinned_l1_block = self
-            .l1_provider
-            .get_block_by_number(BlockNumberOrTag::Number(confirmed_number))
-            .await?
-            .context("Failed to fetch pinned L1 block")?;
-        let pinned_block = BlockId::number(pinned_l1_block.header.number);
-        let pinned_timestamp = pinned_l1_block.header.timestamp;
+        // When no confirmation offset, use the latest block directly (single RPC response).
+        // When offset > 0, fetch the confirmed block separately; if the backend hasn't
+        // caught up, skip this cycle rather than pinning forward.
+        let (pinned_block, pinned_timestamp) = if self.config.sync_l1_confirmations == 0 {
+            (BlockId::number(latest_block.header.number), latest_block.header.timestamp)
+        } else {
+            match self
+                .l1_provider
+                .get_block_by_number(BlockNumberOrTag::Number(confirmed_number))
+                .await?
+            {
+                Some(block) => (BlockId::number(block.header.number), block.header.timestamp),
+                None => {
+                    tracing::warn!(
+                        confirmed_number,
+                        "Confirmed block not available on this backend, skipping sync cycle"
+                    );
+                    return Ok(());
+                }
+            }
+        };
 
         // Pull new games and synchronize cached game statuses.
         self.sync_games(pinned_block, pinned_timestamp).await?;
@@ -684,13 +702,48 @@ where
     ///    - Games that are finalized but there is no credit left to claim.
     ///    - The entire subtree of a CHALLENGER_WINS game.
     pub async fn sync_games(&self, pinned_block: BlockId, pinned_timestamp: u64) -> Result<()> {
+        // 0. Prune cached games that don't exist at the pinned block. After a backup restore, the
+        //    cache may contain games created in tip blocks that are ahead of the pinned snapshot.
+        //    Reading their on-chain state at the pinned block would fail, and leaving them in the
+        //    cache would let compute_canonical_head pick a head that doesn't exist at the pinned
+        //    height.
+        let pinned_latest_index = self.factory.fetch_latest_game_index(pinned_block).await?;
+        {
+            let mut state = self.state.write().await;
+            let future_games: Vec<U256> = state
+                .games
+                .keys()
+                .filter(|idx| match pinned_latest_index {
+                    Some(max) => **idx > max,
+                    None => true,
+                })
+                .copied()
+                .collect();
+            if !future_games.is_empty() {
+                for idx in &future_games {
+                    state.games.remove(idx);
+                }
+                tracing::info!(
+                    count = future_games.len(),
+                    "Pruned games above pinned latest index"
+                );
+                // Clear anchor if it pointed to a pruned game.
+                let should_clear_anchor = state
+                    .anchor_game
+                    .as_ref()
+                    .is_some_and(|a| !state.games.values().any(|g| g.address == a.address));
+                if should_clear_anchor {
+                    state.anchor_game = None;
+                }
+            }
+        }
+
         // 1. Load new games.
-        let latest_index =
-            if let Some(index) = self.factory.fetch_latest_game_index(pinned_block).await? {
-                Cursor::from(index)
-            } else {
-                return Ok(());
-            };
+        let latest_index = if let Some(index) = pinned_latest_index {
+            Cursor::from(index)
+        } else {
+            return Ok(());
+        };
 
         let anchor_address =
             self.anchor_state_registry.anchorGame().block(pinned_block).call().await?;
@@ -951,18 +1004,20 @@ where
         let anchor_address =
             self.anchor_state_registry.anchorGame().block(pinned_block).call().await?;
 
-        if anchor_address != Address::ZERO {
-            let mut state = self.state.write().await;
+        let mut state = self.state.write().await;
 
-            // Fetch the anchor game from the cache.
-            if let Some((_, anchor_game)) =
-                state.games.iter().find(|(_, game)| game.address == anchor_address)
-            {
-                state.anchor_game = Some(anchor_game.clone());
-                tracing::debug!(?anchor_address, "Anchor game updated in cache");
-            } else {
-                tracing::debug!(?anchor_address, "Anchor game not in cache yet");
-            }
+        if anchor_address == Address::ZERO {
+            state.anchor_game = None;
+        } else if let Some((_, anchor_game)) =
+            state.games.iter().find(|(_, game)| game.address == anchor_address)
+        {
+            state.anchor_game = Some(anchor_game.clone());
+            tracing::debug!(?anchor_address, "Anchor game updated in cache");
+        } else {
+            // Anchor not in cache (pruned or not yet fetched) — clear to prevent
+            // compute_canonical_head from following a stale subtree.
+            state.anchor_game = None;
+            tracing::debug!(?anchor_address, "Anchor game not in cache, clearing");
         }
 
         Ok(())
