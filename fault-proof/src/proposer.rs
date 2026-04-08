@@ -558,12 +558,17 @@ where
 
             // Restore state from backup if available.
             if let Some(restored) = ProposerState::try_restore(path) {
-                // Initialize creation guard from restored games so it survives restart.
-                // Without this, a restart before pinned sync catches up would lose the
-                // guard and allow duplicate sibling game creation.
-                let max_l2 =
-                    restored.games.values().map(|g| g.l2_block.to::<u64>()).max().unwrap_or(0);
-                self.last_created_game_l2_block.store(max_l2, Ordering::Relaxed);
+                // Initialize creation guard from our own restored games so it survives
+                // restart. Only consider games with matching vkeys (is_owned) to avoid
+                // foreign or orphan games permanently blocking creation.
+                let max_own_l2 = restored
+                    .games
+                    .values()
+                    .filter(|g| g.is_owned(&self.identity))
+                    .map(|g| g.l2_block.to::<u64>())
+                    .max()
+                    .unwrap_or(0);
+                self.last_created_game_l2_block.store(max_own_l2, Ordering::Relaxed);
 
                 let mut state = self.state.write().await;
                 state.cursor = restored.cursor;
