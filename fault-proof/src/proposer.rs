@@ -1935,7 +1935,7 @@ where
     /// proposal, and the parent game index.
     /// If a game should not be created, dummy values are returned for the next L2 block number for
     /// proposal and parent game index.
-    pub(crate) async fn should_create_game(&self) -> Result<(bool, U256, u32)> {
+    pub async fn should_create_game(&self) -> Result<(bool, U256, u32)> {
         // In fast finality mode, resume proving for existing games before creating new ones
         // TODO(fakedev9999): Consider unifying proving concurrency control for both fast finality
         // and defense proving with a priority system.
