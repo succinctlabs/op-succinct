@@ -1903,6 +1903,11 @@ where
             }
 
             ProposerGauge::GamesCreated.increment(1.0);
+
+            // Persist the creation guard immediately so a crash before the next periodic
+            // backup doesn't lose the duplicate-creation protection.
+            proposer.backup().await;
+
             Ok(())
         });
 

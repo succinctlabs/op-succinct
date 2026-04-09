@@ -1599,12 +1599,12 @@ mod proposer_sync {
         let proposal_interval = proposer.config.proposal_interval_in_blocks;
         let next_block = block_0 + proposal_interval;
 
-        // Only proceed if the baseline would have allowed creation.
-        // If the finalized gate already blocks, the test can't isolate the guard.
-        if !should_create_before {
-            tracing::warn!("Finalization gate blocked creation; skipping guard isolation test");
-            return Ok(());
-        }
+        // Precondition: baseline must allow creation so we can isolate the guard.
+        // In the test environment (mock mode + anvil), finalization should not block.
+        assert!(
+            should_create_before,
+            "Precondition failed: should_create_game must return true before guard is set"
+        );
 
         proposer.handle_game_creation(U256::from(next_block), 0).await?;
 

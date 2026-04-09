@@ -176,7 +176,7 @@ mod tests {
 
         assert_eq!(
             keys,
-            vec!["anchor_game_index", "cursor", "games", "version"],
+            vec!["anchor_game_index", "cursor", "games", "last_created_game_l2_block", "version"],
             "ProposerBackup schema changed! Bump BACKUP_VERSION in backup.rs"
         );
     }
