@@ -1098,9 +1098,13 @@ where
                 );
             }
         } else {
-            // Clear stale canonical head when no valid games exist.
+            // Clear stale canonical head index when no valid games exist.
+            // canonical_head_l2_block is intentionally preserved — it serves as the anchor
+            // baseline for should_create_game() to propose the first game. Clearing it
+            // would permanently block proposals on fresh deployments or when the pinned
+            // snapshot has no games. The new canonical_head_index gauge (-1) provides
+            // observability for the "no head" state.
             state.canonical_head_index = None;
-            state.canonical_head_l2_block = None;
 
             if previous_canonical_index.is_some() {
                 tracing::info!(
