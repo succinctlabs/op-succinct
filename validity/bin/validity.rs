@@ -85,6 +85,7 @@ async fn main() -> Result<()> {
         whitelist: env_config.whitelist,
         min_auction_period: env_config.min_auction_period,
         auction_timeout: env_config.auction_timeout,
+        tx_confirmation_timeout: env_config.tx_confirmation_timeout,
     };
     proposer_config.log();
 
