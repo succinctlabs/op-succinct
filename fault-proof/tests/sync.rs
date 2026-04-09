@@ -75,7 +75,7 @@ mod proposer_sync {
     use alloy_sol_types::{SolCall, SolValue};
     use anyhow::{Context, Result};
     use fault_proof::{
-        contract::{OPSuccinctFaultDisputeGame, ProposalStatus},
+        contract::ProposalStatus,
         proposer::{
             Game, GameFetchResult, OPSuccinctProposer, ProposerStateSnapshot, MAX_GAME_DEADLINE_LAG,
         },
