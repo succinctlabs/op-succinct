@@ -2,7 +2,6 @@ use std::{
     cmp::{min, Ordering},
     env, fs,
     path::PathBuf,
-    str::FromStr,
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -10,7 +9,7 @@ use std::{
 use crate::rpc_types::{OutputResponse, SafeHeadResponse};
 use alloy_consensus::{BlockHeader, Header};
 use alloy_eips::{BlockId, BlockNumberOrTag};
-use alloy_primitives::{keccak256, Address, Bytes, B256, U256, U64};
+use alloy_primitives::{address, keccak256, Address, Bytes, B256, U256, U64};
 use alloy_provider::{Provider, ProviderBuilder, RootProvider};
 use alloy_rlp::Decodable;
 use alloy_sol_types::SolValue;
@@ -28,6 +27,30 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::L2Output;
+
+/// L2ToL1MessagePasser predeploy address (OP Stack).
+const L2_TO_L1_MESSAGE_PASSER: Address = address!("0x4200000000000000000000000000000000000016");
+
+/// Resolve the L2ToL1MessagePasser storage root from a block.
+///
+/// Post-Isthmus, the header's `withdrawals_root` field carries this value directly.
+/// Pre-Isthmus (Canyon→Fjord), `withdrawals_root` is set to `EMPTY_ROOT_HASH`,
+/// so we fall back to `eth_getProof`.
+/// Ref: <https://specs.optimism.io/protocol/isthmus/exec-engine.html>
+async fn l2_to_l1_message_passer_storage_root(
+    provider: &RootProvider<Optimism>,
+    header: &Header,
+    block_number: u64,
+) -> Result<B256> {
+    match header.withdrawals_root {
+        Some(root) if root != alloy_trie::EMPTY_ROOT_HASH => Ok(root),
+        _ => Ok(provider
+            .get_proof(L2_TO_L1_MESSAGE_PASSER, Vec::new())
+            .block_id(block_number.into())
+            .await?
+            .storage_hash),
+    }
+}
 
 #[derive(Clone)]
 /// The OPSuccinctDataFetcher struct is used to fetch the L2 output data and L2 claim data for a
@@ -808,11 +831,12 @@ impl OPSuccinctDataFetcher {
             })?;
         let l2_output_state_root = l2_output_block.header.state_root;
         let agreed_l2_head_hash = l2_output_block.header.hash;
-        let l2_output_storage_hash = l2_provider
-            .get_proof(Address::from_str("0x4200000000000000000000000000000000000016")?, Vec::new())
-            .block_id(l2_start_block.into())
-            .await?
-            .storage_hash;
+        let l2_output_storage_hash = l2_to_l1_message_passer_storage_root(
+            l2_provider.as_ref(),
+            &l2_output_block.header.inner,
+            l2_start_block,
+        )
+        .await?;
 
         let l2_output_encoded = L2Output {
             zero: 0,
@@ -826,11 +850,12 @@ impl OPSuccinctDataFetcher {
         let l2_claim_block = l2_provider.get_block_by_number(l2_end_block.into()).await?.unwrap();
         let l2_claim_state_root = l2_claim_block.header.state_root;
         let l2_claim_hash = l2_claim_block.header.hash;
-        let l2_claim_storage_hash = l2_provider
-            .get_proof(Address::from_str("0x4200000000000000000000000000000000000016")?, Vec::new())
-            .block_id(l2_end_block.into())
-            .await?
-            .storage_hash;
+        let l2_claim_storage_hash = l2_to_l1_message_passer_storage_root(
+            l2_provider.as_ref(),
+            &l2_claim_block.header.inner,
+            l2_end_block,
+        )
+        .await?;
 
         let l2_claim_encoded = L2Output {
             zero: 0,
