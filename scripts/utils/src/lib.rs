@@ -1,5 +1,5 @@
 use clap::Parser;
-use std::path::PathBuf;
+use std::{num::NonZeroU64, path::PathBuf};
 
 pub mod config_common;
 
@@ -16,7 +16,7 @@ pub struct HostExecutorArgs {
     /// than 0. If omitted and both `--start` and `--end` are provided, the
     /// full range is used as a single batch; otherwise defaults to 10.
     #[arg(long, value_parser = parse_positive_batch_size)]
-    pub batch_size: Option<u64>,
+    pub batch_size: Option<NonZeroU64>,
     /// Enable caching: load from cache if available, save to cache if not.
     #[arg(long)]
     pub cache: bool,
@@ -45,27 +45,26 @@ pub struct HostExecutorArgs {
 /// nor an explicit `--start`/`--end` range.
 const DEFAULT_BATCH_SIZE: u64 = 10;
 
-/// Clap value parser for `--batch-size`. Rejects zero so the splitter never
-/// sees a degenerate `max_range_size = 0` from the CLI.
-fn parse_positive_batch_size(s: &str) -> Result<u64, String> {
+/// Clap value parser for `--batch-size`. Parses into `NonZeroU64` so the
+/// non-zero invariant is carried by the type and cannot be bypassed by
+/// programmatic construction of `HostExecutorArgs`.
+fn parse_positive_batch_size(s: &str) -> Result<NonZeroU64, String> {
     let value: u64 = s.parse().map_err(|e: std::num::ParseIntError| e.to_string())?;
-    if value == 0 {
-        return Err("--batch-size must be greater than 0".into());
-    }
-    Ok(value)
+    NonZeroU64::new(value).ok_or_else(|| "--batch-size must be greater than 0".into())
 }
 
 impl HostExecutorArgs {
     /// Resolve the batch size used to split a block range.
     ///
     /// Precedence:
-    /// 1. An explicit `--batch-size` is always honored.
+    /// 1. An explicit `--batch-size` is always honored (and is guaranteed non-zero by the
+    ///    `NonZeroU64` type).
     /// 2. Otherwise, if both `--start` and `--end` are provided, the full range is processed as a
     ///    single batch (DX default for estimator or artifact runs targeting a specific range).
     /// 3. Otherwise, fall back to `DEFAULT_BATCH_SIZE`.
     pub fn effective_batch_size(&self) -> u64 {
         if let Some(batch_size) = self.batch_size {
-            return batch_size;
+            return batch_size.get();
         }
         match (self.start, self.end) {
             (Some(start), Some(end)) if end > start => end - start,
@@ -79,6 +78,9 @@ mod tests {
     use super::*;
 
     fn args(start: Option<u64>, end: Option<u64>, batch_size: Option<u64>) -> HostExecutorArgs {
+        let batch_size = batch_size.map(|v| {
+            NonZeroU64::new(v).expect("test fixtures must not pass zero as an explicit batch size")
+        });
         HostExecutorArgs {
             start,
             end,
@@ -176,7 +178,7 @@ mod tests {
             "120",
         ])
         .expect("positive --batch-size must parse");
-        assert_eq!(args.batch_size, Some(120));
+        assert_eq!(args.batch_size, NonZeroU64::new(120));
         // Precedence fix regression guard at the parse layer.
         assert_eq!(args.effective_batch_size(), 120);
     }
