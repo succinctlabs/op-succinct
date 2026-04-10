@@ -744,10 +744,8 @@ where
                     "Pruned games above pinned latest index"
                 );
                 // Clear anchor if it pointed to a pruned game.
-                let should_clear_anchor = state
-                    .anchor_game
-                    .as_ref()
-                    .is_some_and(|a| !state.games.values().any(|g| g.address == a.address));
+                let should_clear_anchor =
+                    state.anchor_game.as_ref().is_some_and(|a| !state.games.contains_key(&a.index));
                 if should_clear_anchor {
                     state.anchor_game = None;
                 }
@@ -1694,10 +1692,7 @@ where
                 ProposerGauge::AnchorGameL2BlockNumber.set(0.0);
             }
         } else {
-            // Reset L2 block metrics when canonical head is cleared to avoid stale values.
-            ProposerGauge::LatestGameL2BlockNumber.set(0.0);
-            ProposerGauge::FinalizedL2BlockNumber.set(0.0);
-            ProposerGauge::AnchorGameL2BlockNumber.set(0.0);
+            tracing::warn!("canonical_head_l2_block is None; skipping L2 block metrics update");
         }
 
         // Update active proving tasks metric
