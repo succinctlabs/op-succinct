@@ -171,6 +171,22 @@ All long-running work executes in dedicated Tokio tasks stored in a `TaskMap`, p
 
 Metrics are published by a separate background collector that samples the canonical head, finalized head, and active proving task count.
 
+### Proposer Metrics
+
+Use `op_succinct_fp_canonical_head_game_index` as the primary signal for whether the proposer has a cached canonical head.
+
+Values:
+- `>= 0`: cached canonical head game index
+- `-1`: no canonical head game is currently cached
+
+Do not use the canonical-head / latest-game L2 block metric as the head-clear signal. The proposer may preserve an anchor-derived L2 block baseline even when `op_succinct_fp_canonical_head_game_index = -1`, so it can create the first proposal.
+
+Useful dashboards and alerts:
+- sustained `op_succinct_fp_canonical_head_game_index = -1` after games should exist
+- decreases in `op_succinct_fp_canonical_head_game_index`, which can indicate canonical head rewind or orphaning
+- the gap between `op_succinct_fp_anchor_game_index` and `op_succinct_fp_canonical_head_game_index`
+- `op_succinct_fp_finalized_l2_block_number = 0`, which indicates that finalized lookup is currently unavailable
+
 ## Features
 
 ### State Synchronization

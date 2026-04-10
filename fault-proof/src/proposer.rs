@@ -10,7 +10,7 @@ use std::{
 
 use tempfile::NamedTempFile;
 
-use alloy_eips::BlockNumberOrTag;
+use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_primitives::{Address, FixedBytes, TxHash, B256, U256};
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_sol_types::{SolEvent, SolValue};
@@ -270,6 +270,12 @@ where
     /// Proposer identity with version and vkey information for monitoring and compatibility
     /// checks.
     pub identity: ProposerIdentity,
+    /// L1 block number used in the last successful sync cycle. Sync is skipped when the
+    /// pinned block hasn't advanced past this value.
+    last_synced_l1_block: Arc<AtomicU64>,
+    /// L2 block number of the most recently created game. Used to prevent duplicate
+    /// game creation when the pinned sync cache lags behind the chain tip.
+    last_created_game_l2_block: Arc<AtomicU64>,
 }
 
 impl<P, H> OPSuccinctProposer<P, H>
@@ -377,6 +383,8 @@ where
             state: Arc::new(RwLock::new(initial_state)),
             backup_semaphore: Arc::new(Semaphore::new(1)),
             identity,
+            last_synced_l1_block: Arc::new(AtomicU64::new(0)),
+            last_created_game_l2_block: Arc::new(AtomicU64::new(0)),
         })
     }
 
@@ -549,7 +557,10 @@ where
                 .with_context(|| format!("backup path is not writable: {:?}", path))?;
 
             // Restore state from backup if available.
-            if let Some(restored) = ProposerState::try_restore(path) {
+            if let Some((restored, last_created)) = ProposerState::try_restore(path) {
+                // Restore the creation guard so duplicate-sibling protection survives restart.
+                self.last_created_game_l2_block.store(last_created, Ordering::Relaxed);
+
                 let mut state = self.state.write().await;
                 state.cursor = restored.cursor;
                 state.games = restored.games;
@@ -623,14 +634,70 @@ where
     /// 2. `sync_anchor_game` aligns the cached anchor pointer with the registry contract.
     /// 3. `compute_canonical_head` recomputes the head game used for proposal selection.
     pub async fn sync_state(&self) -> Result<()> {
+        // Pin L1 block for the entire sync cycle so all state reads see a consistent
+        // snapshot. Without this, load-balanced RPCs can return data from different block
+        // heights, breaking atomicity between related reads (e.g. credit vs anchorGame).
+        // Ref: https://github.com/celo-org/op-succinct/issues/132
+        let latest_block = self
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await?
+            .context("Failed to fetch latest L1 block")?;
+        let confirmed_number =
+            latest_block.header.number.saturating_sub(self.config.sync_l1_confirmations);
+
+        // If L1 hasn't advanced past the last synced block, all on-chain state is identical.
+        let prev = self.last_synced_l1_block.load(Ordering::Relaxed);
+        if confirmed_number > 0 && confirmed_number <= prev {
+            tracing::debug!(
+                confirmed_number,
+                last_synced = prev,
+                "L1 head unchanged, skipping sync"
+            );
+            return Ok(());
+        }
+
+        // When no confirmation offset, use the latest block directly (single RPC response).
+        // When offset > 0, fetch the confirmed block separately; if the backend hasn't
+        // caught up, skip this cycle rather than pinning forward.
+        let (pinned_block, pinned_timestamp) = if self.config.sync_l1_confirmations == 0 {
+            (BlockId::number(latest_block.header.number), latest_block.header.timestamp)
+        } else {
+            match self
+                .l1_provider
+                .get_block_by_number(BlockNumberOrTag::Number(confirmed_number))
+                .await?
+            {
+                Some(block) => (BlockId::number(block.header.number), block.header.timestamp),
+                None => {
+                    tracing::warn!(
+                        confirmed_number,
+                        "Confirmed block not available on this backend, skipping sync cycle"
+                    );
+                    return Ok(());
+                }
+            }
+        };
+
         // Pull new games and synchronize cached game statuses.
-        self.sync_games().await?;
+        self.sync_games(pinned_block, pinned_timestamp).await?;
 
         // Align anchor information after the cached game statuses have been synchronized.
-        self.sync_anchor_game().await?;
+        self.sync_anchor_game(pinned_block).await?;
 
         // With the cached game statuses and anchor synchronized, recompute the canonical head.
         self.compute_canonical_head().await;
+
+        self.last_synced_l1_block.store(confirmed_number, Ordering::Relaxed);
+
+        // Clear the creation guard once the cache has caught up to the created game.
+        let last_created = self.last_created_game_l2_block.load(Ordering::Relaxed);
+        if last_created > 0 {
+            let head_l2 = self.state.read().await.canonical_head_l2_block;
+            if head_l2.is_some_and(|h| h.to::<u64>() >= last_created) {
+                self.last_created_game_l2_block.store(0, Ordering::Relaxed);
+            }
+        }
 
         Ok(())
     }
@@ -650,15 +717,54 @@ where
     /// 3. Evict games from the cache.
     ///    - Games that are finalized but there is no credit left to claim.
     ///    - The entire subtree of a CHALLENGER_WINS game.
-    pub async fn sync_games(&self) -> Result<()> {
+    pub async fn sync_games(&self, pinned_block: BlockId, pinned_timestamp: u64) -> Result<()> {
+        // 0. Prune cached games that don't exist at the pinned block. After a backup restore, the
+        //    cache may contain games created in tip blocks that are ahead of the pinned snapshot.
+        //    Reading their on-chain state at the pinned block would fail, and leaving them in the
+        //    cache would let compute_canonical_head pick a head that doesn't exist at the pinned
+        //    height.
+        let pinned_latest_index = self.factory.fetch_latest_game_index(pinned_block).await?;
+        {
+            let mut state = self.state.write().await;
+            let future_games: Vec<U256> = state
+                .games
+                .keys()
+                .filter(|idx| match pinned_latest_index {
+                    Some(max) => **idx > max,
+                    None => true,
+                })
+                .copied()
+                .collect();
+            if !future_games.is_empty() {
+                for idx in &future_games {
+                    state.games.remove(idx);
+                }
+                tracing::info!(
+                    count = future_games.len(),
+                    "Pruned games above pinned latest index"
+                );
+                // Clear anchor if it pointed to a pruned game.
+                let should_clear_anchor =
+                    state.anchor_game.as_ref().is_some_and(|a| !state.games.contains_key(&a.index));
+                if should_clear_anchor {
+                    state.anchor_game = None;
+                }
+            }
+        }
+
         // 1. Load new games.
-        let latest_index = if let Some(index) = self.factory.fetch_latest_game_index().await? {
+        let latest_index = if let Some(index) = pinned_latest_index {
             Cursor::from(index)
         } else {
+            // No games at pinned block. Reset cursor so future sync cycles can discover
+            // games once they become confirmed.
+            let mut state = self.state.write().await;
+            state.cursor = Cursor::none();
             return Ok(());
         };
 
-        let anchor_address = self.anchor_state_registry.anchorGame().call().await?;
+        let anchor_address =
+            self.anchor_state_registry.anchorGame().block(pinned_block).call().await?;
 
         let cursor = {
             let state = self.state.read().await;
@@ -689,7 +795,7 @@ where
             }
 
             let i = index.index().expect("must have an index here");
-            let fetch_result = self.fetch_game(i).await?;
+            let fetch_result = self.fetch_game(i, pinned_block).await?;
 
             match fetch_result {
                 GameFetchResult::ValidGame { game_address, deadline } => {
@@ -751,13 +857,7 @@ where
         };
 
         if !games.is_empty() {
-            let now_ts = self
-                .l1_provider
-                .get_block_by_number(BlockNumberOrTag::Latest)
-                .await?
-                .context("Failed to fetch latest L1 block timestamp")?
-                .header
-                .timestamp;
+            let now_ts = pinned_timestamp;
             let signer_address = self.signer.address();
 
             enum GameSyncAction {
@@ -778,26 +878,31 @@ where
             for (index, game_address) in games {
                 let contract =
                     OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
-                let claim_data = contract.claimData().call().await?;
-                let status = contract.status().call().await?;
+                let claim_data = contract.claimData().block(pinned_block).call().await?;
+                let status = contract.status().block(pinned_block).call().await?;
                 let deadline = U256::from(claim_data.deadline).to::<u64>();
                 let parent_index = claim_data.parentIndex;
 
-                let is_finalized =
-                    self.anchor_state_registry.isGameFinalized(game_address).call().await?;
+                let is_finalized = self
+                    .anchor_state_registry
+                    .isGameFinalized(game_address)
+                    .block(pinned_block)
+                    .call()
+                    .await?;
 
                 match status {
                     GameStatus::IN_PROGRESS => {
-                        let game_type = contract.gameType().call().await?;
+                        let game_type = contract.gameType().block(pinned_block).call().await?;
                         let parent_resolved =
-                            is_parent_resolved(parent_index, self.factory.as_ref()).await?;
+                            is_parent_resolved(parent_index, self.factory.as_ref(), pinned_block)
+                                .await?;
                         let is_game_over = match claim_data.status {
                             ProposalStatus::Unchallenged => now_ts >= deadline,
                             ProposalStatus::UnchallengedAndValidProofProvided |
                             ProposalStatus::ChallengedAndValidProofProvided => true,
                             _ => false,
                         };
-                        let creator = contract.gameCreator().call().await?;
+                        let creator = contract.gameCreator().block(pinned_block).call().await?;
                         let is_own_game = match claim_data.status {
                             ProposalStatus::Unchallenged => creator == signer_address,
                             ProposalStatus::UnchallengedAndValidProofProvided |
@@ -822,7 +927,8 @@ where
                         });
                     }
                     GameStatus::DEFENDER_WINS => {
-                        let credit = contract.credit(signer_address).call().await?;
+                        let credit =
+                            contract.credit(signer_address).block(pinned_block).call().await?;
 
                         if is_finalized && credit == U256::ZERO {
                             // Game removal policy:
@@ -841,20 +947,11 @@ where
                             let should_remove = if canonical_head_index == Some(index) {
                                 tracing::debug!(game_index = %index, "Retaining game: canonical head");
                                 false
+                            } else if anchor_address == game_address {
+                                tracing::debug!(game_index = %index, "Retaining game: anchor game");
+                                false
                             } else {
-                                let anchor_game_address = self
-                                    .anchor_state_registry
-                                    .anchorGame()
-                                    .call()
-                                    .await
-                                    .context("Failed to fetch anchor game for removal check")?;
-
-                                if anchor_game_address == game_address {
-                                    tracing::debug!(game_index = %index, "Retaining game: anchor game");
-                                    false
-                                } else {
-                                    true
-                                }
+                                true
                             };
 
                             if should_remove {
@@ -921,21 +1018,24 @@ where
     }
 
     /// Synchronizes the anchor game from the registry.
-    async fn sync_anchor_game(&self) -> Result<()> {
-        let anchor_address = self.anchor_state_registry.anchorGame().call().await?;
+    async fn sync_anchor_game(&self, pinned_block: BlockId) -> Result<()> {
+        let anchor_address =
+            self.anchor_state_registry.anchorGame().block(pinned_block).call().await?;
 
-        if anchor_address != Address::ZERO {
-            let mut state = self.state.write().await;
+        let mut state = self.state.write().await;
 
-            // Fetch the anchor game from the cache.
-            if let Some((_, anchor_game)) =
-                state.games.iter().find(|(_, game)| game.address == anchor_address)
-            {
-                state.anchor_game = Some(anchor_game.clone());
-                tracing::debug!(?anchor_address, "Anchor game updated in cache");
-            } else {
-                tracing::debug!(?anchor_address, "Anchor game not in cache yet");
-            }
+        if anchor_address == Address::ZERO {
+            state.anchor_game = None;
+        } else if let Some((_, anchor_game)) =
+            state.games.iter().find(|(_, game)| game.address == anchor_address)
+        {
+            state.anchor_game = Some(anchor_game.clone());
+            tracing::debug!(?anchor_address, "Anchor game updated in cache");
+        } else {
+            // Anchor not in cache (pruned or not yet fetched) — clear to prevent
+            // compute_canonical_head from following a stale subtree.
+            state.anchor_game = None;
+            tracing::debug!(?anchor_address, "Anchor game not in cache, clearing");
         }
 
         Ok(())
@@ -997,6 +1097,11 @@ where
             }
         } else {
             // Clear stale canonical head index when no valid games exist.
+            // canonical_head_l2_block is intentionally preserved — it serves as the anchor
+            // baseline for should_create_game() to propose the first game. Clearing it
+            // would permanently block proposals on fresh deployments or when the pinned
+            // snapshot has no games. The new canonical_head_index gauge (-1) provides
+            // observability for the "no head" state.
             state.canonical_head_index = None;
 
             if previous_canonical_index.is_some() {
@@ -1379,7 +1484,7 @@ where
     /// - The game's anchor state registry does not match the configured registry.
     /// - The game type does not respect the expected type when created.
     /// - The output root claim is invalid.
-    pub async fn fetch_game(&self, index: U256) -> Result<GameFetchResult> {
+    pub async fn fetch_game(&self, index: U256, pinned_block: BlockId) -> Result<GameFetchResult> {
         {
             let state = self.state.read().await;
 
@@ -1388,7 +1493,7 @@ where
             }
         }
 
-        let game = self.factory.gameAtIndex(index).call().await?;
+        let game = self.factory.gameAtIndex(index).block(pinned_block).call().await?;
         let game_address = game.proxy;
         let game_type = game.gameType;
 
@@ -1408,7 +1513,7 @@ where
 
         // Drop games with a different anchor state registry. During hardfork transitions,
         // old ASR games must not enter the DAG or they can pollute canonical head selection.
-        let game_asr = contract.anchorStateRegistry().call().await?;
+        let game_asr = contract.anchorStateRegistry().block(pinned_block).call().await?;
         if game_asr != *self.anchor_state_registry.address() {
             tracing::warn!(
                 game_index = %index,
@@ -1420,12 +1525,13 @@ where
             return Ok(GameFetchResult::UnsupportedAnchorStateRegistry { game_address });
         }
 
-        let l2_block = contract.l2BlockNumber().call().await?;
+        let l2_block = contract.l2BlockNumber().block(pinned_block).call().await?;
         let output_root = self.l2_provider.compute_output_root_at_block(l2_block).await?;
-        let claim = contract.rootClaim().call().await?;
-        let was_respected = contract.wasRespectedGameTypeWhenCreated().call().await?;
-        let status = contract.status().call().await?;
-        let claim_data = contract.claimData().call().await?;
+        let claim = contract.rootClaim().block(pinned_block).call().await?;
+        let was_respected =
+            contract.wasRespectedGameTypeWhenCreated().block(pinned_block).call().await?;
+        let status = contract.status().block(pinned_block).call().await?;
+        let claim_data = contract.claimData().block(pinned_block).call().await?;
 
         let (parent_index, proposal_status, deadline) = (
             claim_data.parentIndex,
@@ -1433,9 +1539,12 @@ where
             U256::from(claim_data.deadline).to::<u64>(),
         );
 
-        let aggregation_vkey = B256::from(contract.aggregationVkey().call().await?.0);
-        let range_vkey_commitment = B256::from(contract.rangeVkeyCommitment().call().await?.0);
-        let rollup_config_hash = B256::from(contract.rollupConfigHash().call().await?.0);
+        let aggregation_vkey =
+            B256::from(contract.aggregationVkey().block(pinned_block).call().await?.0);
+        let range_vkey_commitment =
+            B256::from(contract.rangeVkeyCommitment().block(pinned_block).call().await?.0);
+        let rollup_config_hash =
+            B256::from(contract.rollupConfigHash().block(pinned_block).call().await?.0);
 
         // Drop games whose type does not respect the expected type.
         if !was_respected {
@@ -1543,15 +1652,26 @@ where
 
         self.create_game(output_root, extra_data).await?;
 
+        // Record the L2 block so should_create_game() skips duplicate creation
+        // while the pinned cache hasn't caught up to this game.
+        self.last_created_game_l2_block
+            .store(next_l2_block_number_for_proposal.to::<u64>(), Ordering::Relaxed);
+
         Ok(())
     }
 
     /// Fetch the proposer metrics.
     async fn fetch_proposer_metrics(&self) -> Result<()> {
-        let (canonical_head_l2_block, anchor_game) = {
+        let (canonical_head_l2_block, canonical_head_index, anchor_game) = {
             let state = self.state.read().await;
-            (state.canonical_head_l2_block, state.anchor_game.clone())
+            (state.canonical_head_l2_block, state.canonical_head_index, state.anchor_game.clone())
         };
+
+        // Index-based metrics use -1 as sentinel for "cleared/absent" since index 0 is valid.
+        ProposerGauge::CanonicalHeadGameIndex
+            .set(canonical_head_index.map_or(-1.0, |idx| idx.to::<u64>() as f64));
+        ProposerGauge::AnchorGameIndex
+            .set(anchor_game.as_ref().map_or(-1.0, |g| g.index.to::<u64>() as f64));
 
         if let Some(canonical_head_l2_block) = canonical_head_l2_block {
             ProposerGauge::LatestGameL2BlockNumber.set(canonical_head_l2_block.to::<u64>() as f64);
@@ -1562,6 +1682,8 @@ where
                 .await?
             {
                 ProposerGauge::FinalizedL2BlockNumber.set(finalized_l2_block_number as f64);
+            } else {
+                ProposerGauge::FinalizedL2BlockNumber.set(0.0);
             }
 
             if let Some(anchor_game) = anchor_game {
@@ -1570,7 +1692,7 @@ where
                 ProposerGauge::AnchorGameL2BlockNumber.set(0.0);
             }
         } else {
-            tracing::warn!("canonical_head_l2_block is None; skipping metrics update");
+            tracing::warn!("canonical_head_l2_block is None; skipping L2 block metrics update");
         }
 
         // Update active proving tasks metric
@@ -1780,6 +1902,11 @@ where
             }
 
             ProposerGauge::GamesCreated.increment(1.0);
+
+            // Persist the creation guard immediately so a crash before the next periodic
+            // backup doesn't lose the duplicate-creation protection.
+            proposer.backup().await;
+
             Ok(())
         });
 
@@ -1807,7 +1934,7 @@ where
     /// proposal, and the parent game index.
     /// If a game should not be created, dummy values are returned for the next L2 block number for
     /// proposal and parent game index.
-    async fn should_create_game(&self) -> Result<(bool, U256, u32)> {
+    pub async fn should_create_game(&self) -> Result<(bool, U256, u32)> {
         // In fast finality mode, resume proving for existing games before creating new ones
         // TODO(fakedev9999): Consider unifying proving concurrency control for both fast finality
         // and defense proving with a priority system.
@@ -1960,6 +2087,19 @@ where
         let next_l2_block_number_for_proposal =
             canonical_head_l2_block + U256::from(self.config.proposal_interval_in_blocks);
 
+        // Guard against duplicate creation when the pinned cache lags behind the tip.
+        // If we recently created a game at or beyond this L2 block, skip until the
+        // cache catches up and advances canonical_head_l2_block.
+        let last_created = self.last_created_game_l2_block.load(Ordering::Relaxed);
+        if last_created > 0 && next_l2_block_number_for_proposal.to::<u64>() <= last_created {
+            tracing::debug!(
+                next_l2_block = %next_l2_block_number_for_proposal,
+                last_created,
+                "Skipping game creation: recently created game not yet visible in pinned cache"
+            );
+            return Ok((false, U256::ZERO, u32::MAX));
+        }
+
         let finalized_l2_head_block_number = self
             .host
             .get_finalized_l2_block_number(&self.fetcher, canonical_head_l2_block.to::<u64>())
@@ -1985,7 +2125,8 @@ where
             return;
         };
 
-        let backup = self.state.read().await.to_backup();
+        let mut backup = self.state.read().await.to_backup();
+        backup.last_created_game_l2_block = self.last_created_game_l2_block.load(Ordering::Relaxed);
         let path = path.clone();
         tokio::task::spawn_blocking(move || {
             if let Err(e) = backup.save(&path) {
@@ -2370,16 +2511,18 @@ impl ProposerState {
     }
 
     /// Try to restore state from a backup file. Returns None if file doesn't exist or is invalid.
-    pub fn try_restore(path: &Path) -> Option<Self> {
+    pub fn try_restore(path: &Path) -> Option<(Self, u64)> {
         let backup = ProposerBackup::load(path)?;
+        let last_created = backup.last_created_game_l2_block;
         let state = Self::from_backup(backup);
         tracing::info!(
             ?path,
             games = state.games.len(),
             cursor = %state.cursor,
+            last_created,
             "Proposer state restored from backup"
         );
-        Some(state)
+        Some((state, last_created))
     }
 }
 

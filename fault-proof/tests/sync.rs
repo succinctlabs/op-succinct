@@ -70,6 +70,7 @@ mod proposer_sync {
         },
         TestEnvironment,
     };
+    use alloy_eips::BlockId;
     use alloy_primitives::{Bytes, FixedBytes, Uint, U256};
     use alloy_sol_types::{SolCall, SolValue};
     use anyhow::{Context, Result};
@@ -261,7 +262,7 @@ mod proposer_sync {
         proposer.sync_state().await?;
 
         for i in 0..10 {
-            let fetch_result = proposer.fetch_game(U256::from(i)).await?;
+            let fetch_result = proposer.fetch_game(U256::from(i), BlockId::latest()).await?;
             assert!(matches!(fetch_result, GameFetchResult::AlreadyExists));
         }
 
@@ -287,7 +288,7 @@ mod proposer_sync {
 
         proposer.sync_state().await?;
 
-        let fetch_result = proposer.fetch_game(U256::from(0)).await?;
+        let fetch_result = proposer.fetch_game(U256::from(0), BlockId::latest()).await?;
         assert!(matches!(fetch_result, GameFetchResult::InvalidGame { .. }));
 
         let snapshot = proposer.state_snapshot().await;
@@ -495,7 +496,7 @@ mod proposer_sync {
 
         // Verify: fetch_game on legacy games returns UnsupportedType
         for (index, (_, is_valid)) in game_sequence.iter().enumerate() {
-            let fetch_result = proposer.fetch_game(U256::from(index)).await?;
+            let fetch_result = proposer.fetch_game(U256::from(index), BlockId::latest()).await?;
             if *is_valid {
                 assert!(
                     matches!(fetch_result, GameFetchResult::AlreadyExists),
@@ -551,14 +552,15 @@ mod proposer_sync {
         snapshot.assert_canonical_head(Some(1), 3, starting_l2_block);
 
         // Verify: fetch_game on non-respected game returns InvalidGame
-        let non_respected_fetch_result = proposer.fetch_game(U256::from(0)).await?;
+        let non_respected_fetch_result =
+            proposer.fetch_game(U256::from(0), BlockId::latest()).await?;
         assert!(
             matches!(non_respected_fetch_result, GameFetchResult::InvalidGame { .. }),
             "Game created with non-respected type should be filtered as InvalidGame"
         );
 
         // Verify: fetch_game on the latest valid game returns AlreadyExists
-        let valid_fetch_result = proposer.fetch_game(U256::from(1)).await?;
+        let valid_fetch_result = proposer.fetch_game(U256::from(1), BlockId::latest()).await?;
         assert!(
             matches!(valid_fetch_result, GameFetchResult::AlreadyExists),
             "Valid game at index 1 should be cached"
@@ -1565,6 +1567,69 @@ mod proposer_sync {
         );
 
         tracing::info!("✓ Defense task correctly spawned for game 1: {:?}", game_addresses[1]);
+
+        Ok(())
+    }
+
+    /// Tests that the duplicate-creation guard in should_create_game() is specifically
+    /// what prevents sibling games when the pinned cache hasn't caught up.
+    ///
+    /// Isolation: calls should_create_game BEFORE and AFTER handle_game_creation with
+    /// the same stale cache state. The only difference between the two calls is the
+    /// guard value, proving the guard is the cause of the false return.
+    #[tokio::test]
+    async fn test_duplicate_creation_guard_blocks_stale_cache() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Create game 0 as anchor/canonical head.
+        let block_0 = starting_l2_block + 1;
+        let root_claim_0 = env.compute_output_root_at_block(block_0).await?;
+        env.create_game(root_claim_0, block_0, M, init_bond).await?;
+
+        proposer.sync_state().await?;
+        let snapshot = proposer.state_snapshot().await;
+        assert_eq!(snapshot.canonical_head_index, Some(U256::from(0)));
+
+        // Baseline: should_create_game BEFORE setting the guard.
+        // Record what it returns with the current (non-guarded) state.
+        let (should_create_before, _, _) = proposer.should_create_game().await?;
+
+        // Create game 1 via handle_game_creation — this sets the guard.
+        let proposal_interval = proposer.config.proposal_interval_in_blocks;
+        let next_block = block_0 + proposal_interval;
+
+        // Precondition: baseline must allow creation so we can isolate the guard.
+        // In the test environment (mock mode + anvil), finalization should not block.
+        assert!(
+            should_create_before,
+            "Precondition failed: should_create_game must return true before guard is set"
+        );
+
+        proposer.handle_game_creation(U256::from(next_block), 0).await?;
+
+        // DO NOT sync — cache is stale, still sees only game 0.
+        // The only state change since baseline is the guard being set.
+        let (should_create_after, _, _) = proposer.should_create_game().await?;
+        assert!(
+            !should_create_after,
+            "Guard should block creation: baseline returned true, guard is the only change"
+        );
+
+        // Sync to catch up, then verify guard clears.
+        proposer.sync_state().await?;
+
+        let snapshot_after = proposer.state_snapshot().await;
+        assert_eq!(snapshot_after.games.len(), 2, "Both games should be in cache after sync");
+
+        // Verify guard actually cleared: should_create_game should return the same as
+        // the baseline (true), not false. This proves the full guard lifecycle:
+        // set on creation → blocks while stale → clears after sync.
+        let (should_create_cleared, _, _) = proposer.should_create_game().await?;
+        assert_eq!(
+            should_create_cleared, should_create_before,
+            "After sync, guard should clear and should_create_game should match baseline"
+        );
 
         Ok(())
     }

@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use alloy_eips::BlockNumberOrTag;
+use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_primitives::{Address, U256};
 use alloy_provider::{Provider, ProviderBuilder};
 use anyhow::{bail, Context, Result};
@@ -195,7 +195,8 @@ where
             }
         };
 
-        let Some(latest_index) = self.factory.fetch_latest_game_index().await? else {
+        let Some(latest_index) = self.factory.fetch_latest_game_index(BlockId::latest()).await?
+        else {
             return Ok(());
         };
 
@@ -258,6 +259,7 @@ where
                                         let parent_lost = is_parent_challenger_wins(
                                             game.parent_index,
                                             &self.factory,
+                                            BlockId::latest(),
                                         )
                                         .await?;
                                         game.is_invalid || parent_lost
@@ -267,7 +269,12 @@ where
                                 ProposalStatus::Challenged => {
                                     let is_own_game = claim_data.counteredBy == signer_address;
                                     let should_resolve = is_game_over && is_own_game && {
-                                        is_parent_resolved(game.parent_index, &self.factory).await?
+                                        is_parent_resolved(
+                                            game.parent_index,
+                                            &self.factory,
+                                            BlockId::latest(),
+                                        )
+                                        .await?
                                     };
                                     (false, should_resolve)
                                 }

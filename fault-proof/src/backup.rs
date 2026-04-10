@@ -23,12 +23,23 @@ pub struct ProposerBackup {
     pub cursor: Option<U256>,
     pub games: Vec<Game>,
     pub anchor_game_index: Option<U256>,
+    /// L2 block of the most recently created game. Prevents duplicate creation after
+    /// restart when the pinned sync cache hasn't caught up. Defaults to 0 for backups
+    /// created before this field existed.
+    #[serde(default)]
+    pub last_created_game_l2_block: u64,
 }
 
 impl ProposerBackup {
     /// Create a new backup with the current version.
     pub fn new(cursor: Option<U256>, games: Vec<Game>, anchor_game_index: Option<U256>) -> Self {
-        Self { version: BACKUP_VERSION, cursor, games, anchor_game_index }
+        Self {
+            version: BACKUP_VERSION,
+            cursor,
+            games,
+            anchor_game_index,
+            last_created_game_l2_block: 0,
+        }
     }
 
     /// Validate backup integrity. Rejects stale/corrupted backups but allows orphaned parent
@@ -165,7 +176,7 @@ mod tests {
 
         assert_eq!(
             keys,
-            vec!["anchor_game_index", "cursor", "games", "version"],
+            vec!["anchor_game_index", "cursor", "games", "last_created_game_l2_block", "version"],
             "ProposerBackup schema changed! Bump BACKUP_VERSION in backup.rs"
         );
     }
