@@ -4,7 +4,8 @@ use std::path::PathBuf;
 
 use alloy_primitives::{Address, B256, U256};
 use fault_proof::{
-    backup::{ProposerBackup, BACKUP_VERSION},
+    backup::{ChallengerBackup, ProposerBackup, BACKUP_VERSION, CHALLENGER_BACKUP_VERSION},
+    challenger::Game as ChallengerGame,
     contract::{GameStatus, ProposalStatus},
     proposer::Game,
 };
@@ -135,6 +136,111 @@ mod persistence {
         std::fs::write(&path, json.to_string()).unwrap();
 
         assert!(ProposerBackup::load(&path).is_none());
+    }
+}
+
+// ==================== Challenger Backup Tests ====================
+
+fn test_challenger_game(index: u64, parent_index: u32) -> ChallengerGame {
+    ChallengerGame {
+        index: U256::from(index),
+        address: Address::ZERO,
+        parent_index,
+        l2_block_number: U256::from(index + 100),
+        is_invalid: false,
+        status: GameStatus::IN_PROGRESS,
+        proposal_status: ProposalStatus::Unchallenged,
+        should_attempt_to_challenge: false,
+        should_attempt_to_resolve: false,
+        should_attempt_to_claim_bond: false,
+    }
+}
+
+mod challenger_validation {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::empty(U256::ZERO, &[], true)]
+    #[case::single_game(U256::from(0), &[0u64], true)]
+    #[case::many_games(U256::from(5), &[0, 1, 2, 3, 4, 5], true)]
+    #[case::cursor_without_games(U256::from(5), &[], false)]
+    fn test_validation(#[case] cursor: U256, #[case] game_indices: &[u64], #[case] valid: bool) {
+        let games = game_indices.iter().map(|&idx| test_challenger_game(idx, u32::MAX)).collect();
+        let backup = ChallengerBackup::new(cursor, games);
+        assert_eq!(backup.validate().is_ok(), valid);
+    }
+}
+
+mod challenger_persistence {
+    use super::*;
+
+    fn temp_backup_path() -> (TempDir, PathBuf) {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("challenger_backup.json");
+        (dir, path)
+    }
+
+    #[test]
+    fn save_and_load_roundtrip() {
+        let (_dir, path) = temp_backup_path();
+
+        let original = ChallengerBackup::new(
+            U256::from(10),
+            vec![
+                test_challenger_game(0, u32::MAX),
+                test_challenger_game(5, 0),
+                test_challenger_game(10, 5),
+            ],
+        );
+
+        original.save(&path).unwrap();
+        let loaded = ChallengerBackup::load(&path).unwrap();
+
+        assert_eq!(loaded.version, CHALLENGER_BACKUP_VERSION);
+        assert_eq!(loaded.cursor, U256::from(10));
+        assert_eq!(loaded.games.len(), 3);
+    }
+
+    #[test]
+    fn load_nonexistent_returns_none() {
+        let path = PathBuf::from("/nonexistent/challenger_backup.json");
+        assert!(ChallengerBackup::load(&path).is_none());
+    }
+
+    #[test]
+    fn load_invalid_json_returns_none() {
+        let (_dir, path) = temp_backup_path();
+        std::fs::write(&path, "not valid json").unwrap();
+        assert!(ChallengerBackup::load(&path).is_none());
+    }
+
+    #[test]
+    fn load_version_mismatch_returns_none() {
+        let (_dir, path) = temp_backup_path();
+
+        let json = serde_json::json!({
+            "version": CHALLENGER_BACKUP_VERSION + 1,
+            "cursor": "0x0",
+            "games": []
+        });
+        std::fs::write(&path, json.to_string()).unwrap();
+
+        assert!(ChallengerBackup::load(&path).is_none());
+    }
+
+    #[test]
+    fn load_validation_failure_returns_none() {
+        let (_dir, path) = temp_backup_path();
+
+        let json = serde_json::json!({
+            "version": CHALLENGER_BACKUP_VERSION,
+            "cursor": "0x5",
+            "games": []
+        });
+        std::fs::write(&path, json.to_string()).unwrap();
+
+        assert!(ChallengerBackup::load(&path).is_none());
     }
 }
 

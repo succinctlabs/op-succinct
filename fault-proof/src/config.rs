@@ -297,6 +297,9 @@ pub struct ChallengerConfig {
     /// Set to 0.0 (default) for production use (honest challenging only).
     /// Set to >0.0 for testing defense mechanisms.
     pub malicious_challenge_percentage: f64,
+
+    /// Path to backup file for persisting challenger state across restarts.
+    pub backup_path: Option<PathBuf>,
 }
 
 impl ChallengerConfig {
@@ -316,6 +319,7 @@ impl ChallengerConfig {
             malicious_challenge_percentage: env::var("MALICIOUS_CHALLENGE_PERCENTAGE")
                 .unwrap_or("0.0".to_string())
                 .parse()?,
+            backup_path: env::var("CHALLENGER_BACKUP_PATH").ok().map(PathBuf::from),
         })
     }
 
@@ -330,6 +334,7 @@ impl ChallengerConfig {
             fetch_interval = self.fetch_interval,
             metrics_port = self.metrics_port,
             malicious_challenge_percentage = self.malicious_challenge_percentage,
+            backup_path = ?self.backup_path,
             "Challenger configuration loaded"
         );
     }
