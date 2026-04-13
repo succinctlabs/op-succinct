@@ -198,19 +198,19 @@ revm = { version = "33.1.0", default-features = false, features = [
 revm-precompile = { version = "31.0.0", default-features = false }
 op-revm = { version = "14.1.0", default-features = false }
 
-# SP1 v6.0.2 (Hypercube)
-sp1-sdk = { version = "=6.0.2", features = ["network", "blocking", "profiling"] }
-sp1-lib = { version = "=6.0.2", features = ["verify"] }
-sp1-zkvm = { version = "=6.0.2", features = ["verify"] }
-sp1-build = "=6.0.2"
-sp1-prover = "=6.0.2"
-sp1-prover-types = "=6.0.2"
-sp1-core-executor = "=6.0.2"
-sp1-hypercube = "=6.0.2"
-sp1-primitives = "=6.0.2"
-sp1-cluster-artifact = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.0.3" }
-sp1-cluster-common = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.0.3" }
-sp1-cluster-utils = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.0.3" }
+# SP1 v6.1.0 (Hypercube)
+sp1-sdk = { version = "=6.1.0", features = ["network", "blocking", "profiling"] }
+sp1-lib = { version = "=6.1.0", features = ["verify"] }
+sp1-zkvm = { version = "=6.1.0", features = ["verify"] }
+sp1-build = "=6.1.0"
+sp1-prover = "=6.1.0"
+sp1-prover-types = "=6.1.0"
+sp1-core-executor = "=6.1.0"
+sp1-hypercube = "=6.1.0"
+sp1-primitives = "=6.1.0"
+sp1-cluster-artifact = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.1.0" }
+sp1-cluster-common = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.1.0" }
+sp1-cluster-utils = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.1.0" }
 
 # kzg
 kzg-rs = { version = "0.2.8", features = ["rkyv", "serde"] }
@@ -232,6 +232,18 @@ substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-s
 p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-6.0.0" }
 k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-6.0.0" }
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-6.0.0" }
+
+# Redirect sp1-cluster's git SP1 deps to crates.io to avoid duplicate types
+[patch."https://github.com/succinctlabs/sp1"]
+sp1-prover-types = { version = "=6.1.0" }
+sp1-sdk = { version = "=6.1.0" }
+sp1-core-executor = { version = "=6.1.0" }
+sp1-prover = { version = "=6.1.0" }
+sp1-primitives = { version = "=6.1.0" }
+sp1-hypercube = { version = "=6.1.0" }
+sp1-recursion-circuit = { version = "=6.1.0" }
+sp1-recursion-compiler = { version = "=6.1.0" }
+sp1-recursion-executor = { version = "=6.1.0" }
 
 # Note: alloy-tx-macros crates.io version must match alloy-consensus version
 # Both are now at 1.4.x for hokulea v1.1.6 compatibility

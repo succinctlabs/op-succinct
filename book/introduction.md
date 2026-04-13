@@ -9,7 +9,7 @@
 OP Succinct gives **every** OP Stack rollup the ability to become a ZK rollup.
 
 It combines a few key technologies:
-- [Kona](https://op-rs.github.io/kona/), Optimism's Rust implementation of the OP Stack's state transition function
+- [Kona](https://github.com/ethereum-optimism/optimism/tree/develop/rust/kona), Optimism's Rust implementation of the OP Stack's state transition function
 - [SP1](https://docs.succinct.xyz/docs/sp1/introduction), Succinct's state-of-the-art Rust zkVM
 - [Succinct Prover Network](https://docs.succinct.xyz/docs/sp1/prover-network/intro), Succinct's low-latency, cost-effective proving API
 
