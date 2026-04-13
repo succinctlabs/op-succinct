@@ -36,7 +36,6 @@ jobs:
             --exclude "localhost"
             --exclude "127.0.0.1"
             --exclude "^https://www.caldera.xyz"
-            --exclude "^https://op-rs.github.io/kona"
             --exclude-path target/
             --exclude-path contracts/lib/
             "**/*.md"
