@@ -12361,7 +12361,7 @@ dependencies = [
 [[package]]
 name = "sp1-cluster-artifact"
 version = "2.0.3"
-source = "git+https://github.com/fakedev9999/sp1-cluster.git?branch=fakedev9999%2Fbump-sp1-6.1.0#a013774fe66f0bdb774c5e5cf1140539e91bc525"
+source = "git+https://github.com/succinctlabs/sp1-cluster.git?tag=v2.1.0#adf0bd7a58a2eb19e8f5fd20f24fdcf6ffc3bcc7"
 dependencies = [
  "anyhow",
  "async-scoped",
@@ -12387,7 +12387,7 @@ dependencies = [
 [[package]]
 name = "sp1-cluster-common"
 version = "2.0.3"
-source = "git+https://github.com/fakedev9999/sp1-cluster.git?branch=fakedev9999%2Fbump-sp1-6.1.0#a013774fe66f0bdb774c5e5cf1140539e91bc525"
+source = "git+https://github.com/succinctlabs/sp1-cluster.git?tag=v2.1.0#adf0bd7a58a2eb19e8f5fd20f24fdcf6ffc3bcc7"
 dependencies = [
  "backoff",
  "chrono",
@@ -12415,7 +12415,7 @@ dependencies = [
 [[package]]
 name = "sp1-cluster-utils"
 version = "2.0.3"
-source = "git+https://github.com/fakedev9999/sp1-cluster.git?branch=fakedev9999%2Fbump-sp1-6.1.0#a013774fe66f0bdb774c5e5cf1140539e91bc525"
+source = "git+https://github.com/succinctlabs/sp1-cluster.git?tag=v2.1.0#adf0bd7a58a2eb19e8f5fd20f24fdcf6ffc3bcc7"
 dependencies = [
  "eyre",
  "sp1-cluster-artifact",
