@@ -49,6 +49,7 @@ pub async fn new_proposer(
         range_split_count: RangeSplitCount::one(),
         max_concurrent_range_proofs: NonZero::<usize>::MIN,
         backup_path,
+        tx_confirmation_timeout: 60,
         proof_provider: ProofProviderConfig {
             timeout: 14400, // 4 hours
             network_calls_timeout: 15,
@@ -119,6 +120,7 @@ pub async fn new_challenger(
         game_type,
         metrics_port: 9001,
         malicious_challenge_percentage: malicious_percentage.unwrap_or(0.0),
+        tx_confirmation_timeout: 60,
     };
 
     let l1_provider = ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone());
