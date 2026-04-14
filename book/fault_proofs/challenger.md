@@ -56,6 +56,7 @@ Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for t
 | `FETCH_INTERVAL` | Polling interval in seconds | `30` |
 | `CHALLENGER_METRICS_PORT` | The port to expose metrics on. Update prometheus.yml to use this port, if using docker compose. | `9001` |
 | `MALICIOUS_CHALLENGE_PERCENTAGE` | Percentage (0.0-100.0) of valid games to challenge for testing defense mechanisms | `0.0` |
+| `TX_CONFIRMATION_TIMEOUT` | Maximum time (in seconds) to wait for an L1 transaction to reach the required number of confirmations. Setting this too low risks timeout-triggered retries that can lead to redundant operations. | `60` |
 
 ```env
 # Required Configuration
@@ -72,6 +73,9 @@ CHALLENGER_METRICS_PORT=9001          # The port to expose metrics on
 
 # Testing Configuration (Optional)
 MALICIOUS_CHALLENGE_PERCENTAGE=0.0    # Percentage of valid games to challenge for testing (0.0 = disabled)
+
+# Transaction Configuration (Optional)
+TX_CONFIRMATION_TIMEOUT=60            # L1 tx confirmation timeout in seconds (raise for congested L1s)
 ```
 
 ## Running
