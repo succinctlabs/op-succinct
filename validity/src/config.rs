@@ -100,6 +100,14 @@ pub struct RequesterConfig {
 
     /// How long to wait before cancelling a proof request that hasn't been assigned.
     pub auction_timeout: u64,
+
+    /// Maximum time (in seconds) to wait for an L1 transaction submitted by the proposer to
+    /// reach the required number of confirmations before the watcher gives up. Setting this
+    /// too low risks declaring "confirmation timeout" on transactions that actually land on
+    /// chain, which can lead to redundant retries. Defaults to 60 to preserve the historical
+    /// signer behavior; raise it (e.g. 180) on networks where mempool inclusion plus the
+    /// configured confirmation depth needs more headroom.
+    pub tx_confirmation_timeout: u64,
 }
 
 impl RequesterConfig {
@@ -132,6 +140,7 @@ impl RequesterConfig {
             whitelist = ?self.whitelist,
             min_auction_period = self.min_auction_period,
             auction_timeout = self.auction_timeout,
+            tx_confirmation_timeout = self.tx_confirmation_timeout,
             "Validity proposer configuration loaded"
         );
     }
