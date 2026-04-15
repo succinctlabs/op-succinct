@@ -108,6 +108,7 @@ Depending on the one you choose, you must provide the corresponding environment 
 | `AGG_GAS_LIMIT` | The gas limit to use for aggregation proofs. | `1,000,000,000,000` |
 | `WHITELIST` | The list of prover addresses that are allowed to bid on proof requests. | `` |
 | `BACKUP_PATH` | Path to backup file for persisting proposer state across restarts. Enables faster recovery by restoring cached state instead of re-syncing from the factory. | (disabled) |
+| `TX_CONFIRMATION_TIMEOUT` | Maximum time (in seconds) to wait for an L1 transaction to reach the required number of confirmations. Setting this too low risks timeout-triggered retries that can produce duplicate sibling games. | `60` |
 
 ```env
 # Required Configuration
@@ -133,6 +134,7 @@ PROPOSAL_INTERVAL_IN_BLOCKS=1800 # Number of L2 blocks between proposals
 FETCH_INTERVAL=30                # Polling interval in seconds
 PROPOSER_METRICS_PORT=9000       # The port to expose metrics on
 BACKUP_PATH=                     # persist state across restarts (e.g. /backup/proposer_state.json)
+TX_CONFIRMATION_TIMEOUT=60       # L1 tx confirmation timeout in seconds (raise for congested L1s)
 ```
 
 ### Configuration Steps

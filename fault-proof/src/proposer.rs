@@ -1261,7 +1261,11 @@ where
         let transaction_request = game.prove(agg_proof.bytes().into()).into_transaction_request();
         let receipt = self
             .signer
-            .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
+            .send_transaction_request_with_timeout(
+                self.config.l1_rpc.clone(),
+                transaction_request,
+                self.config.tx_confirmation_timeout,
+            )
             .await?;
 
         if !receipt.status() {
@@ -1321,7 +1325,11 @@ where
 
         let receipt = self
             .signer
-            .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
+            .send_transaction_request_with_timeout(
+                self.config.l1_rpc.clone(),
+                transaction_request,
+                self.config.tx_confirmation_timeout,
+            )
             .await?;
 
         if !receipt.status() {
@@ -1446,7 +1454,11 @@ where
         let transaction_request = contract.resolve().into_transaction_request();
         let receipt = self
             .signer
-            .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
+            .send_transaction_request_with_timeout(
+                self.config.l1_rpc.clone(),
+                transaction_request,
+                self.config.tx_confirmation_timeout,
+            )
             .await?;
 
         if !receipt.status() {
@@ -1472,7 +1484,11 @@ where
             contract.claimCredit(self.signer.address()).gas(200_000).into_transaction_request();
         let receipt = self
             .signer
-            .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
+            .send_transaction_request_with_timeout(
+                self.config.l1_rpc.clone(),
+                transaction_request,
+                self.config.tx_confirmation_timeout,
+            )
             .await?;
 
         if !receipt.status() {

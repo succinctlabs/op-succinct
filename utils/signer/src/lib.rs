@@ -93,11 +93,24 @@ impl Signer {
         }
     }
 
-    /// Sends a transaction request, signed by the configured `signer`.
+    /// Sends a transaction request, signed by the configured `signer`, using the default
+    /// confirmation timeout of [`TIMEOUT_SECONDS`].
     pub async fn send_transaction_request(
         &self,
         l1_rpc: Url,
+        transaction_request: TransactionRequest,
+    ) -> Result<TransactionReceipt> {
+        self.send_transaction_request_with_timeout(l1_rpc, transaction_request, TIMEOUT_SECONDS)
+            .await
+    }
+
+    /// Sends a transaction request, signed by the configured `signer`, with a caller-supplied
+    /// confirmation timeout (in seconds).
+    pub async fn send_transaction_request_with_timeout(
+        &self,
+        l1_rpc: Url,
         mut transaction_request: TransactionRequest,
+        timeout_secs: u64,
     ) -> Result<TransactionReceipt> {
         match self {
             Signer::Web3Signer(signer_url, signer_address) => {
@@ -126,7 +139,7 @@ impl Signer {
                     .await
                     .context("Failed to send transaction")?
                     .with_required_confirmations(NUM_CONFIRMATIONS)
-                    .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
+                    .with_timeout(Some(Duration::from_secs(timeout_secs)))
                     .get_receipt()
                     .await?;
 
@@ -151,7 +164,7 @@ impl Signer {
                     .await
                     .context("Failed to send transaction")?
                     .with_required_confirmations(NUM_CONFIRMATIONS)
-                    .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
+                    .with_timeout(Some(Duration::from_secs(timeout_secs)))
                     .get_receipt()
                     .await?;
 
@@ -177,7 +190,7 @@ impl Signer {
                     .await
                     .context("Failed to send KMS-signed transaction")?
                     .with_required_confirmations(NUM_CONFIRMATIONS)
-                    .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
+                    .with_timeout(Some(Duration::from_secs(timeout_secs)))
                     .get_receipt()
                     .await?;
 
@@ -212,8 +225,9 @@ impl SignerLock {
         self.cached_address
     }
 
-    /// Sends a transaction request, signed by the configured signer.
-    /// Transactions are serialized via a Mutex to prevent nonce conflicts.
+    /// Sends a transaction request, signed by the configured signer, using the default
+    /// confirmation timeout of [`TIMEOUT_SECONDS`]. Transactions are serialized via a Mutex
+    /// to prevent nonce conflicts.
     pub async fn send_transaction_request(
         &self,
         l1_rpc: Url,
@@ -221,6 +235,20 @@ impl SignerLock {
     ) -> Result<TransactionReceipt> {
         let signer = self.inner.lock().await;
         signer.send_transaction_request(l1_rpc, transaction_request).await
+    }
+
+    /// Sends a transaction request with a caller-supplied confirmation timeout (in seconds).
+    /// Transactions are serialized via a Mutex to prevent nonce conflicts.
+    pub async fn send_transaction_request_with_timeout(
+        &self,
+        l1_rpc: Url,
+        transaction_request: TransactionRequest,
+        timeout_secs: u64,
+    ) -> Result<TransactionReceipt> {
+        let signer = self.inner.lock().await;
+        signer
+            .send_transaction_request_with_timeout(l1_rpc, transaction_request, timeout_secs)
+            .await
     }
 }
 

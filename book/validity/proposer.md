@@ -73,6 +73,7 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 | `WHITELIST` | Default: ``. The list of prover addresses that are allowed to bid on proof requests. |
 | `MIN_AUCTION_PERIOD` | Default: `1`. The minimum auction period (in seconds). |
 | `AUCTION_TIMEOUT` | Default: `60` (1 minute). How long to wait before canceling a proof request that hasn't been assigned (in seconds). |
+| `TX_CONFIRMATION_TIMEOUT` | Default: `60`. Maximum time (in seconds) to wait for an L1 transaction to reach the required number of confirmations. Raise on congested L1s to avoid timeout-triggered retries. |
 
 ## Build the Proposer Service
 
