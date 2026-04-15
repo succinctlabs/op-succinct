@@ -245,18 +245,3 @@ alloy-op-hardforks = { git = "https://github.com/ethereum-optimism/optimism", ta
 op-alloy = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13" }
 
 # Patch old kona (op-rs/kona v1.2.7) used by hana to use the new kona (v1.2.13) from the optimism monorepo
-# This ensures all kona crates in the dependency graph come from the same source.
-[patch."https://github.com/op-rs/kona"]
-kona-mpt = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13" }
-kona-derive = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13" }
-kona-driver = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13" }
-kona-preimage = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13" }
-kona-executor = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13" }
-kona-proof = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13" }
-kona-client = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13" }
-kona-host = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13" }
-kona-providers-alloy = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13" }
-kona-protocol = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13" }
-kona-registry = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13" }
-kona-genesis = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13" }
-kona-cli = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13" }
