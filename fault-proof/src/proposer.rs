@@ -1008,8 +1008,7 @@ where
                     GameSyncAction::RemoveSubtree(index) => {
                         // Reset the duplicate-creation guard if the subtree being
                         // removed contains the exact game we created (matched by
-                        // factory index, not L2 block, to avoid false clears on
-                        // different games at the same block height).
+                        // address, which is globally unique and race-free).
                         let guarded_addr = *self.last_created_game_address.lock().await;
                         if guarded_addr != Address::ZERO {
                             let subtree = state.descendants_of(index);
@@ -1338,12 +1337,7 @@ where
             })
             .context("Could not find DisputeGameCreated event in transaction receipt logs")?;
 
-        // Fetch game index after creation
-        let game_count = self.factory.gameCount().call().await?;
-        let game_index = game_count - U256::from(1);
-
         tracing::info!(
-            game_index = %game_index,
             game_address = ?game_address,
             tx_hash = ?receipt.transaction_hash,
             "Game created successfully"
