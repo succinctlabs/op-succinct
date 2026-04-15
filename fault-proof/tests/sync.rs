@@ -1635,6 +1635,79 @@ mod proposer_sync {
 
         Ok(())
     }
+
+    /// Tests that the CHALLENGER_WINS subtree removal clears the creation guard when the
+    /// guarded game is in the removed subtree.
+    ///
+    /// Scenario:
+    /// 1. Create game 0 (anchor), sync.
+    /// 2. Create game 1 via handle_game_creation (sets guard, blocks further creation).
+    /// 3. Sync — game 1 enters cache. Guard still set but naturally bypassed.
+    /// 4. Challenge game 1, warp past deadline, resolve as CHALLENGER_WINS.
+    /// 5. Sync — RemoveSubtree fires, guard is cleared because game 1's address matches.
+    /// 6. should_create_game returns true with a fresh target block.
+    ///
+    /// Without the address-based invalidation, the guard would stay set and permanently
+    /// block creation after the branch switch.
+    #[tokio::test]
+    async fn test_challenger_wins_clears_creation_guard() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Step 1: Create game 0 as anchor.
+        let block_0 = starting_l2_block + 1;
+        let root_claim_0 = env.compute_output_root_at_block(block_0).await?;
+        env.create_game(root_claim_0, block_0, M, init_bond).await?;
+
+        proposer.sync_state().await?;
+        let snapshot = proposer.state_snapshot().await;
+        assert_eq!(snapshot.canonical_head_index, Some(U256::from(0)));
+
+        // Step 2: Verify baseline allows creation.
+        let (baseline, _, _) = proposer.should_create_game().await?;
+        assert!(baseline, "Precondition: creation must be allowed before guard is set");
+
+        // Create game 1 via handle_game_creation (sets the guard).
+        let proposal_interval = proposer.config.proposal_interval_in_blocks;
+        let next_block = block_0 + proposal_interval;
+        proposer.handle_game_creation(U256::from(next_block), 0).await?;
+
+        let (_, game_1_address) = env.last_game_info().await?;
+
+        // Verify guard blocks.
+        let (blocked, _, _) = proposer.should_create_game().await?;
+        assert!(!blocked, "Guard should block creation with stale cache");
+
+        // Step 3: Sync so game 1 enters cache.
+        proposer.sync_state().await?;
+        let snapshot = proposer.state_snapshot().await;
+        assert_eq!(snapshot.games.len(), 2);
+
+        // Step 4: Challenge game 1, warp past deadline, resolve as CHALLENGER_WINS.
+        env.challenge_game(game_1_address).await?;
+        env.warp_time(MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION + 1).await?;
+        env.resolve_game(game_1_address).await?;
+
+        // Step 5: Sync — CHALLENGER_WINS triggers RemoveSubtree.
+        // The guard should be cleared because game 1's address matches.
+        proposer.sync_state().await?;
+
+        let snapshot = proposer.state_snapshot().await;
+        assert!(
+            !snapshot.games.iter().any(|(_, addr)| *addr == game_1_address),
+            "Game 1 should be removed (CHALLENGER_WINS)"
+        );
+
+        // Step 6: Verify creation is unblocked.
+        // After CHALLENGER_WINS, canonical head reverts to game 0. The guard was cleared
+        // by the subtree removal, so should_create_game uses game 0 as head and computes
+        // a fresh next_l2_block. Without the address-based clear, the guard would still
+        // be set at next_block and would block this.
+        let (unblocked, _, _) = proposer.should_create_game().await?;
+        assert!(unblocked, "Creation should be unblocked after CHALLENGER_WINS clears the guard");
+
+        Ok(())
+    }
 }
 
 #[cfg(feature = "integration")]
