@@ -260,11 +260,3 @@ kona-protocol = { git = "https://github.com/ethereum-optimism/optimism", tag = "
 kona-registry = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13" }
 kona-genesis = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13" }
 kona-cli = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13" }
-
-# Note: alloy-tx-macros crates.io version must match alloy-consensus version
-
-
-# Note: vergen-lib conflict fixed by pinning vergen=9.0.4, vergen-git2=1.0.5 in Cargo.lock
-
-# Note: reth patch for PartialEq bug (PR #21336) removed — fix was upstreamed by reth v1.11.3
-# kona v1.2.13 uses reth v1.11.3 from paradigmxyz/reth directly
