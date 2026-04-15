@@ -101,11 +101,11 @@ kona-protocol = { git = "https://github.com/ethereum-optimism/optimism", tag = "
 kona-registry = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13", default-features = false }
 kona-genesis = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.13", default-features = false }
 
-# hana - using fork with kona v1.2.13 bump
-hana-blobstream = { git = "https://github.com/fakedev9999/hana", rev = "30d72ed" }
-hana-celestia = { git = "https://github.com/fakedev9999/hana", rev = "30d72ed" }
-hana-host = { git = "https://github.com/fakedev9999/hana", rev = "30d72ed" }
-hana-oracle = { git = "https://github.com/fakedev9999/hana", rev = "30d72ed" }
+# hana
+hana-blobstream = { git = "https://github.com/celestiaorg/hana", tag = "v1.6.0-mocha" }
+hana-celestia = { git = "https://github.com/celestiaorg/hana", tag = "v1.6.0-mocha" }
+hana-host = { git = "https://github.com/celestiaorg/hana", tag = "v1.6.0-mocha" }
+hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "v1.6.0-mocha" }
 
 # hokulea
 hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "22c48b9" }
