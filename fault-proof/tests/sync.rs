@@ -1622,13 +1622,15 @@ mod proposer_sync {
         let snapshot_after = proposer.state_snapshot().await;
         assert_eq!(snapshot_after.games.len(), 2, "Both games should be in cache after sync");
 
-        // Verify guard actually cleared: should_create_game should return the same as
-        // the baseline (true), not false. This proves the full guard lifecycle:
-        // set on creation → blocks while stale → clears after sync.
-        let (should_create_cleared, _, _) = proposer.should_create_game().await?;
+        // After sync, canonical head advances to game 1. should_create_game now computes
+        // next_l2_block = game_1.l2_block + interval > last_created, so the guard no
+        // longer blocks (even though the guard value is still set). This proves the full
+        // lifecycle: set on creation → blocks while stale → naturally bypassed when head
+        // advances past the created game.
+        let (should_create_after_sync, _, _) = proposer.should_create_game().await?;
         assert_eq!(
-            should_create_cleared, should_create_before,
-            "After sync, guard should clear and should_create_game should match baseline"
+            should_create_after_sync, should_create_before,
+            "After sync, canonical head should advance past guard so creation is allowed again"
         );
 
         Ok(())

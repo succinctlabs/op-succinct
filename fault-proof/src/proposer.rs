@@ -690,15 +690,6 @@ where
 
         self.last_synced_l1_block.store(confirmed_number, Ordering::Relaxed);
 
-        // Clear the creation guard once the cache has caught up to the created game.
-        let last_created = self.last_created_game_l2_block.load(Ordering::Relaxed);
-        if last_created > 0 {
-            let head_l2 = self.state.read().await.canonical_head_l2_block;
-            if head_l2.is_some_and(|h| h.to::<u64>() >= last_created) {
-                self.last_created_game_l2_block.store(0, Ordering::Relaxed);
-            }
-        }
-
         Ok(())
     }
 
@@ -1008,6 +999,28 @@ where
                         tracing::debug!(game_index = %index, "Removed game from cache");
                     }
                     GameSyncAction::RemoveSubtree(index) => {
+                        // Reset the duplicate-creation guard if the subtree being
+                        // removed contains the game it was tracking. Without this,
+                        // the guard would permanently block creation after a
+                        // legitimate branch switch caused by CHALLENGER_WINS.
+                        let last_created = self.last_created_game_l2_block.load(Ordering::Relaxed);
+                        if last_created > 0 {
+                            let subtree = state.descendants_of(index);
+                            let guard_invalidated = subtree.iter().any(|idx| {
+                                state
+                                    .games
+                                    .get(idx)
+                                    .is_some_and(|g| g.l2_block.to::<u64>() == last_created)
+                            });
+                            if guard_invalidated {
+                                self.last_created_game_l2_block.store(0, Ordering::Relaxed);
+                                tracing::info!(
+                                    last_created,
+                                    root_index = %index,
+                                    "Reset creation guard: tracked game removed by CHALLENGER_WINS"
+                                );
+                            }
+                        }
                         state.remove_subtree(index);
                     }
                 }
