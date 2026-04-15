@@ -28,6 +28,14 @@ pub struct ProposerBackup {
     /// created before this field existed.
     #[serde(default)]
     pub last_created_game_l2_block: u64,
+    /// Factory index of the most recently created game. Used for precise CHALLENGER_WINS
+    /// guard reset. Defaults to u64::MAX (no guard) for old backups.
+    #[serde(default = "default_no_guard_index")]
+    pub last_created_game_index: u64,
+}
+
+fn default_no_guard_index() -> u64 {
+    u64::MAX
 }
 
 impl ProposerBackup {
@@ -39,6 +47,7 @@ impl ProposerBackup {
             games,
             anchor_game_index,
             last_created_game_l2_block: 0,
+            last_created_game_index: u64::MAX,
         }
     }
 
@@ -176,7 +185,14 @@ mod tests {
 
         assert_eq!(
             keys,
-            vec!["anchor_game_index", "cursor", "games", "last_created_game_l2_block", "version"],
+            vec![
+                "anchor_game_index",
+                "cursor",
+                "games",
+                "last_created_game_index",
+                "last_created_game_l2_block",
+                "version"
+            ],
             "ProposerBackup schema changed! Bump BACKUP_VERSION in backup.rs"
         );
     }
