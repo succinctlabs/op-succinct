@@ -35,6 +35,7 @@ jobs:
             --exclude "^https://docs.rs/"
             --exclude "localhost"
             --exclude "127.0.0.1"
+            --exclude "^https://www.caldera.xyz"
             --exclude-path target/
             --exclude-path contracts/lib/
             "**/*.md"

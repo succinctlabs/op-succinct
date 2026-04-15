@@ -1,7 +1,7 @@
 use crate::witness::BlobData;
 use alloc::{boxed::Box, vec::Vec};
 use alloy_consensus::Blob;
-use alloy_eips::eip4844::{kzg_to_versioned_hash, IndexedBlobHash};
+use alloy_eips::eip4844::kzg_to_versioned_hash;
 use alloy_primitives::B256;
 use async_trait::async_trait;
 use kona_derive::{BlobProvider, BlobProviderError};
@@ -47,13 +47,13 @@ impl BlobProvider for BlobStore {
     async fn get_and_validate_blobs(
         &mut self,
         _: &BlockInfo,
-        blob_hashes: &[IndexedBlobHash],
+        blob_hashes: &[B256],
     ) -> Result<Vec<Box<Blob>>, Self::Error> {
         Ok(blob_hashes
             .iter()
             .filter_map(|hash| {
                 let (blob_hash, blob) = self.versioned_blobs.pop().unwrap();
-                (hash.hash == blob_hash).then(|| Box::new(blob))
+                (*hash == blob_hash).then(|| Box::new(blob))
             })
             .collect())
     }
