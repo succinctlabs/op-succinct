@@ -276,9 +276,9 @@ where
     /// L2 block number of the most recently created game. Used to prevent duplicate
     /// game creation when the pinned sync cache lags behind the chain tip.
     last_created_game_l2_block: Arc<AtomicU64>,
-    /// Factory index of the most recently created game. Used to precisely identify
+    /// Address of the most recently created game. Used to precisely identify
     /// the guarded game for CHALLENGER_WINS subtree removal.
-    last_created_game_index: Arc<AtomicU64>,
+    last_created_game_address: Arc<Mutex<Address>>,
 }
 
 impl<P, H> OPSuccinctProposer<P, H>
@@ -388,7 +388,7 @@ where
             identity,
             last_synced_l1_block: Arc::new(AtomicU64::new(0)),
             last_created_game_l2_block: Arc::new(AtomicU64::new(0)),
-            last_created_game_index: Arc::new(AtomicU64::new(u64::MAX)),
+            last_created_game_address: Arc::new(Mutex::new(Address::ZERO)),
         })
     }
 
@@ -561,12 +561,12 @@ where
                 .with_context(|| format!("backup path is not writable: {:?}", path))?;
 
             // Restore state from backup if available.
-            if let Some((restored, last_created_l2, last_created_index)) =
+            if let Some((restored, last_created_l2, last_created_addr)) =
                 ProposerState::try_restore(path)
             {
                 // Restore the creation guard so duplicate-sibling protection survives restart.
                 self.last_created_game_l2_block.store(last_created_l2, Ordering::Relaxed);
-                self.last_created_game_index.store(last_created_index, Ordering::Relaxed);
+                *self.last_created_game_address.lock().await = last_created_addr;
 
                 let mut state = self.state.write().await;
                 state.cursor = restored.cursor;
@@ -1010,15 +1010,18 @@ where
                         // removed contains the exact game we created (matched by
                         // factory index, not L2 block, to avoid false clears on
                         // different games at the same block height).
-                        let guarded_index = self.last_created_game_index.load(Ordering::Relaxed);
-                        if guarded_index != u64::MAX {
-                            let guarded_u256 = U256::from(guarded_index);
+                        let guarded_addr = *self.last_created_game_address.lock().await;
+                        if guarded_addr != Address::ZERO {
                             let subtree = state.descendants_of(index);
-                            if guarded_u256 == index || subtree.contains(&guarded_u256) {
+                            let guard_in_subtree =
+                                std::iter::once(&index).chain(subtree.iter()).any(|idx| {
+                                    state.games.get(idx).is_some_and(|g| g.address == guarded_addr)
+                                });
+                            if guard_in_subtree {
                                 self.last_created_game_l2_block.store(0, Ordering::Relaxed);
-                                self.last_created_game_index.store(u64::MAX, Ordering::Relaxed);
+                                *self.last_created_game_address.lock().await = Address::ZERO;
                                 tracing::info!(
-                                    guarded_index,
+                                    ?guarded_addr,
                                     root_index = %index,
                                     "Reset creation guard: tracked game removed by CHALLENGER_WINS"
                                 );
@@ -1666,15 +1669,13 @@ where
             "Creating game"
         );
 
-        self.create_game(output_root, extra_data).await?;
+        let game_address = self.create_game(output_root, extra_data).await?;
 
-        // Record the L2 block and game index so should_create_game() skips duplicate
+        // Record the L2 block and address so should_create_game() skips duplicate
         // creation while the pinned cache hasn't caught up to this game.
         self.last_created_game_l2_block
             .store(next_l2_block_number_for_proposal.to::<u64>(), Ordering::Relaxed);
-        // The just-created game is at gameCount - 1.
-        let created_index = self.factory.gameCount().call().await?.saturating_sub(U256::from(1));
-        self.last_created_game_index.store(created_index.to::<u64>(), Ordering::Relaxed);
+        *self.last_created_game_address.lock().await = game_address;
 
         Ok(())
     }
@@ -2146,7 +2147,7 @@ where
 
         let mut backup = self.state.read().await.to_backup();
         backup.last_created_game_l2_block = self.last_created_game_l2_block.load(Ordering::Relaxed);
-        backup.last_created_game_index = self.last_created_game_index.load(Ordering::Relaxed);
+        backup.last_created_game_address = *self.last_created_game_address.lock().await;
         let path = path.clone();
         tokio::task::spawn_blocking(move || {
             if let Err(e) = backup.save(&path) {
@@ -2531,20 +2532,20 @@ impl ProposerState {
     }
 
     /// Try to restore state from a backup file. Returns None if file doesn't exist or is invalid.
-    pub fn try_restore(path: &Path) -> Option<(Self, u64, u64)> {
+    pub fn try_restore(path: &Path) -> Option<(Self, u64, Address)> {
         let backup = ProposerBackup::load(path)?;
         let last_created_l2 = backup.last_created_game_l2_block;
-        let last_created_index = backup.last_created_game_index;
+        let last_created_addr = backup.last_created_game_address;
         let state = Self::from_backup(backup);
         tracing::info!(
             ?path,
             games = state.games.len(),
             cursor = %state.cursor,
             last_created_l2,
-            last_created_index,
+            ?last_created_addr,
             "Proposer state restored from backup"
         );
-        Some((state, last_created_l2, last_created_index))
+        Some((state, last_created_l2, last_created_addr))
     }
 }
 

@@ -7,7 +7,7 @@ use std::{io::Write, path::Path};
 
 use tempfile::NamedTempFile;
 
-use alloy_primitives::U256;
+use alloy_primitives::{Address, U256};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
@@ -28,14 +28,10 @@ pub struct ProposerBackup {
     /// created before this field existed.
     #[serde(default)]
     pub last_created_game_l2_block: u64,
-    /// Factory index of the most recently created game. Used for precise CHALLENGER_WINS
-    /// guard reset. Defaults to u64::MAX (no guard) for old backups.
-    #[serde(default = "default_no_guard_index")]
-    pub last_created_game_index: u64,
-}
-
-fn default_no_guard_index() -> u64 {
-    u64::MAX
+    /// Address of the most recently created game. Used for precise CHALLENGER_WINS
+    /// guard reset. Defaults to Address::ZERO (no guard) for old backups.
+    #[serde(default)]
+    pub last_created_game_address: Address,
 }
 
 impl ProposerBackup {
@@ -47,7 +43,7 @@ impl ProposerBackup {
             games,
             anchor_game_index,
             last_created_game_l2_block: 0,
-            last_created_game_index: u64::MAX,
+            last_created_game_address: Address::ZERO,
         }
     }
 
@@ -189,7 +185,7 @@ mod tests {
                 "anchor_game_index",
                 "cursor",
                 "games",
-                "last_created_game_index",
+                "last_created_game_address",
                 "last_created_game_l2_block",
                 "version"
             ],
