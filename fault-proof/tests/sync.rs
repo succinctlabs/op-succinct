@@ -1658,6 +1658,7 @@ mod proposer_sync {
         let block_0 = starting_l2_block + 1;
         let root_claim_0 = env.compute_output_root_at_block(block_0).await?;
         env.create_game(root_claim_0, block_0, M, init_bond).await?;
+        let (_, game_0_address) = env.last_game_info().await?;
 
         proposer.sync_state().await?;
         let snapshot = proposer.state_snapshot().await;
@@ -1683,9 +1684,14 @@ mod proposer_sync {
         let snapshot = proposer.state_snapshot().await;
         assert_eq!(snapshot.games.len(), 2);
 
-        // Step 4: Challenge game 1, warp past deadline, resolve as CHALLENGER_WINS.
+        // Step 4: Challenge game 1, then resolve parent (game 0) first.
+        // The contract requires the parent to be resolved before a child can resolve.
         env.challenge_game(game_1_address).await?;
-        env.warp_time(MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION + 1).await?;
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        env.resolve_game(game_0_address).await?;
+
+        // Now resolve game 1 as CHALLENGER_WINS (challenged + prove deadline expired).
+        env.warp_time(MAX_PROVE_DURATION + 1).await?;
         env.resolve_game(game_1_address).await?;
 
         // Step 5: Sync — CHALLENGER_WINS triggers RemoveSubtree.
