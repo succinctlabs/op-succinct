@@ -5,7 +5,8 @@ use anyhow::{bail, Result};
 use fault_proof::config::FaultDisputeGameConfig;
 use op_succinct_host_utils::{
     fetcher::{OPSuccinctDataFetcher, RPCMode},
-    host::OPSuccinctHost,
+    host::{enforce_l1_selection_supported, OPSuccinctHost},
+    l1_selection::L1BlockSelectionConfig,
     setup_logger, OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH,
 };
 use op_succinct_proof_utils::initialize_host;
@@ -75,8 +76,11 @@ use serde_json::Value;
 /// Generates `contracts/opsuccinctfdgconfig.json` containing all configuration parameters
 /// needed for the Solidity deployment scripts.
 async fn update_fdg_config() -> Result<()> {
-    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
+    let l1_selection = L1BlockSelectionConfig::from_env()?;
+    let data_fetcher =
+        OPSuccinctDataFetcher::new_with_rollup_config_and_l1_selection(l1_selection).await?;
     let host = initialize_host(Arc::new(data_fetcher.clone()));
+    enforce_l1_selection_supported(host.as_ref(), &data_fetcher, l1_selection).await?;
     let shared_config = get_shared_config_data(data_fetcher.clone()).await?;
 
     // Game configuration.

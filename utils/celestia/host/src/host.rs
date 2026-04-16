@@ -82,6 +82,26 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
             None => bail!("Failed to find a safe L1 block for the given L2 block."),
         }
     }
+
+    /// Celestia's max provable L2 block is driven by Blobstream commitments, not
+    /// `optimism_safeHeadAtL1Block`, so SafeDB activation is irrelevant.
+    ///
+    /// Only reachable when [`Self::supports_non_default_l1_selection`] returns `true`; kept
+    /// here to document intent in case that ever flips.
+    fn requires_safe_db_for_non_default_l1_selection(&self) -> bool {
+        false
+    }
+
+    /// Celestia's proving path ignores `L1_BLOCK_TAG` and `L1_CONFIRMATIONS`:
+    /// `calculate_safe_l1_head` is Blobstream-driven (via the op-celestia-indexer) and
+    /// `get_finalized_l2_block_number` searches between `latest_proposed_block_number` and
+    /// the L2 finalized header without consulting `fetcher.l1_selection`. Accepting the
+    /// knob as a silent no-op would mislead operators into believing they had tightened
+    /// or relaxed proof latency, so the proposer entry rejects non-default selections
+    /// at startup instead.
+    fn supports_non_default_l1_selection(&self) -> bool {
+        false
+    }
 }
 
 impl CelestiaOPSuccinctHost {
