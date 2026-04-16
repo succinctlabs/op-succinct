@@ -181,11 +181,10 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
 /// Two invariants:
 ///
 /// 1. If the host does not honor non-default selections in its proving path
-///    (`host.supports_non_default_l1_selection() == false`), any non-default value is rejected
-///    so operators are not misled into believing they tightened or relaxed proof latency.
-/// 2. If the host honors non-default selections but requires SafeDB for the L1 -> L2
-///    resolution path (Ethereum / EigenDA), a non-default value combined with an inactive
-///    SafeDB is rejected.
+///    (`host.supports_non_default_l1_selection() == false`), any non-default value is rejected so
+///    operators are not misled into believing they tightened or relaxed proof latency.
+/// 2. If the host honors non-default selections but requires SafeDB for the L1 -> L2 resolution
+///    path (Ethereum / EigenDA), a non-default value combined with an inactive SafeDB is rejected.
 ///
 /// The default selection (`finalized`, `0`) is always allowed and bypasses both checks.
 pub async fn enforce_l1_selection_supported<H: OPSuccinctHost>(
@@ -207,7 +206,8 @@ pub async fn enforce_l1_selection_supported<H: OPSuccinctHost>(
         );
     }
 
-    if host.requires_safe_db_for_non_default_l1_selection() && !fetcher.is_safe_db_activated().await?
+    if host.requires_safe_db_for_non_default_l1_selection() &&
+        !fetcher.is_safe_db_activated().await?
     {
         bail!(
             "L1_BLOCK_TAG={:?} with L1_CONFIRMATIONS={} requires SafeDB to be activated on \
