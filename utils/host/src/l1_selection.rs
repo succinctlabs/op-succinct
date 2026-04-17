@@ -10,8 +10,9 @@
 //! Any non-default selection (tag != `finalized` or `confirmations != 0`) breaks the implicit
 //! assumption that the chosen L1 block cannot be reorged. Downstream code has a single entry
 //! point that maps the selected L1 block back to an L2 block number
-//! (`optimism_safeHeadAtL1Block`), which requires SafeDB to be activated on the op-node. Proposer
-//! entry points enforce this requirement at startup; utility scripts do not.
+//! (`optimism_safeHeadAtL1Block`), which requires SafeDB to be activated on the op-node. The
+//! shared `enforce_l1_selection_supported` helper enforces this requirement at startup, and is
+//! invoked by both proposer binaries and operator-facing utility scripts that initialize a host.
 use alloy_eips::BlockId;
 use anyhow::{anyhow, bail, Context, Result};
 use std::{env, str::FromStr};

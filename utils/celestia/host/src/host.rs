@@ -97,8 +97,9 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
     /// `get_finalized_l2_block_number` searches between `latest_proposed_block_number` and
     /// the L2 finalized header without consulting `fetcher.l1_selection`. Accepting the
     /// knob as a silent no-op would mislead operators into believing they had tightened
-    /// or relaxed proof latency, so the proposer entry rejects non-default selections
-    /// at startup instead.
+    /// or relaxed proof latency, so non-default selections are rejected at startup by the
+    /// shared `enforce_l1_selection_supported` helper used in proposer binaries and the
+    /// covered operator-facing utility scripts.
     fn supports_non_default_l1_selection(&self) -> bool {
         false
     }
