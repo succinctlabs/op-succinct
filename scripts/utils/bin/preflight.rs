@@ -18,8 +18,7 @@ use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
     get_agg_proof_stdin,
-    host::{enforce_l1_selection_supported, OPSuccinctHost},
-    l1_selection::L1BlockSelectionConfig,
+    host::OPSuccinctHost,
     network::{determine_network_mode, get_network_signer, parse_fulfillment_strategy},
     proof_cache::{save_agg_proof, save_range_proof},
     witness_generation::WitnessGenerator,
@@ -132,11 +131,7 @@ async fn main() -> Result<()> {
         .parse::<bool>()
         .context("USE_KMS_REQUESTER must be true or false")?;
 
-    let l1_selection = L1BlockSelectionConfig::from_env()?;
-    let data_fetcher =
-        OPSuccinctDataFetcher::new_with_rollup_config_and_l1_selection(l1_selection).await?;
-    let host = initialize_host(Arc::new(data_fetcher.clone()));
-    enforce_l1_selection_supported(host.as_ref(), &data_fetcher, l1_selection).await?;
+    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     let anchor_state_registry_address = env::var("ANCHOR_STATE_REGISTRY_ADDRESS")?
         .parse::<Address>()
@@ -209,6 +204,7 @@ async fn main() -> Result<()> {
     info!("L1 head hash: {:?}", l1_head_hash);
 
     // 2. Generate the range proof.
+    let host = initialize_host(Arc::new(data_fetcher.clone()));
     let host_args = host.fetch(l2_start_block, l2_end_block, Some(l1_head_hash), false).await?;
 
     info!("Generating range proof witness data...");

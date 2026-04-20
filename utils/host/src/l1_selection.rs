@@ -12,7 +12,8 @@
 //! point that maps the selected L1 block back to an L2 block number
 //! (`optimism_safeHeadAtL1Block`), which requires SafeDB to be activated on the op-node. The
 //! shared `enforce_l1_selection_supported` helper enforces this requirement at startup, and is
-//! invoked by both proposer binaries and operator-facing utility scripts that initialize a host.
+//! invoked by both proposer binaries and the covered operator-facing utility scripts that
+//! initialize a host.
 use alloy_eips::BlockId;
 use anyhow::{anyhow, bail, Context, Result};
 use std::{env, str::FromStr};

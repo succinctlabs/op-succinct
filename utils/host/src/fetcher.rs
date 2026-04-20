@@ -229,7 +229,10 @@ impl OPSuccinctDataFetcher {
         }
         let target_number = base.number.saturating_sub(self.l1_selection.confirmations);
         if target_number == base.number {
-            // Saturated; return the base header rather than re-fetching the same block.
+            // Only reachable when `base.number == 0` (genesis): `confirmations > 0` here, so
+            // `saturating_sub` only fixes back to `base.number` when the base is already 0.
+            // For larger over-confirmations (e.g. base=100, confirmations=1_000_000) this branch
+            // does not fire and the call below fetches block 0.
             return Ok(base);
         }
         self.get_l1_header(target_number.into()).await

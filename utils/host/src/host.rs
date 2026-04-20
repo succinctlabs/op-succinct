@@ -175,8 +175,8 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
 }
 
 /// Enforce, at startup, that the configured L1 selection is compatible with the active DA
-/// backend. Used by both production proposer binaries and user-facing utility CLIs that
-/// initialize a host so the policy is consistent across the workspace.
+/// backend. Used by both production proposer binaries and the covered operator-facing utility
+/// CLIs that initialize a host so the policy is consistent across the workspace.
 ///
 /// Two invariants:
 ///
