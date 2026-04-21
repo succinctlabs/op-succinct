@@ -43,44 +43,76 @@ jobs:
               - 'Cargo.lock'
               - 'rust-toolchain.toml'
 
-  # Reduced matrix on PRs for fast feedback.
-  # Always runs on PRs so the matrix expands and required check names are reported.
-  # On docs-only PRs, exits immediately at step level.
+  # Runs on every PR so that required check names are reported to the ruleset.
+  # Bootstrap targets run the real test; other targets report success immediately
+  # so the PR can enter the merge queue, where the full matrix runs for real.
+  # On docs-only PRs, even bootstrap targets exit immediately at step level.
   e2e-sysgo-tests-pr:
     needs: changes
     if: always() && github.event_name == 'pull_request'
     name: (${{ matrix.target }})
-    runs-on: ${{ needs.changes.result == 'success' && needs.changes.outputs.code != 'true' && 'ubuntu-latest' || fromJSON(format('["runs-on","runner=64cpu-linux-x64","run-id={0}","spot=false","disk=large"]', github.run_id)) }}
+    runs-on: ${{ (!matrix.run_real || (needs.changes.result == 'success' && needs.changes.outputs.code != 'true')) && 'ubuntu-latest' || fromJSON(format('["runs-on","runner=64cpu-linux-x64","run-id={0}","spot=false","disk=large"]', github.run_id)) }}
     timeout-minutes: 60
 
     strategy:
       fail-fast: false
       matrix:
-        target:
-          - "./e2e/validity/bootstrap/..."
-          - "./e2e/faultproof/bootstrap/..."
+        include:
+          - target: "./e2e/validity/bootstrap/..."
+            run_real: true
+          - target: "./e2e/faultproof/bootstrap/..."
+            run_real: true
+          - target: "./e2e/validity/proving/..."
+            run_real: false
+          - target: "./e2e/validity/recovery/..."
+            run_real: false
+          - target: "./e2e/faultproof/fastfinality/..."
+            run_real: false
+          - target: "./e2e/faultproof/recovery/..."
+            run_real: false
+          - target: "./e2e/faultproof/defense/..."
+            run_real: false
 
     steps:
+      - name: Deferred to merge queue
+        if: '!matrix.run_real'
+        run: echo "Deferred to merge queue"
+
       - name: Skip — docs-only PR
-        if: needs.changes.result == 'success' && needs.changes.outputs.code != 'true'
+        if: matrix.run_real && needs.changes.result == 'success' && needs.changes.outputs.code != 'true'
         run: echo "Docs-only change, skipping e2e tests"
 
       - name: Checkout sources
-        if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
+        if: matrix.run_real && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
         uses: actions/checkout@v5
         with:
           submodules: true
 
       - name: Setup E2E environment
-        if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
+        if: matrix.run_real && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
         uses: ./.github/actions/setup-e2e-sysgo
 
       - name: Run Sysgo E2E Tests
-        if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
+        if: matrix.run_real && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
         working-directory: tests
         run: |
           echo "Running tests..."
           just test-e2e-sysgo "${{ matrix.target }}"
+
+  # Reports required check names for long-running tests on PRs.
+  # Real execution happens in the merge queue via e2e-sysgo-long-running.
+  e2e-sysgo-long-running-pr:
+    if: github.event_name == 'pull_request'
+    name: Long Running (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - "./e2e/validity/long-running/progress_test.go"
+          - "./e2e/faultproof/long-running/progress_test.go"
+    steps:
+      - run: echo "Deferred to merge queue"
 
   # Full matrix on push to main, merge queue, and /sysgo comment
   e2e-sysgo-tests:

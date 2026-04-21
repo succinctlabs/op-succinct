@@ -27,6 +27,27 @@ pub async fn new_proposer(
     game_type: u32,
     backup_path: Option<PathBuf>,
 ) -> Result<OPSuccinctProposer<fault_proof::L1Provider, impl OPSuccinctHost + Clone>> {
+    new_proposer_with_confirmations(
+        rpc_config,
+        private_key,
+        anchor_state_registry_address,
+        factory_address,
+        game_type,
+        backup_path,
+        0,
+    )
+    .await
+}
+
+pub async fn new_proposer_with_confirmations(
+    rpc_config: &RPCConfig,
+    private_key: &str,
+    anchor_state_registry_address: &Address,
+    factory_address: &Address,
+    game_type: u32,
+    backup_path: Option<PathBuf>,
+    sync_l1_confirmations: u64,
+) -> Result<OPSuccinctProposer<fault_proof::L1Provider, impl OPSuccinctHost + Clone>> {
     // Create signer directly from private key
     let signer = SignerLock::new(op_succinct_signer_utils::Signer::new_local_signer(private_key)?);
 
@@ -65,6 +86,7 @@ pub async fn new_proposer(
             min_auction_period: 1,
             whitelist: None,
         },
+        sync_l1_confirmations,
     };
 
     let l1_provider = ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone());
