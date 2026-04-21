@@ -70,6 +70,7 @@ mod proposer_sync {
         },
         TestEnvironment,
     };
+    use alloy_eips::BlockId;
     use alloy_primitives::{Bytes, FixedBytes, Uint, U256};
     use alloy_sol_types::{SolCall, SolValue};
     use anyhow::{Context, Result};
@@ -261,7 +262,7 @@ mod proposer_sync {
         proposer.sync_state().await?;
 
         for i in 0..10 {
-            let fetch_result = proposer.fetch_game(U256::from(i)).await?;
+            let fetch_result = proposer.fetch_game(U256::from(i), BlockId::latest()).await?;
             assert!(matches!(fetch_result, GameFetchResult::AlreadyExists));
         }
 
@@ -287,7 +288,7 @@ mod proposer_sync {
 
         proposer.sync_state().await?;
 
-        let fetch_result = proposer.fetch_game(U256::from(0)).await?;
+        let fetch_result = proposer.fetch_game(U256::from(0), BlockId::latest()).await?;
         assert!(matches!(fetch_result, GameFetchResult::InvalidGame { .. }));
 
         let snapshot = proposer.state_snapshot().await;
@@ -495,7 +496,7 @@ mod proposer_sync {
 
         // Verify: fetch_game on legacy games returns UnsupportedType
         for (index, (_, is_valid)) in game_sequence.iter().enumerate() {
-            let fetch_result = proposer.fetch_game(U256::from(index)).await?;
+            let fetch_result = proposer.fetch_game(U256::from(index), BlockId::latest()).await?;
             if *is_valid {
                 assert!(
                     matches!(fetch_result, GameFetchResult::AlreadyExists),
@@ -551,14 +552,15 @@ mod proposer_sync {
         snapshot.assert_canonical_head(Some(1), 3, starting_l2_block);
 
         // Verify: fetch_game on non-respected game returns InvalidGame
-        let non_respected_fetch_result = proposer.fetch_game(U256::from(0)).await?;
+        let non_respected_fetch_result =
+            proposer.fetch_game(U256::from(0), BlockId::latest()).await?;
         assert!(
             matches!(non_respected_fetch_result, GameFetchResult::InvalidGame { .. }),
             "Game created with non-respected type should be filtered as InvalidGame"
         );
 
         // Verify: fetch_game on the latest valid game returns AlreadyExists
-        let valid_fetch_result = proposer.fetch_game(U256::from(1)).await?;
+        let valid_fetch_result = proposer.fetch_game(U256::from(1), BlockId::latest()).await?;
         assert!(
             matches!(valid_fetch_result, GameFetchResult::AlreadyExists),
             "Valid game at index 1 should be cached"
@@ -1565,6 +1567,150 @@ mod proposer_sync {
         );
 
         tracing::info!("✓ Defense task correctly spawned for game 1: {:?}", game_addresses[1]);
+
+        Ok(())
+    }
+
+    /// Tests that the duplicate-creation guard in should_create_game() is specifically
+    /// what prevents sibling games when the pinned cache hasn't caught up.
+    ///
+    /// Isolation: calls should_create_game BEFORE and AFTER handle_game_creation with
+    /// the same stale cache state. The only difference between the two calls is the
+    /// guard value, proving the guard is the cause of the false return.
+    #[tokio::test]
+    async fn test_duplicate_creation_guard_blocks_stale_cache() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Create game 0 as anchor/canonical head.
+        let block_0 = starting_l2_block + 1;
+        let root_claim_0 = env.compute_output_root_at_block(block_0).await?;
+        env.create_game(root_claim_0, block_0, M, init_bond).await?;
+
+        proposer.sync_state().await?;
+        let snapshot = proposer.state_snapshot().await;
+        assert_eq!(snapshot.canonical_head_index, Some(U256::from(0)));
+
+        // Baseline: should_create_game BEFORE setting the guard.
+        // Record what it returns with the current (non-guarded) state.
+        let (should_create_before, _, _) = proposer.should_create_game().await?;
+
+        // Create game 1 via handle_game_creation — this sets the guard.
+        let proposal_interval = proposer.config.proposal_interval_in_blocks;
+        let next_block = block_0 + proposal_interval;
+
+        // Precondition: baseline must allow creation so we can isolate the guard.
+        // In the test environment (mock mode + anvil), finalization should not block.
+        assert!(
+            should_create_before,
+            "Precondition failed: should_create_game must return true before guard is set"
+        );
+
+        proposer.handle_game_creation(U256::from(next_block), 0).await?;
+
+        // DO NOT sync — cache is stale, still sees only game 0.
+        // The only state change since baseline is the guard being set.
+        let (should_create_after, _, _) = proposer.should_create_game().await?;
+        assert!(
+            !should_create_after,
+            "Guard should block creation: baseline returned true, guard is the only change"
+        );
+
+        // Sync to catch up, then verify guard clears.
+        proposer.sync_state().await?;
+
+        let snapshot_after = proposer.state_snapshot().await;
+        assert_eq!(snapshot_after.games.len(), 2, "Both games should be in cache after sync");
+
+        // After sync, canonical head advances to game 1. should_create_game now computes
+        // next_l2_block = game_1.l2_block + interval > last_created, so the guard no
+        // longer blocks (even though the guard value is still set). This proves the full
+        // lifecycle: set on creation → blocks while stale → naturally bypassed when head
+        // advances past the created game.
+        let (should_create_after_sync, _, _) = proposer.should_create_game().await?;
+        assert_eq!(
+            should_create_after_sync, should_create_before,
+            "After sync, canonical head should advance past guard so creation is allowed again"
+        );
+
+        Ok(())
+    }
+
+    /// Tests that the CHALLENGER_WINS subtree removal clears the creation guard when the
+    /// guarded game is in the removed subtree.
+    ///
+    /// Scenario:
+    /// 1. Create game 0 (anchor), sync.
+    /// 2. Create game 1 via handle_game_creation (sets guard, blocks further creation).
+    /// 3. Sync — game 1 enters cache. Guard still set but naturally bypassed.
+    /// 4. Challenge game 1, warp past deadline, resolve as CHALLENGER_WINS.
+    /// 5. Sync — RemoveSubtree fires, guard is cleared because game 1's address matches.
+    /// 6. should_create_game returns true with a fresh target block.
+    ///
+    /// Without the address-based invalidation, the guard would stay set and permanently
+    /// block creation after the branch switch.
+    #[tokio::test]
+    async fn test_challenger_wins_clears_creation_guard() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Step 1: Create game 0 as anchor.
+        let block_0 = starting_l2_block + 1;
+        let root_claim_0 = env.compute_output_root_at_block(block_0).await?;
+        env.create_game(root_claim_0, block_0, M, init_bond).await?;
+        let (_, game_0_address) = env.last_game_info().await?;
+
+        proposer.sync_state().await?;
+        let snapshot = proposer.state_snapshot().await;
+        assert_eq!(snapshot.canonical_head_index, Some(U256::from(0)));
+
+        // Step 2: Verify baseline allows creation.
+        let (baseline, _, _) = proposer.should_create_game().await?;
+        assert!(baseline, "Precondition: creation must be allowed before guard is set");
+
+        // Create game 1 via handle_game_creation (sets the guard).
+        let proposal_interval = proposer.config.proposal_interval_in_blocks;
+        let next_block = block_0 + proposal_interval;
+        proposer.handle_game_creation(U256::from(next_block), 0).await?;
+
+        let (_, game_1_address) = env.last_game_info().await?;
+
+        // Verify guard blocks.
+        let (blocked, _, _) = proposer.should_create_game().await?;
+        assert!(!blocked, "Guard should block creation with stale cache");
+
+        // Step 3: Sync so game 1 enters cache.
+        proposer.sync_state().await?;
+        let snapshot = proposer.state_snapshot().await;
+        assert_eq!(snapshot.games.len(), 2);
+
+        // Step 4: Challenge game 1, then resolve parent (game 0) first.
+        // The contract requires the parent to be resolved before a child can resolve.
+        env.challenge_game(game_1_address).await?;
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        env.resolve_game(game_0_address).await?;
+
+        // Now resolve game 1 as CHALLENGER_WINS (challenged + prove deadline expired).
+        env.warp_time(MAX_PROVE_DURATION + 1).await?;
+        env.resolve_game(game_1_address).await?;
+
+        // Step 5: Sync — CHALLENGER_WINS triggers RemoveSubtree.
+        // The guard should be cleared because game 1's address matches.
+        proposer.sync_state().await?;
+
+        let snapshot = proposer.state_snapshot().await;
+        assert!(
+            !snapshot.games.iter().any(|(_, addr)| *addr == game_1_address),
+            "Game 1 should be removed (CHALLENGER_WINS)"
+        );
+
+        // Step 6: Verify creation is unblocked.
+        // After CHALLENGER_WINS, canonical head reverts to game 0. The guard was cleared
+        // by the subtree removal, so should_create_game uses game 0 as head and computes
+        // a fresh next_l2_block. Without the address-based clear, the guard would still
+        // be set at next_block and would block this.
+        let (unblocked, _, _) = proposer.should_create_game().await?;
+        assert!(unblocked, "Creation should be unblocked after CHALLENGER_WINS clears the guard");
 
         Ok(())
     }

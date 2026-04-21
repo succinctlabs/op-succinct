@@ -1,5 +1,6 @@
 //! Common test environment setup utilities.
 use std::{
+    path::PathBuf,
     str::FromStr,
     sync::{Arc, OnceLock},
     time::Duration,
@@ -43,7 +44,8 @@ use tracing_subscriber::{filter::Targets, fmt, prelude::*, util::SubscriberInitE
 use crate::common::{
     constants::*,
     contracts::{deploy_mock_permissioned_game, send_contract_transaction},
-    new_challenger, new_proposer, start_challenger, start_proposer, warp_time, ANVIL,
+    new_challenger, new_proposer, new_proposer_with_confirmations, start_challenger,
+    start_proposer, warp_time, ANVIL,
 };
 
 use super::{
@@ -260,6 +262,23 @@ impl TestEnvironment {
             &self.deployed.factory,
             self.game_type,
             None,
+        )
+        .await
+    }
+
+    pub async fn new_proposer_with_options(
+        &self,
+        backup_path: Option<PathBuf>,
+        sync_l1_confirmations: u64,
+    ) -> Result<OPSuccinctProposer<fault_proof::L1Provider, impl OPSuccinctHost + Clone>> {
+        new_proposer_with_confirmations(
+            &self.rpc_config,
+            self.private_keys.proposer,
+            &self.deployed.anchor_state_registry,
+            &self.deployed.factory,
+            self.game_type,
+            backup_path,
+            sync_l1_confirmations,
         )
         .await
     }
