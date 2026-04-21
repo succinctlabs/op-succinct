@@ -36,41 +36,60 @@ jobs:
               - 'bindings/**'
               - 'utils/**'
 
-  # Reduced matrix on PRs — sync test only.
-  # Always runs on PRs so the check name "Fault Proof (sync)" is reported.
-  # On docs-only PRs, runs on ubuntu-latest and exits immediately.
+  # Runs on every PR so that required check names are reported to the ruleset.
+  # sync/ethereum runs the real test; other combinations report success immediately
+  # so the PR can enter the merge queue, where the full matrix runs for real.
+  # On docs-only PRs, even sync exits immediately at step level.
   fp-integration-tests-pr:
     needs: changes
     if: always() && github.event_name == 'pull_request'
-    name: Fault Proof (sync)
-    runs-on: ${{ needs.changes.result == 'success' && needs.changes.outputs.code != 'true' && 'ubuntu-latest' || fromJSON(format('["runs-on","runner=64cpu-linux-x64","run-id={0}","spot=false","disk=large","extras=s3-cache"]', github.run_id)) }}
+    name: Fault Proof (${{ matrix.test }}${{ matrix.da != 'ethereum' && format(' - {0}', matrix.da) || '' }})
+    runs-on: ${{ (!matrix.run_real || (needs.changes.result == 'success' && needs.changes.outputs.code != 'true')) && 'ubuntu-latest' || fromJSON(format('["runs-on","runner=64cpu-linux-x64","run-id={0}","spot=false","disk=large","extras=s3-cache"]', github.run_id)) }}
     timeout-minutes: 60
 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - test: sync
+            da: ethereum
+            run_real: true
+          - test: integration
+            da: ethereum
+            run_real: false
+          - test: integration
+            da: eigenda
+            run_real: false
+
     steps:
+    - name: Deferred to merge queue
+      if: '!matrix.run_real'
+      run: echo "Deferred to merge queue"
+
     - name: Skip — docs-only PR
-      if: needs.changes.result == 'success' && needs.changes.outputs.code != 'true'
+      if: matrix.run_real && needs.changes.result == 'success' && needs.changes.outputs.code != 'true'
       run: echo "Docs-only change, skipping integration tests"
 
     - name: Configure runs-on cache
-      if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
+      if: matrix.run_real && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
       uses: runs-on/action@v2
 
     - name: Checkout code
-      if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
+      if: matrix.run_real && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
       uses: actions/checkout@v4
       with:
         submodules: recursive
 
     - name: Setup Rust
-      if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
+      if: matrix.run_real && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
       run: rustup toolchain install stable --profile minimal
 
     - name: Install protobuf compiler
-      if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
+      if: matrix.run_real && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
       run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
     - name: Install Go
-      if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
+      if: matrix.run_real && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
       run: |
         GO_ARCH=$(dpkg --print-architecture)
         curl -LO https://go.dev/dl/go1.24.0.linux-${GO_ARCH}.tar.gz
@@ -78,13 +97,13 @@ jobs:
         echo "/usr/local/go/bin" >> $GITHUB_PATH
 
     - name: Install Foundry
-      if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
+      if: matrix.run_real && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
       uses: foundry-rs/foundry-toolchain@v1
       with:
         version: nightly-d592b3e0f142d694c3be539702704a4a73238773
 
     - name: Cache Rust dependencies
-      if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
+      if: matrix.run_real && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
       uses: Swatinem/rust-cache@v2
       with:
         workspaces: |
@@ -92,27 +111,41 @@ jobs:
           bindings
 
     - name: Install just
-      if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
+      if: matrix.run_real && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
       uses: extractions/setup-just@v3
 
     - name: Run tests
-      if: needs.changes.result != 'success' || needs.changes.outputs.code == 'true'
-      run: just fp-integration-tests sync ethereum
+      if: matrix.run_real && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
+      run: just fp-integration-tests ${{ matrix.test }} ${{ matrix.da }}
       env:
         L1_RPC: ${{ secrets.L1_RPC }}
         L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
-        L2_RPC: ${{ secrets.L2_RPC }}
-        L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+        L2_RPC: ${{ matrix.da == 'eigenda' && secrets.L2_EIGENDA_RPC || secrets.L2_RPC }}
+        L2_NODE_RPC: ${{ matrix.da == 'eigenda' && secrets.L2_EIGENDA_RPC || secrets.L2_NODE_RPC }}
+        EIGENDA_PROXY_ADDRESS: ${{ secrets.EIGENDA_PROXY_ADDRESS }}
 
     - name: Upload test logs on failure
-      if: failure()
+      if: failure() && matrix.run_real
       uses: actions/upload-artifact@v4
       with:
-        name: fp-sync-ethereum-pr-logs
+        name: fp-${{ matrix.test }}-${{ matrix.da }}-pr-logs
         path: |
           **/*.log
           target/debug/deps/*.log
         retention-days: 7
+
+  # Reports required check name for DA Host on PRs.
+  # Real execution happens in the merge queue via da-integration-tests.
+  da-integration-tests-pr:
+    if: github.event_name == 'pull_request'
+    name: DA Host (${{ matrix.da }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        da: [eigenda]
+    steps:
+    - run: echo "Deferred to merge queue"
 
   # Full matrix on push to main, merge queue, and /integration comment
   fp-integration-tests:
