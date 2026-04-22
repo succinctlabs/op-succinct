@@ -22,6 +22,16 @@ pub enum ProposerGauge {
     )]
     AnchorGameL2BlockNumber,
     #[strum(
+        serialize = "op_succinct_fp_canonical_head_game_index",
+        message = "Canonical head game index (-1 when cleared)"
+    )]
+    CanonicalHeadGameIndex,
+    #[strum(
+        serialize = "op_succinct_fp_anchor_game_index",
+        message = "Anchor game index (-1 when cleared)"
+    )]
+    AnchorGameIndex,
+    #[strum(
         serialize = "op_succinct_fp_games_created",
         message = "Total number of games created by the proposer"
     )]
