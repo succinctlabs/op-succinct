@@ -6,7 +6,7 @@ pub mod prometheus;
 pub mod proposer;
 pub mod prover;
 
-use alloy_eips::BlockNumberOrTag;
+use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_primitives::{address, keccak256, Address, FixedBytes, B256, U256};
 use alloy_provider::{Provider, RootProvider};
 use alloy_rpc_types_eth::Block;
@@ -129,7 +129,7 @@ where
     async fn fetch_init_bond(&self, game_type: u32) -> Result<U256>;
 
     /// Fetches the latest game index.
-    async fn fetch_latest_game_index(&self) -> Result<Option<U256>>;
+    async fn fetch_latest_game_index(&self, block: BlockId) -> Result<Option<U256>>;
 }
 
 #[async_trait]
@@ -157,8 +157,8 @@ where
     }
 
     /// Fetches the latest game index.
-    async fn fetch_latest_game_index(&self) -> Result<Option<U256>> {
-        let game_count = self.gameCount().call().await?;
+    async fn fetch_latest_game_index(&self, block: BlockId) -> Result<Option<U256>> {
+        let game_count = self.gameCount().block(block).call().await?;
 
         if game_count == U256::ZERO {
             tracing::debug!("No games exist yet");
@@ -175,6 +175,7 @@ where
 async fn is_parent_resolved<P>(
     parent_index: u32,
     factory: &DisputeGameFactoryInstance<P>,
+    pinned_block: BlockId,
 ) -> Result<bool>
 where
     P: Provider + Clone,
@@ -183,15 +184,17 @@ where
         return Ok(true);
     }
 
-    let parent_game_address = factory.gameAtIndex(U256::from(parent_index)).call().await?.proxy;
+    let parent_game_address =
+        factory.gameAtIndex(U256::from(parent_index)).block(pinned_block).call().await?.proxy;
     let parent_game_contract = IDisputeGame::new(parent_game_address, factory.provider());
 
-    Ok(parent_game_contract.status().call().await? != GameStatus::IN_PROGRESS)
+    Ok(parent_game_contract.status().block(pinned_block).call().await? != GameStatus::IN_PROGRESS)
 }
 
 async fn is_parent_challenger_wins<P>(
     parent_index: u32,
     factory: &DisputeGameFactoryInstance<P>,
+    pinned_block: BlockId,
 ) -> Result<bool>
 where
     P: Provider + Clone,
@@ -200,10 +203,12 @@ where
         return Ok(false);
     }
 
-    let parent_game_address = factory.gameAtIndex(U256::from(parent_index)).call().await?.proxy;
+    let parent_game_address =
+        factory.gameAtIndex(U256::from(parent_index)).block(pinned_block).call().await?.proxy;
     let parent_game_contract = IDisputeGame::new(parent_game_address, factory.provider());
 
-    Ok(parent_game_contract.status().call().await? == GameStatus::CHALLENGER_WINS)
+    Ok(parent_game_contract.status().block(pinned_block).call().await? ==
+        GameStatus::CHALLENGER_WINS)
 }
 
 /// Prefix used for transaction revert errors.

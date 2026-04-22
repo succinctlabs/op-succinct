@@ -79,6 +79,11 @@ pub struct ProposerConfig {
     /// Optional path to backup file for persisting proposer state across restarts.
     pub backup_path: Option<PathBuf>,
 
+    /// Number of L1 blocks behind `latest` to pin reads during sync cycles.
+    /// Provides a safety margin for load-balanced RPCs where backends may lag.
+    /// Default: 0 (use latest).
+    pub sync_l1_confirmations: u64,
+
     /// Maximum time (in seconds) to wait for an L1 transaction submitted by the proposer to
     /// reach the required number of confirmations before the watcher gives up. Setting this
     /// too low risks declaring "confirmation timeout" on transactions that actually land on
@@ -147,6 +152,9 @@ impl ProposerConfig {
                 .parse()?,
             proof_provider: ProofProviderConfig::from_env()?,
             backup_path: env::var("BACKUP_PATH").ok().map(PathBuf::from),
+            sync_l1_confirmations: env::var("SYNC_L1_CONFIRMATIONS")
+                .unwrap_or("0".to_string())
+                .parse()?,
             tx_confirmation_timeout: env::var("TX_CONFIRMATION_TIMEOUT")
                 .unwrap_or("60".to_string())
                 .parse()?,
@@ -186,6 +194,7 @@ impl ProposerConfig {
             min_auction_period = self.proof_provider.min_auction_period,
             whitelist = ?self.proof_provider.whitelist,
             backup_path = ?self.backup_path,
+            sync_l1_confirmations = self.sync_l1_confirmations,
             tx_confirmation_timeout = self.tx_confirmation_timeout,
             "Proposer configuration loaded"
         );
