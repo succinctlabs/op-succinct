@@ -97,7 +97,7 @@ sol! {
         function gameOver() external view returns (bool gameOver_);
 
         /// @notice Returns the max challenge duration.
-        function maxChallengeDuration() external view returns (uint256 maxChallengeDuration_);
+        function maxChallengeDuration() external view returns (uint64 maxChallengeDuration_);
 
         /// @notice Returns the max prove duration.
         function maxProveDuration() external view returns (uint64 maxProveDuration_);
