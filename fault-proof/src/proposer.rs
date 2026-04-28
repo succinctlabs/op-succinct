@@ -1413,6 +1413,31 @@ where
         };
 
         for game in candidates {
+            // Pre-flight on-chain status check at `latest`. The cached `should_attempt_to_resolve`
+            // is derived from the pinned (lagged) snapshot, so a recently confirmed `resolve()` tx
+            // may not yet be reflected. Querying at `latest` avoids re-submitting a resolution
+            // that would only revert on chain.
+            let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+            match contract.status().call().await {
+                Ok(status) if status != GameStatus::IN_PROGRESS => {
+                    tracing::info!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        ?status,
+                        "Skipping resolve: game already resolved on chain"
+                    );
+                    continue;
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        game_address = ?game.address,
+                        error = ?e,
+                        "Pre-flight status check failed, proceeding with resolve"
+                    );
+                }
+                _ => {}
+            }
+
             if let Err(error) = self.submit_resolution_transaction(&game).await {
                 if error.is_revert() {
                     tracing::error!(
@@ -1455,7 +1480,33 @@ where
                 .collect::<Vec<_>>()
         };
 
+        let signer_address = self.signer.address();
         for game in candidates {
+            // Pre-flight on-chain credit check at `latest`. The cached
+            // `should_attempt_to_claim_bond` is derived from the pinned (lagged)
+            // snapshot, so a recently confirmed `claimCredit()` tx may not yet be
+            // reflected. Querying at `latest` avoids re-submitting a claim that
+            // would only revert on chain.
+            let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+            match contract.credit(signer_address).call().await {
+                Ok(credit) if credit == U256::ZERO => {
+                    tracing::info!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        "Skipping claim: bond already claimed on chain"
+                    );
+                    continue;
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        game_address = ?game.address,
+                        error = ?e,
+                        "Pre-flight credit check failed, proceeding with claim"
+                    );
+                }
+                _ => {}
+            }
+
             if let Err(error) = self.submit_bond_claim_transaction(&game).await {
                 if error.is_revert() {
                     tracing::error!(
@@ -2360,6 +2411,7 @@ where
     /// Returns `Ok(true)` if proving should be skipped:
     /// - Game not found in cache
     /// - Game not owned (vkeys don't match)
+    /// - Game is already proven or resolved on chain (pre-flight check at `latest`)
     /// - Deadline has passed
     ///
     /// Returns `Ok(false)` if proving should proceed.
@@ -2385,6 +2437,39 @@ where
                     return Ok(true);
                 }
                 _ => {}
+            }
+        }
+
+        // Pre-flight on-chain status check at `latest`. The cached `proposal_status` is read
+        // from the pinned (lagged) block, so a recently confirmed prove() or resolve() tx may
+        // not yet be reflected. Querying at `latest` avoids expensive proof regeneration that
+        // would only revert on submission. Skip when:
+        // - ProposalStatus is *ValidProofProvided (proof already submitted), or
+        // - ProposalStatus is Resolved (game concluded — set whenever GameStatus moves out of
+        //   IN_PROGRESS, including timeout default-loss).
+        let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+        match contract.claimData().call().await {
+            Ok(claim_data) => {
+                if matches!(
+                    claim_data.status,
+                    ProposalStatus::UnchallengedAndValidProofProvided |
+                        ProposalStatus::ChallengedAndValidProofProvided |
+                        ProposalStatus::Resolved
+                ) {
+                    tracing::info!(
+                        ?game_address,
+                        proposal_status = ?claim_data.status,
+                        "Skipping proving: game already proven or resolved on chain"
+                    );
+                    return Ok(true);
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    ?game_address,
+                    error = ?e,
+                    "Pre-flight proposal status check failed, proceeding with proving"
+                );
             }
         }
 
