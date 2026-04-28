@@ -747,6 +747,20 @@ where
                 .copied()
                 .collect();
             if !future_games.is_empty() {
+                // Determine if the duplicate-creation guard's tracked game is among the
+                // entries this prune is about to remove. Must be evaluated BEFORE the
+                // removal loop while state.games still holds them. Checking "absent from
+                // post-prune cache" instead would over-clear the guard when the just-
+                // created game has not yet been added to the cache (e.g., right after
+                // creation, or after a backup restore that prunes unrelated entries),
+                // allowing should_create_game to re-submit a duplicate at the same L2
+                // block before the cache catches up.
+                let guarded_addr = *self.last_created_game_address.lock().await;
+                let guard_in_pruned = guarded_addr != Address::ZERO &&
+                    future_games.iter().any(|idx| {
+                        state.games.get(idx).is_some_and(|g| g.address == guarded_addr)
+                    });
+
                 for idx in &future_games {
                     state.games.remove(idx);
                 }
@@ -759,6 +773,14 @@ where
                     state.anchor_game.as_ref().is_some_and(|a| !state.games.contains_key(&a.index));
                 if should_clear_anchor {
                     state.anchor_game = None;
+                }
+                if guard_in_pruned {
+                    self.last_created_game_l2_block.store(0, Ordering::Relaxed);
+                    *self.last_created_game_address.lock().await = Address::ZERO;
+                    tracing::warn!(
+                        ?guarded_addr,
+                        "Reset creation guard: tracked game was among pruned entries"
+                    );
                 }
             }
         }
