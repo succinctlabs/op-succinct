@@ -523,7 +523,7 @@ where
 
         // Fetch contract params from game implementation.
         let game_impl = self.factory.game_impl(self.config.game_type).await?;
-        let max_challenge_duration = game_impl.maxChallengeDuration().call().await?.to::<u64>();
+        let max_challenge_duration = game_impl.maxChallengeDuration().call().await?;
         let max_prove_duration = game_impl.maxProveDuration().call().await?;
         let contract_params = ContractParams { max_challenge_duration, max_prove_duration };
 
