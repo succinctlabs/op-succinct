@@ -654,13 +654,26 @@ where
             latest_block.header.number.saturating_sub(self.config.sync_l1_confirmations);
 
         // If L1 hasn't advanced past the last synced block, all on-chain state is identical.
+        //
+        // `confirmed_number < prev` indicates backend regression from a load-balanced RPC, or a
+        // deep L1 reorg past `sync_l1_confirmations`. This case should be logged at WARN so
+        // operators can detect unhealthy backends or L1 reorg; the equal case stays at DEBUG since
+        // it's the normal "L1 hasn't ticked" path.
         let prev = self.last_synced_l1_block.load(Ordering::Relaxed);
         if confirmed_number > 0 && confirmed_number <= prev {
-            tracing::debug!(
-                confirmed_number,
-                last_synced = prev,
-                "L1 head unchanged, skipping sync"
-            );
+            if confirmed_number < prev {
+                tracing::warn!(
+                    confirmed_number,
+                    last_synced = prev,
+                    "L1 confirmed head moved backwards (backend regression or deep reorg), skipping sync"
+                );
+            } else {
+                tracing::debug!(
+                    confirmed_number,
+                    last_synced = prev,
+                    "L1 head unchanged, skipping sync"
+                );
+            }
             return Ok(());
         }
 
