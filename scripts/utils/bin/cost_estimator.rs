@@ -256,7 +256,7 @@ async fn main() -> Result<()> {
     // splitting algorithm. Otherwise, we use the simple range splitting algorithm.
     let safe_db_activated = data_fetcher.is_safe_db_activated().await?;
 
-    let split_ranges = if safe_db_activated {
+    let split_ranges = if safe_db_activated && !args.no_safe_head_split {
         split_range_based_on_safe_heads(l2_start_block, l2_end_block, args.effective_batch_size())
             .await?
     } else {
