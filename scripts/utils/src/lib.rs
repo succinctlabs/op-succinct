@@ -39,6 +39,12 @@ pub struct HostExecutorArgs {
     /// Cluster proving timeout in seconds (only used when SP1_PROVER=cluster).
     #[arg(long, default_value = "21600")]
     pub cluster_timeout: u64,
+    /// Bypass span-batch-aligned splitting even when SafeDB is active. Forces the basic
+    /// fixed-size splitter so the range is partitioned solely by `--batch-size`. Useful for
+    /// estimating per-segment cost as the proposer sees it (one zkVM execution per
+    /// `RANGE_SPLIT_COUNT` segment) rather than per span batch.
+    #[arg(long)]
+    pub no_safe_head_split: bool,
 }
 
 /// Fallback batch size used when the user provides neither `--batch-size`
@@ -92,6 +98,7 @@ mod tests {
             prove: false,
             safe_db_fallback: false,
             cluster_timeout: 21600,
+            no_safe_head_split: false,
         }
     }
 

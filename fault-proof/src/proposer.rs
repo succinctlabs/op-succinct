@@ -654,13 +654,26 @@ where
             latest_block.header.number.saturating_sub(self.config.sync_l1_confirmations);
 
         // If L1 hasn't advanced past the last synced block, all on-chain state is identical.
+        //
+        // `confirmed_number < prev` indicates backend regression from a load-balanced RPC, or a
+        // deep L1 reorg past `sync_l1_confirmations`. This case should be logged at WARN so
+        // operators can detect unhealthy backends or L1 reorg; the equal case stays at DEBUG since
+        // it's the normal "L1 hasn't ticked" path.
         let prev = self.last_synced_l1_block.load(Ordering::Relaxed);
         if confirmed_number > 0 && confirmed_number <= prev {
-            tracing::debug!(
-                confirmed_number,
-                last_synced = prev,
-                "L1 head unchanged, skipping sync"
-            );
+            if confirmed_number < prev {
+                tracing::warn!(
+                    confirmed_number,
+                    last_synced = prev,
+                    "L1 confirmed head moved backwards (backend regression or deep reorg), skipping sync"
+                );
+            } else {
+                tracing::debug!(
+                    confirmed_number,
+                    last_synced = prev,
+                    "L1 head unchanged, skipping sync"
+                );
+            }
             return Ok(());
         }
 
@@ -734,6 +747,20 @@ where
                 .copied()
                 .collect();
             if !future_games.is_empty() {
+                // Determine if the duplicate-creation guard's tracked game is among the
+                // entries this prune is about to remove. Must be evaluated BEFORE the
+                // removal loop while state.games still holds them. Checking "absent from
+                // post-prune cache" instead would over-clear the guard when the just-
+                // created game has not yet been added to the cache (e.g., right after
+                // creation, or after a backup restore that prunes unrelated entries),
+                // allowing should_create_game to re-submit a duplicate at the same L2
+                // block before the cache catches up.
+                let guarded_addr = *self.last_created_game_address.lock().await;
+                let guard_in_pruned = guarded_addr != Address::ZERO &&
+                    future_games.iter().any(|idx| {
+                        state.games.get(idx).is_some_and(|g| g.address == guarded_addr)
+                    });
+
                 for idx in &future_games {
                     state.games.remove(idx);
                 }
@@ -746,6 +773,14 @@ where
                     state.anchor_game.as_ref().is_some_and(|a| !state.games.contains_key(&a.index));
                 if should_clear_anchor {
                     state.anchor_game = None;
+                }
+                if guard_in_pruned {
+                    self.last_created_game_l2_block.store(0, Ordering::Relaxed);
+                    *self.last_created_game_address.lock().await = Address::ZERO;
+                    tracing::warn!(
+                        ?guarded_addr,
+                        "Reset creation guard: tracked game was among pruned entries"
+                    );
                 }
             }
         }
@@ -1378,6 +1413,31 @@ where
         };
 
         for game in candidates {
+            // Pre-flight on-chain status check at `latest`. The cached `should_attempt_to_resolve`
+            // is derived from the pinned (lagged) snapshot, so a recently confirmed `resolve()` tx
+            // may not yet be reflected. Querying at `latest` avoids re-submitting a resolution
+            // that would only revert on chain.
+            let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+            match contract.status().call().await {
+                Ok(status) if status != GameStatus::IN_PROGRESS => {
+                    tracing::info!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        ?status,
+                        "Skipping resolve: game already resolved on chain"
+                    );
+                    continue;
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        game_address = ?game.address,
+                        error = ?e,
+                        "Pre-flight status check failed, proceeding with resolve"
+                    );
+                }
+                _ => {}
+            }
+
             if let Err(error) = self.submit_resolution_transaction(&game).await {
                 if error.is_revert() {
                     tracing::error!(
@@ -1420,7 +1480,33 @@ where
                 .collect::<Vec<_>>()
         };
 
+        let signer_address = self.signer.address();
         for game in candidates {
+            // Pre-flight on-chain credit check at `latest`. The cached
+            // `should_attempt_to_claim_bond` is derived from the pinned (lagged)
+            // snapshot, so a recently confirmed `claimCredit()` tx may not yet be
+            // reflected. Querying at `latest` avoids re-submitting a claim that
+            // would only revert on chain.
+            let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+            match contract.credit(signer_address).call().await {
+                Ok(credit) if credit == U256::ZERO => {
+                    tracing::info!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        "Skipping claim: bond already claimed on chain"
+                    );
+                    continue;
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        game_address = ?game.address,
+                        error = ?e,
+                        "Pre-flight credit check failed, proceeding with claim"
+                    );
+                }
+                _ => {}
+            }
+
             if let Err(error) = self.submit_bond_claim_transaction(&game).await {
                 if error.is_revert() {
                     tracing::error!(
@@ -2325,6 +2411,7 @@ where
     /// Returns `Ok(true)` if proving should be skipped:
     /// - Game not found in cache
     /// - Game not owned (vkeys don't match)
+    /// - Game is already proven or resolved on chain (pre-flight check at `latest`)
     /// - Deadline has passed
     ///
     /// Returns `Ok(false)` if proving should proceed.
@@ -2350,6 +2437,39 @@ where
                     return Ok(true);
                 }
                 _ => {}
+            }
+        }
+
+        // Pre-flight on-chain status check at `latest`. The cached `proposal_status` is read
+        // from the pinned (lagged) block, so a recently confirmed prove() or resolve() tx may
+        // not yet be reflected. Querying at `latest` avoids expensive proof regeneration that
+        // would only revert on submission. Skip when:
+        // - ProposalStatus is *ValidProofProvided (proof already submitted), or
+        // - ProposalStatus is Resolved (game concluded — set whenever GameStatus moves out of
+        //   IN_PROGRESS, including timeout default-loss).
+        let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+        match contract.claimData().call().await {
+            Ok(claim_data) => {
+                if matches!(
+                    claim_data.status,
+                    ProposalStatus::UnchallengedAndValidProofProvided |
+                        ProposalStatus::ChallengedAndValidProofProvided |
+                        ProposalStatus::Resolved
+                ) {
+                    tracing::info!(
+                        ?game_address,
+                        proposal_status = ?claim_data.status,
+                        "Skipping proving: game already proven or resolved on chain"
+                    );
+                    return Ok(true);
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    ?game_address,
+                    error = ?e,
+                    "Pre-flight proposal status check failed, proceeding with proving"
+                );
             }
         }
 
