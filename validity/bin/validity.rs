@@ -4,6 +4,8 @@ use alloy_provider::{Provider, ProviderBuilder};
 use anyhow::Result;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
+    host::enforce_l1_selection_supported,
+    l1_selection::L1BlockSelectionConfig,
     metrics::{init_metrics, MetricsGauge},
     setup_logger,
 };
@@ -41,7 +43,19 @@ async fn main() -> Result<()> {
 
     setup_logger();
 
-    let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
+    // Parse the L1 block selection config first so any user-facing error happens before
+    // we touch RPCs or DBs. The SafeDB check (only needed for DA backends whose non-default
+    // path goes through `optimism_safeHeadAtL1Block`) runs once the host is constructed.
+    let l1_selection = L1BlockSelectionConfig::from_env()?;
+    info!(
+        tag = ?l1_selection.tag,
+        confirmations = l1_selection.confirmations,
+        is_default = l1_selection.is_default(),
+        "L1 block selection configured"
+    );
+
+    let fetcher =
+        OPSuccinctDataFetcher::new_with_rollup_config_and_l1_selection(l1_selection).await?;
 
     // Read the environment variables.
     let env_config = read_proposer_env().await?;
@@ -92,6 +106,8 @@ async fn main() -> Result<()> {
     let l1_provider = ProviderBuilder::new().connect_http(env_config.l1_rpc.clone());
 
     let host = initialize_host(fetcher.clone().into());
+
+    enforce_l1_selection_supported(host.as_ref(), &fetcher, l1_selection).await?;
 
     let proposer = Proposer::new(
         l1_provider,

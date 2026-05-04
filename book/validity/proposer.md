@@ -58,6 +58,8 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 | `SIGNER_URL` | URL for the Web3Signer. Note: This takes precedence over the `PRIVATE_KEY` environment variable. |
 | `SIGNER_ADDRESS` | Address of the account that will be posting output roots to L1. Note: Only set this if the signer is a Web3Signer. Note: Required if `SIGNER_URL` is set. |
 | `SAFE_DB_FALLBACK` | Default: `false`. Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not activated for op-node.  When `false`, proposer will panic if SafeDB is not available. It is by default `false` since using the fallback mechanism will result in higher proving cost. |
+| `L1_BLOCK_TAG` | Default: `finalized`. Which L1 block to anchor proof generation against. One of `finalized` (Casper FFG finalized, ~13 min), `safe` (FFG justified checkpoint, ~6.4 min), `latest` (chain tip). Non-default values trade cryptoeconomic finality for latency and must only be used by operators who understand the L1-reorg implications for validity-mode chains. See the [L1 block selection](#l1-block-selection) section below. |
+| `L1_CONFIRMATIONS` | Default: `0`. Number of additional L1 block confirmations to wait behind the block returned by `L1_BLOCK_TAG` (e.g. `L1_BLOCK_TAG=latest` with `L1_CONFIRMATIONS=4` proves against `latest - 4`). Saturates at 0 if the offset would underflow. |
 | `OP_SUCCINCT_CONFIG_NAME` | Default: `"opsuccinct_genesis"`. The name of the configuration the proposer will interact with on chain. |
 | `OTLP_ENABLED` | Default: `false`. Whether to export logs to [OTLP](https://opentelemetry.io/docs/specs/otel/protocol/). |
 | `LOGGER_NAME` | Default: `op-succinct`. This will be the `service.name` exported in the OTLP logs. |
@@ -104,3 +106,30 @@ To stop the OP Succinct validity service, run:
 ```bash
 docker compose stop
 ```
+
+## L1 block selection
+
+The proposer decides which L1 block to anchor each proof against using the `L1_BLOCK_TAG` and `L1_CONFIRMATIONS` environment variables. The default (`finalized`, `0`) preserves historical behavior.
+
+| `L1_BLOCK_TAG` | Lag from tip | Security | Reorg handling |
+|---|---|---|---|
+| `finalized` (default) | ~12.8 min (2 epochs) | Cryptoeconomic (Casper FFG) | Not possible to reorg under the 1/3+ slashing assumption. |
+| `safe` | ~6.4 min (1 epoch) | Cryptoeconomic (2/3 validator attestations) | Justified checkpoints have never been reorged on Ethereum mainnet; reverting requires 1/3+ adversarial stake. |
+| `latest` | 0s (+ `L1_CONFIRMATIONS`) | Probabilistic, depth-based | Reorgs at small depths are rare post-merge but not cryptoeconomically bounded. |
+
+`L1_CONFIRMATIONS` subtracts additional blocks from the selected tag (e.g. `L1_BLOCK_TAG=latest` with `L1_CONFIRMATIONS=4` resolves to `latest.number - 4`).
+
+### SafeDB requirement for non-default selections (Ethereum / EigenDA)
+
+For Ethereum and EigenDA backends, any non-default selection (tag != `finalized` or `confirmations != 0`) resolves the max provable L2 block via `optimism_safeHeadAtL1Block(resolved_l1_number)`. This RPC requires SafeDB to be activated on the op-node. The proposer hard-fails at startup if SafeDB is unavailable under a non-default selection on these backends. `SAFE_DB_FALLBACK` only applies to the default selection; it does not provide a fallback for the non-default L1 -> L2 resolution path.
+
+### Celestia backend: non-default selection is rejected at startup
+
+Celestia's proving path is driven by Blobstream commitments and the op-celestia-indexer, not by an L1 block tag. `CelestiaOPSuccinctHost::calculate_safe_l1_head` and `CelestiaOPSuccinctHost::get_finalized_l2_block_number` do not read `L1_BLOCK_TAG` / `L1_CONFIRMATIONS`. To avoid silently accepting a knob that would not actually change those decisions, the production proposer binaries and the covered operator-facing utility scripts under `scripts/` hard-fail at startup when Celestia is configured together with a non-default selection.
+
+On Celestia, only the default selection (`finalized`, `0`) is allowed for those entrypoints. Some operator-facing scripts whose proof path does not consult the L1 selection (notably `scripts/utils/bin/preflight.rs`), as well as test harnesses and internal tools that construct a fetcher/host directly, do not invoke the shared enforcement helper and are out of scope for this policy. They will silently ignore `L1_BLOCK_TAG` / `L1_CONFIRMATIONS` rather than rejecting them.
+
+### Operational notes
+
+- Existing Prometheus metric names (e.g. those reporting the latest "finalized" L2 block number) are unchanged for dashboard compatibility. Under a non-default selection their semantics shift from "L2 block whose L1 origin is finalized" to "L2 block whose L1 origin matches the configured selection".
+- Invalid values for `L1_BLOCK_TAG` or `L1_CONFIRMATIONS` cause the proposer and covered utility scripts (which parse via `from_env()?`) to exit cleanly at startup with an error naming the offending env var and value. Non-covered scripts that build a fetcher via the default constructors (e.g. `agg.rs`, `block_data.rs`, `config.rs`, `preflight.rs`) parse via `from_env_or_default()` and will instead panic with the same env var name and value in the message. Double-check env values before running scripts.
