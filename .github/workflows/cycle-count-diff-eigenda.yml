@@ -80,6 +80,11 @@ jobs:
           cp -r ./srs/resources ./new_code/scripts/prove
           cp -r ./srs/resources ./old_code/scripts/prove
 
+      - name: Start ephemeral EigenDA proxy
+        uses: ./.github/actions/start-eigenda-proxy
+        with:
+          l1_rpc: ${{ secrets.L1_RPC }}
+
       - name: Run Test On New Branch
         run: |
           RUST_LOG=info NEW_BRANCH=true cargo test -p op-succinct-prove --features eigenda test_cycle_count_diff --release -- --exact --nocapture
@@ -89,7 +94,7 @@ jobs:
           L1_RPC: ${{ secrets.L1_RPC }}
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_EIGENDA_RPC }}
-          EIGENDA_PROXY_ADDRESS: ${{ secrets.EIGENDA_PROXY_ADDRESS }}
+          EIGENDA_PROXY_ADDRESS: http://localhost:4242
           OP_SUCCINCT_MOCK: true
 
       - name: Copy Stats File For Old Branch
@@ -106,7 +111,7 @@ jobs:
           L1_RPC: ${{ secrets.L1_RPC }}
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_EIGENDA_RPC }}
-          EIGENDA_PROXY_ADDRESS: ${{ secrets.EIGENDA_PROXY_ADDRESS }}
+          EIGENDA_PROXY_ADDRESS: http://localhost:4242
           OP_SUCCINCT_MOCK: true
 
       - name: Compare Results And Post To Github
