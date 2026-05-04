@@ -1,0 +1,65 @@
+name: Start EigenDA Proxy
+description: |
+  Spin up an ephemeral eigenda-proxy container on the runner so EigenDA-feature
+  tests have a local read-path to Sepolia EigenDA blobs without depending on
+  long-lived shared infrastructure.
+inputs:
+  l1_rpc:
+    description: Sepolia L1 RPC URL (proxy uses this for cert verification + disperser eth client)
+    required: true
+  port:
+    description: Local TCP port to bind the proxy to
+    required: false
+    default: "4242"
+  image:
+    description: eigenda-proxy image reference
+    required: false
+    default: "ghcr.io/layr-labs/eigenda-proxy:2.4.1"
+runs:
+  using: composite
+  steps:
+    - name: Start eigenda-proxy container
+      shell: bash
+      run: |
+        set -euo pipefail
+        docker run -d --rm --name eigenda-proxy \
+          -p ${{ inputs.port }}:4242 \
+          -e EIGENDA_PROXY_ADDR=0.0.0.0 \
+          -e EIGENDA_PROXY_PORT=4242 \
+          -e EIGENDA_PROXY_APIS_TO_ENABLE=op-generic,standard,metrics \
+          -e EIGENDA_PROXY_STORAGE_BACKENDS_TO_ENABLE=V1,V2 \
+          -e EIGENDA_PROXY_STORAGE_DISPERSAL_BACKEND=V2 \
+          -e EIGENDA_PROXY_EIGENDA_MAX_BLOB_LENGTH=1MiB \
+          -e EIGENDA_PROXY_EIGENDA_V2_MAX_BLOB_LENGTH=1MiB \
+          -e EIGENDA_PROXY_EIGENDA_DISPERSER_RPC=disperser-testnet-sepolia.eigenda.xyz:443 \
+          -e EIGENDA_PROXY_EIGENDA_V2_NETWORK=sepolia_testnet \
+          -e EIGENDA_PROXY_EIGENDA_ETH_RPC="${{ inputs.l1_rpc }}" \
+          -e EIGENDA_PROXY_EIGENDA_V2_ETH_RPC="${{ inputs.l1_rpc }}" \
+          -e EIGENDA_PROXY_EIGENDA_SERVICE_MANAGER_ADDR=0x3a5acf46ba6890B8536420F4900AC9BC45Df4764 \
+          -e EIGENDA_PROXY_EIGENDA_V2_CERT_VERIFIER_ROUTER_OR_IMMUTABLE_VERIFIER_ADDR=0x17ec4112c4BbD540E2c1fE0A49D264a280176F0D \
+          -e EIGENDA_PROXY_EIGENDA_V2_RBN_RECENCY_WINDOW_SIZE=0 \
+          -e EIGENDA_PROXY_EIGENDA_CONFIRMATION_DEPTH=6 \
+          -e EIGENDA_PROXY_EIGENDA_SIGNER_PRIVATE_KEY_HEX=0000000000000000000100000000000000000000000000000000000000000000 \
+          -e EIGENDA_PROXY_EIGENDA_V2_SIGNER_PRIVATE_KEY_HEX=0000000000000000000100000000000000000000000000000000000000000000 \
+          ${{ inputs.image }}
+
+    - name: Wait for proxy to listen
+      shell: bash
+      run: |
+        set -euo pipefail
+        for i in $(seq 1 60); do
+          if curl -sS -o /dev/null --connect-timeout 2 "http://localhost:${{ inputs.port }}/" 2>/dev/null; then
+            echo "EigenDA proxy is reachable on port ${{ inputs.port }}"
+            exit 0
+          fi
+          if ! docker ps --format '{{.Names}}' | grep -q '^eigenda-proxy$'; then
+            echo "::error::eigenda-proxy container exited. Logs:"
+            docker logs eigenda-proxy || true
+            exit 1
+          fi
+          echo "Waiting for proxy ($i/60)..."
+          sleep 2
+        done
+        echo "::error::eigenda-proxy did not become reachable in time. Logs:"
+        docker logs eigenda-proxy || true
+        exit 1
