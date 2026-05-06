@@ -56,6 +56,17 @@ sp1-cluster-utils.workspace = true
 [dev-dependencies]
 reqwest = { version = "0.12.4", features = ["json"] }
 rustls = { version = "0.23", features = ["ring"] }
+# Test-only: needed by tests/exploit_regression.rs to construct the
+# `L1_HEAD_KEY` and `L2_CLAIM_BLOCK_NUMBER_KEY` local preimage keys for the
+# GHSA-5jh4-3p33-85xc witness mutation. Dev-dep only — does not link into any
+# range/agg ELF.
+kona-preimage.workspace = true
+# Test-only: tests/exploit_regression.rs redirects the host stderr to a
+# tempfile during the SP1 simulator run so it can verify the guest panic is
+# from the postcondition (not InvalidPreimageKey or any other unrelated
+# pipeline error). Unix-only crate; matches the OS targets we test on.
+gag = "1.0"
+tempfile.workspace = true
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true
