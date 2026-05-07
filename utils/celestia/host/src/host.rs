@@ -60,8 +60,10 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
 
     /// Get the highest L2 block that can be safely proven given Celestia's Blobstream commitments.
     /// Returns the maximum L2 block number where all referenced Celestia data has been committed
-    /// to Ethereum and is verifiable in proofs.
-    async fn get_finalized_l2_block_number(
+    /// to Ethereum and is verifiable in proofs. Independent of `L1_BLOCK_TAG` /
+    /// `L1_CONFIRMATIONS` (Celestia rejects non-default selections at startup on covered
+    /// entrypoints).
+    async fn get_max_provable_l2_block_number(
         &self,
         fetcher: &OPSuccinctDataFetcher,
         latest_proposed_block_number: u64,
@@ -94,7 +96,7 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
 
     /// Celestia's proving path ignores `L1_BLOCK_TAG` and `L1_CONFIRMATIONS`:
     /// `calculate_safe_l1_head` is Blobstream-driven (via the op-celestia-indexer) and
-    /// `get_finalized_l2_block_number` searches between `latest_proposed_block_number` and
+    /// `get_max_provable_l2_block_number` searches between `latest_proposed_block_number` and
     /// the L2 finalized header without consulting `fetcher.l1_selection`. Accepting the
     /// knob as a silent no-op would mislead operators into believing they had tightened
     /// or relaxed proof latency, so non-default selections are rejected at startup by the

@@ -47,19 +47,21 @@ impl OPSuccinctHost for SingleChainOPSuccinctHost {
         Some(args.l1_head)
     }
 
-    async fn get_finalized_l2_block_number(
+    async fn get_max_provable_l2_block_number(
         &self,
         fetcher: &OPSuccinctDataFetcher,
         _: u64,
     ) -> Result<Option<u64>> {
         if fetcher.l1_selection.is_default() {
-            // Default path: preserve the historical direct L2 finalized lookup byte-for-byte.
+            // Default path: max provable == L2 finalized. Preserve the historical direct L2
+            // finalized lookup byte-for-byte.
             let finalized_l2_block_number = fetcher.get_l2_header(BlockId::finalized()).await?;
             Ok(Some(finalized_l2_block_number.number))
         } else {
-            // Non-default path: resolve the configured L1 block, then ask op-node for the
-            // L2 safe head at that L1 block via SafeDB. This requires SafeDB to be active;
-            // the proposer entry point hard-fails at startup when it isn't.
+            // Non-default path: max provable == L2 safe head at the configured L1 anchor.
+            // Resolve the configured L1 block, then ask op-node for the L2 safe head via SafeDB.
+            // This requires SafeDB to be active; the proposer entry point hard-fails at startup
+            // when it isn't.
             let resolved_l1 = fetcher.resolve_selected_l1_header().await?;
             let l2_safe = fetcher.get_l2_safe_head_from_l1_block_number(resolved_l1.number).await?;
             Ok(Some(l2_safe))

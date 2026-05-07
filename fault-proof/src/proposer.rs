@@ -589,27 +589,27 @@ where
         host: &H,
         fetcher: &OPSuccinctDataFetcher,
     ) -> Result<()> {
-        let finalized_l2_block = host
-            .get_finalized_l2_block_number(fetcher, anchor_l2_block.to::<u64>())
+        let max_provable_l2_block = host
+            .get_max_provable_l2_block_number(fetcher, anchor_l2_block.to::<u64>())
             .await?
             .ok_or_else(|| {
                 anyhow::anyhow!(
-                    "Cannot fetch finalized L2 block number from L2 RPC: {}\n\
+                    "Cannot fetch host-resolved max provable L2 block number from L2 RPC: {}\n\
                      Please check that your L2 node is running and accessible.",
                     config.l2_rpc
                 )
             })?;
 
-        if anchor_l2_block > U256::from(finalized_l2_block) {
+        if anchor_l2_block > U256::from(max_provable_l2_block) {
             return Err(anyhow::anyhow!(
                 "Contract misconfiguration detected: Contract's anchor L2 block ({}) is ahead of \
-                 the current finalized L2 block ({}). This indicates:\n\
+                 the host-resolved max provable L2 block ({}). This indicates:\n\
                  1. The contract's startingL2BlockNumber is misconfigured to a future value, OR\n\
                  2. Your L2 node is not fully synced, OR\n\
                  3. Your L2 RPC endpoint is incorrect.\n\n\
                  Please verify your configuration before starting the proposer.",
                 anchor_l2_block,
-                finalized_l2_block
+                max_provable_l2_block
             ));
         }
 
@@ -1706,14 +1706,25 @@ where
         if let Some(canonical_head_l2_block) = canonical_head_l2_block {
             ProposerGauge::LatestGameL2BlockNumber.set(canonical_head_l2_block.to::<u64>() as f64);
 
-            if let Some(finalized_l2_block_number) = self
+            // Literal L2 finalized: stays unaffected by L1_BLOCK_TAG so existing dashboards keep
+            // their meaning under non-default selection.
+            ProposerGauge::FinalizedL2BlockNumber
+                .set(self.fetcher.get_l2_header(BlockId::finalized()).await?.number as f64);
+
+            // Host-resolved max provable L2 block: matches finalized under default
+            // Ethereum/EigenDA, diverges under non-default (L2 safe head at the configured L1
+            // anchor) and under Celestia (Blobstream-resolved).
+            if let Some(max_provable_l2_block_number) = self
                 .host
-                .get_finalized_l2_block_number(&self.fetcher, canonical_head_l2_block.to::<u64>())
+                .get_max_provable_l2_block_number(
+                    &self.fetcher,
+                    canonical_head_l2_block.to::<u64>(),
+                )
                 .await?
             {
-                ProposerGauge::FinalizedL2BlockNumber.set(finalized_l2_block_number as f64);
+                ProposerGauge::MaxProvableL2BlockNumber.set(max_provable_l2_block_number as f64);
             } else {
-                ProposerGauge::FinalizedL2BlockNumber.set(0.0);
+                ProposerGauge::MaxProvableL2BlockNumber.set(0.0);
             }
 
             if let Some(anchor_game) = anchor_game {
@@ -2130,15 +2141,15 @@ where
             return Ok((false, U256::ZERO, u32::MAX));
         }
 
-        let finalized_l2_head_block_number = self
+        let max_provable_l2_block_number = self
             .host
-            .get_finalized_l2_block_number(&self.fetcher, canonical_head_l2_block.to::<u64>())
+            .get_max_provable_l2_block_number(&self.fetcher, canonical_head_l2_block.to::<u64>())
             .await?;
 
         Ok((
-            finalized_l2_head_block_number
-                .map(|finalized_block| {
-                    U256::from(finalized_block) >= next_l2_block_number_for_proposal
+            max_provable_l2_block_number
+                .map(|max_provable_block| {
+                    U256::from(max_provable_block) >= next_l2_block_number_for_proposal
                 })
                 .unwrap_or(false),
             next_l2_block_number_for_proposal,

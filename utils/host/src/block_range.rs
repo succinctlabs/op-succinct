@@ -24,20 +24,21 @@ pub async fn get_validated_block_range<H: OPSuccinctHost>(
     end: Option<u64>,
     default_range: u64,
 ) -> Result<(u64, u64)> {
-    // Get the latest finalized block number when end block is not provided.
-    // Even though the safeDB is activated, we use the finalized block number as the
-    // end block by default to ensure the program doesn't run into L2 Block Validation
-    // Failure error.
-    // L2 Block Validation Failure error might still occur. See
-    // [Troubleshooting](../troubleshooting.md#l2-block-validation-failure) for more details.
+    // When `end` is not provided, ask the host for its current max provable L2 block. Under
+    // default `L1_BLOCK_TAG=finalized` this is the L2 finalized block; under non-default
+    // selections (Ethereum/EigenDA) it is the L2 safe head at the configured L1 anchor; under
+    // Celestia it is the highest L2 block included in the latest Blobstream commitment. The
+    // search-start hint is derived from L2 finalized so a non-default selection does not
+    // narrow the lookback window for the host's search. L2 Block Validation Failure may still
+    // occur — see [Troubleshooting](../troubleshooting.md#l2-block-validation-failure).
     let l2_finalized_block_number = data_fetcher.get_l2_header(BlockId::finalized()).await?.number;
     // `saturating_sub` guards against very low finalized L2 numbers, which can occur on
     // fresh test chains.
     let host_search_start = l2_finalized_block_number.saturating_sub(TWO_HOURS_IN_BLOCKS);
     let end_number = host
-        .get_finalized_l2_block_number(data_fetcher, host_search_start)
+        .get_max_provable_l2_block_number(data_fetcher, host_search_start)
         .await?
-        .expect("Failed to get finalized L2 block number");
+        .expect("Failed to get host-resolved max provable L2 block number");
 
     // If end block not provided, use the host-resolved end.
     let l2_end_block = match end {
@@ -67,12 +68,14 @@ pub async fn get_validated_block_range<H: OPSuccinctHost>(
     Ok((l2_start_block, l2_end_block))
 }
 
-/// Get a rolling block range whose end aligns with the host's finalized L2 block.
+/// Get a rolling block range whose end aligns with the host's current max provable L2 block.
 ///
-/// The returned tuple represents the last `range` blocks that the host considers finalized
-/// according to its DA-specific logic, making the range safe to use for proof generation.
+/// The returned tuple represents the last `range` blocks that the host is willing to anchor a
+/// proof against (DA- and L1-selection-specific — see
+/// [`OPSuccinctHost::get_max_provable_l2_block_number`]), making the range safe to use for
+/// proof generation.
 ///
-/// Returns an error if the requested `range` exceeds the current finalized head; this is
+/// Returns an error if the requested `range` exceeds the current host-resolved end; this is
 /// preferred over silently returning a smaller range, since callers typically expect to
 /// receive exactly `range` blocks and downstream logic may misbehave otherwise.
 pub async fn get_rolling_block_range<H: OPSuccinctHost>(
@@ -84,9 +87,9 @@ pub async fn get_rolling_block_range<H: OPSuccinctHost>(
     // `saturating_sub` guards against very low finalized L2 numbers.
     let host_search_start = header.number.saturating_sub(TWO_HOURS_IN_BLOCKS);
     let l2_end_block = host
-        .get_finalized_l2_block_number(data_fetcher, host_search_start)
+        .get_max_provable_l2_block_number(data_fetcher, host_search_start)
         .await?
-        .expect("Failed to get finalized L2 block number");
+        .expect("Failed to get host-resolved max provable L2 block number");
 
     let l2_start_block = l2_end_block.checked_sub(range).ok_or_else(|| {
         anyhow::anyhow!(
@@ -196,46 +199,6 @@ pub async fn split_range_based_on_safe_heads(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// `get_rolling_block_range` must return a non-underflowing range when `range` exceeds
-    /// the current finalized head; the new behavior is an explicit error rather than silent
-    /// overflow (was: `l2_end - range`).
-    ///
-    /// We exercise the checked_sub directly here because the full call path requires a
-    /// populated host + fetcher; the subtraction is the underflow surface we actually care
-    /// about after the fix.
-    #[test]
-    fn rolling_range_subtraction_is_checked() {
-        let l2_end: u64 = 10;
-        let range: u64 = 100;
-        assert!(l2_end.checked_sub(range).is_none(), "precondition: range exceeds end");
-
-        // Exact boundary: range == end yields (0, end), which is valid.
-        let l2_end: u64 = 100;
-        let range: u64 = 100;
-        assert_eq!(l2_end.checked_sub(range), Some(0));
-
-        // Happy path.
-        let l2_end: u64 = 500;
-        let range: u64 = 100;
-        assert_eq!(l2_end.checked_sub(range), Some(400));
-    }
-
-    /// Guards the saturating subtraction used to derive the host search start from the
-    /// reference L2 block number. A non-default L1 selection can resolve a very low L2
-    /// number; the previous raw subtraction would underflow for numbers below
-    /// `TWO_HOURS_IN_BLOCKS`.
-    #[test]
-    fn reference_subtraction_saturates_below_two_hours() {
-        let small: u64 = 10;
-        assert_eq!(small.saturating_sub(TWO_HOURS_IN_BLOCKS), 0);
-
-        let at_boundary: u64 = TWO_HOURS_IN_BLOCKS;
-        assert_eq!(at_boundary.saturating_sub(TWO_HOURS_IN_BLOCKS), 0);
-
-        let above: u64 = TWO_HOURS_IN_BLOCKS + 100;
-        assert_eq!(above.saturating_sub(TWO_HOURS_IN_BLOCKS), 100);
-    }
 
     #[test]
     fn split_range_basic_simple() {

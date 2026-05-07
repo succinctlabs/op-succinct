@@ -111,15 +111,21 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
     /// Get the L1 head hash from the host args.
     fn get_l1_head_hash(&self, args: &Self::Args) -> Option<B256>;
 
-    /// Get the finalized L2 block number. This is used to determine the highest block that can be
-    /// included in a range proof.
+    /// Get the maximum L2 block number that this host can currently prove against — i.e. the
+    /// highest L2 block that may safely appear as the end of a range proof.
     ///
-    /// For ETH DA, this is the finalized L2 block number.
-    /// For Celestia, this is the highest L2 block included in the latest Blobstream commitment.
+    /// What this resolves to is DA-specific *and* L1-selection-specific:
+    /// - ETH DA, default selection: the finalized L2 block number.
+    /// - ETH DA, non-default selection (`L1_BLOCK_TAG`/`L1_CONFIRMATIONS`): the L2 safe head at the
+    ///   configured L1 anchor (resolved via `optimism_safeHeadAtL1Block`). This is *not* the
+    ///   literal L2 finalized block.
+    /// - EigenDA: same shape as ETH DA.
+    /// - Celestia: the highest L2 block included in the latest Blobstream commitment, regardless of
+    ///   L1 selection (Celestia rejects non-default selections at startup on covered entrypoints).
     ///
     /// The latest proposed block number is assumed to be the highest block number that has been
-    /// successfully processed by the host.
-    async fn get_finalized_l2_block_number(
+    /// successfully processed by the host, and is used as a search-start hint.
+    async fn get_max_provable_l2_block_number(
         &self,
         fetcher: &OPSuccinctDataFetcher,
         latest_proposed_block_number: u64,
@@ -161,7 +167,7 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
     /// values in its proving path.
     ///
     /// Ethereum and EigenDA hosts thread the configured selection through
-    /// `calculate_safe_l1_head` / `get_finalized_l2_block_number`, so non-default selections
+    /// `calculate_safe_l1_head` / `get_max_provable_l2_block_number`, so non-default selections
     /// meaningfully change behavior.
     ///
     /// Celestia's proving path is driven by Blobstream commitments and the op-celestia-indexer

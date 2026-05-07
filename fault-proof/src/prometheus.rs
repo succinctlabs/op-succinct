@@ -8,9 +8,19 @@ pub enum ProposerGauge {
     // Proposer metrics
     #[strum(
         serialize = "op_succinct_fp_finalized_l2_block_number",
-        message = "Finalized L2 block number"
+        message = "L2 block returned by eth_getBlockByNumber(\"finalized\"); literal L2 finalized, \
+                   unaffected by L1_BLOCK_TAG/L1_CONFIRMATIONS"
     )]
     FinalizedL2BlockNumber,
+    #[strum(
+        serialize = "op_succinct_fp_max_provable_l2_block_number",
+        message = "Maximum L2 block the host is willing to anchor a proof against under the \
+                   current backend + L1 selection. Matches L2 finalized under default \
+                   Ethereum/EigenDA; reflects the L2 safe head at the configured L1 anchor under \
+                   non-default Ethereum/EigenDA; reflects the Blobstream-resolved max provable L2 \
+                   block under Celestia."
+    )]
+    MaxProvableL2BlockNumber,
     #[strum(
         serialize = "op_succinct_fp_latest_game_l2_block_number",
         message = "Latest game L2 block number"

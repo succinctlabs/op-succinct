@@ -145,11 +145,15 @@ async fn update_fdg_config() -> Result<()> {
     });
     log::info!("Using SystemConfig address: {system_config_address}");
 
-    // Get starting block number - use `latest finalized - dispute game finality delay` if not set.
+    // Get starting block number - use `latest finalized - dispute game finality delay` if
+    // `STARTING_L2_BLOCK_NUMBER` is unset. The default is rooted at the literal L2 finalized
+    // block, *independent of `L1_BLOCK_TAG`*. Bootstrap config (which ends up baked into a
+    // deployed dispute game) must not silently shift to a less-final anchor just because the
+    // operator turned `safe`/`latest` on for proposer latency. Explicit env override still wins.
     let starting_l2_block_number = match env::var("STARTING_L2_BLOCK_NUMBER") {
         Ok(n) => n.parse().unwrap(),
         Err(_) => {
-            // Use finalized block minus the finality delay as a starting point
+            // Use finalized block minus the finality delay as a starting point.
             let finalized_l2_header = data_fetcher.get_l2_header(BlockId::finalized()).await?;
             let finalized_l2_block = finalized_l2_header.number;
 
@@ -158,12 +162,19 @@ async fn update_fdg_config() -> Result<()> {
             let num_blocks_for_finality = dispute_game_finality_delay_seconds / block_time;
             let search_start = finalized_l2_block.saturating_sub(num_blocks_for_finality);
 
-            // Now search for the highest finalized block with available data
-            let finalized_l2_block_number =
-                match host.get_finalized_l2_block_number(&data_fetcher, search_start).await? {
-                    Some(block_num) => block_num,
-                    None => search_start,
-                };
+            // Build a finalized-only view of the fetcher just for this search. Overrides only
+            // `l1_selection`; the underlying RPC providers and rollup config are reused.
+            let mut bootstrap_fetcher = data_fetcher.clone();
+            bootstrap_fetcher.l1_selection = L1BlockSelectionConfig::default();
+
+            // Now search for the highest finalized block with available data.
+            let finalized_l2_block_number = match host
+                .get_max_provable_l2_block_number(&bootstrap_fetcher, search_start)
+                .await?
+            {
+                Some(block_num) => block_num,
+                None => search_start,
+            };
 
             // NOTE: Starting from block 0 (genesis) is intentionally disallowed because in
             // op-stack chains genesis state is provided as part of the `RollupConfig`, which is
