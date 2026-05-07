@@ -30,7 +30,7 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
 name = "aggregation"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -4283,6 +4283,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "filedescriptor"
+version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e40758ed24c9b2eeb76c35fb0aebc66c626084edd827e07e1552279814c6682d"
+dependencies = [
+ "libc",
+ "thiserror 1.0.69",
+ "winapi",
+]
+
+[[package]]
 name = "filetime"
 version = "0.2.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4511,6 +4522,16 @@ name = "futures-utils-wasm"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42012b0f064e01aa58b545fe3727f90f7dd4020f4a3ea735b50344965f5a57e9"
+
+[[package]]
+name = "gag"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a713bee13966e9fbffdf7193af71d54a6b35a0bb34997cd6c9519ebeb5005972"
+dependencies = [
+ "filedescriptor",
+ "tempfile",
+]
 
 [[package]]
 name = "gcd"
@@ -7430,7 +7451,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-bindings"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "alloy",
  "alloy-sol-types",
@@ -7440,7 +7461,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-build-utils"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "cargo_metadata",
  "sp1-build",
@@ -7448,7 +7469,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-celestia-client-utils"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7466,7 +7487,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-celestia-host-utils"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -7494,7 +7515,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-client-utils"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -7548,7 +7569,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-eigenda-host-utils"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -7581,11 +7602,11 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-elfs"
-version = "4.3.0"
+version = "4.3.1"
 
 [[package]]
 name = "op-succinct-ethereum-client-utils"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7601,7 +7622,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-ethereum-host-utils"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -7620,7 +7641,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-fp"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "alloy",
  "alloy-contract",
@@ -7669,7 +7690,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-host-utils"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "alloy-consensus",
  "alloy-contract",
@@ -7726,7 +7747,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-proof-utils"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -7748,7 +7769,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-prove"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "alloy-contract",
  "alloy-eips",
@@ -7764,6 +7785,8 @@ dependencies = [
  "clap",
  "csv",
  "dotenv",
+ "gag",
+ "kona-preimage",
  "op-succinct-build-utils",
  "op-succinct-client-utils",
  "op-succinct-elfs",
@@ -7776,13 +7799,14 @@ dependencies = [
  "serde_json",
  "sp1-cluster-utils",
  "sp1-sdk",
+ "tempfile",
  "tokio",
  "tracing",
 ]
 
 [[package]]
 name = "op-succinct-range-utils"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "anyhow",
  "kona-proof",
@@ -7795,7 +7819,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-scripts"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "alloy-eips",
  "alloy-network",
@@ -7829,7 +7853,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-signer-utils"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -7851,7 +7875,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-validity"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -9324,7 +9348,7 @@ dependencies = [
 
 [[package]]
 name = "range"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "kona-proof",
  "op-succinct-client-utils",
@@ -9337,7 +9361,7 @@ dependencies = [
 
 [[package]]
 name = "range-celestia"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "kona-proof",
  "op-succinct-celestia-client-utils",

@@ -1,21 +1,17 @@
 //! [`PrecompileProvider`] for FPVM-accelerated OP Stack precompiles.
 
-use alloc::{boxed::Box, string::String, vec::Vec};
+use alloc::string::String;
 use alloy_primitives::{Address, Bytes};
-use op_revm::{
-    precompiles::{fjord, granite, isthmus},
-    OpSpecId,
-};
+use op_revm::{precompiles::OpPrecompiles, OpSpecId};
 use revm::{
     context::{Cfg, ContextTr},
+    context_interface::JournalTr,
     handler::{EthPrecompiles, PrecompileProvider},
     interpreter::{CallInput, CallInputs, Gas, InstructionResult, InterpreterResult},
-    precompile::{Precompile as PrecompileWithAddress, PrecompileError, Precompiles},
-    primitives::hardfork::SpecId,
+    precompile::PrecompileError,
 };
 #[cfg(any(test, target_os = "zkvm"))]
 use revm_precompile::PrecompileId;
-use revm_precompile::{bn254, kzg_point_evaluation, secp256k1, secp256r1};
 
 mod custom;
 pub use custom::CustomCrypto;
@@ -52,18 +48,6 @@ pub mod cycle_tracker {
     }
 }
 
-/// Get the ZKVM-accelerated precompiles.
-fn get_precompiles() -> Vec<PrecompileWithAddress> {
-    vec![
-        bn254::add::ISTANBUL,
-        bn254::mul::ISTANBUL,
-        bn254::pair::ISTANBUL,
-        secp256k1::ECRECOVER,
-        secp256r1::P256VERIFY,
-        kzg_point_evaluation::POINT_EVALUATION,
-    ]
-}
-
 /// Get the cycle tracker name for a precompile by its ID.
 /// Returns None if the precompile is not accelerated/tracked.
 #[cfg(any(test, target_os = "zkvm"))]
@@ -93,22 +77,9 @@ impl OpZkvmPrecompiles {
     /// Create a new precompile provider with the given [`OpSpecId`].
     #[inline]
     pub fn new_with_spec(spec: OpSpecId) -> Self {
-        let precompiles = match spec {
-            spec @ (OpSpecId::BEDROCK |
-            OpSpecId::REGOLITH |
-            OpSpecId::CANYON |
-            OpSpecId::ECOTONE) => Precompiles::new(spec.into_eth_spec().into()).clone(),
-            OpSpecId::FJORD => fjord().clone(),
-            OpSpecId::GRANITE | OpSpecId::HOLOCENE => granite().clone(),
-            OpSpecId::ISTHMUS | OpSpecId::INTEROP | OpSpecId::OSAKA | OpSpecId::JOVIAN => {
-                isthmus().clone()
-            }
-        };
-        let mut precompiles_owned = precompiles.clone();
-        precompiles_owned.extend(get_precompiles());
-        let precompiles = Box::leak(Box::new(precompiles_owned));
+        let precompiles = OpPrecompiles::new_with_spec(spec).precompiles();
 
-        Self { inner: EthPrecompiles { precompiles, spec: SpecId::default() }, spec }
+        Self { inner: EthPrecompiles { precompiles, spec: spec.into_eth_spec() }, spec }
     }
 }
 
@@ -127,62 +98,77 @@ where
         true
     }
 
+    // NOTE: This `run` mirrors the canonical `EthPrecompiles::run` in
+    // revm-handler v15.0.0 / op-revm v15.0.0, with cycle-tracker prints
+    // wrapped around `precompile.execute()` for the zkVM target. Keep the
+    // body in sync when bumping revm-handler / op-revm — see
+    // https://github.com/bluealloy/revm/blob/9bc0c04fda0891e0e8d2e2a6dfd0af81c2af18c4/crates/handler/src/precompile_provider.rs#L99-L160
     #[inline]
     fn run(
         &mut self,
         context: &mut CTX,
         inputs: &CallInputs,
     ) -> Result<Option<Self::Output>, String> {
+        // Bail before allocating `result` or materializing input bytes when
+        // the call is not to a precompile; this mirrors canonical revm and
+        // keeps the non-precompile call path cheap in the zkVM.
+        let Some(precompile) = self.inner.precompiles.get(&inputs.bytecode_address) else {
+            return Ok(None);
+        };
+
         let mut result = InterpreterResult {
             result: InstructionResult::Return,
             gas: Gas::new(inputs.gas_limit),
             output: Bytes::new(),
         };
 
-        use revm::context::LocalContextTr;
-        // NOTE: this snippet is refactored from the revm source code.
-        // See https://github.com/bluealloy/revm/blob/9bc0c04fda0891e0e8d2e2a6dfd0af81c2af18c4/crates/handler/src/precompile_provider.rs#L111-L122.
-        let shared_buffer;
-        let input_bytes = match &inputs.input {
-            CallInput::SharedBuffer(range) => {
-                shared_buffer = context.local().shared_memory_buffer_slice(range.clone());
-                shared_buffer.as_deref().unwrap_or(&[])
-            }
-            CallInput::Bytes(bytes) => bytes.0.iter().as_slice(),
-        };
+        // Track cycles for accelerated precompiles. zkVM acceleration comes
+        // from patched crypto crates ([patch.crates-io] in workspace
+        // Cargo.toml); the wrapper only adds cycle-tracker prints.
+        #[cfg(target_os = "zkvm")]
+        let tracker_name = get_precompile_tracker_name(precompile.id());
 
-        // Priority:
-        // 1. If the precompile has an accelerated version, use that.
-        // 2. If the precompile is not accelerated, use the default version.
-        // 3. If the precompile is not found, return None.
-        let output = if let Some(precompile) = self.inner.precompiles.get(&inputs.bytecode_address)
-        {
-            // Track cycles for accelerated precompiles
-            #[cfg(target_os = "zkvm")]
-            let tracker_name = get_precompile_tracker_name(precompile.id());
+        use revm::context::LocalContextTr;
+        let exec_result = {
+            // SP1 program builds pull in `winnow`, which implements
+            // `AsRef<{BStr,Bytes}> for [u8]`, making `r.as_ref()` ambiguous
+            // in the riscv32 target. `Option::as_deref` is unambiguous
+            // because it knows the `Deref::Target = [u8]`, so we keep this
+            // shape rather than the literal canonical revm form.
+            let shared_buffer;
+            let input_bytes = match &inputs.input {
+                CallInput::SharedBuffer(range) => {
+                    shared_buffer = context.local().shared_memory_buffer_slice(range.clone());
+                    shared_buffer.as_deref().unwrap_or(&[])
+                }
+                CallInput::Bytes(bytes) => bytes.0.iter().as_slice(),
+            };
 
             #[cfg(target_os = "zkvm")]
             if let Some(name) = tracker_name {
                 println!("cycle-tracker-report-start: precompile-{}", name);
             }
 
-            let result = precompile.execute(input_bytes, inputs.gas_limit);
+            let exec_result = precompile.execute(input_bytes, inputs.gas_limit);
 
             #[cfg(target_os = "zkvm")]
             if let Some(name) = tracker_name {
                 println!("cycle-tracker-report-end: precompile-{}", name);
             }
 
-            result
-        } else {
-            return Ok(None);
+            exec_result
         };
 
-        match output {
+        match exec_result {
             Ok(output) => {
+                result.gas.record_refund(output.gas_refunded);
                 let underflow = result.gas.record_cost(output.gas_used);
                 assert!(underflow, "Gas underflow is not possible");
-                result.result = InstructionResult::Return;
+                result.result = if output.reverted {
+                    InstructionResult::Revert
+                } else {
+                    InstructionResult::Return
+                };
                 result.output = output.bytes;
             }
             Err(PrecompileError::Fatal(e)) => return Err(e),
@@ -192,6 +178,9 @@ where
                 } else {
                     InstructionResult::PrecompileError
                 };
+                if !e.is_oog() && context.journal().depth() == 1 {
+                    context.local_mut().set_precompile_error_context(e.to_string());
+                }
             }
         }
 
@@ -212,17 +201,54 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec::Vec;
     use alloy_primitives::U256;
-    use op_revm::{DefaultOp as _, OpContext};
+    use op_revm::{precompiles::bn254_pair, DefaultOp as _, OpContext};
     use revm::{
+        context::LocalContextTr as _,
         database::EmptyDB,
         handler::PrecompileProvider,
         interpreter::{CallInput, CallScheme, CallValue},
         Context,
     };
-    use revm_precompile::PrecompileId;
+    use revm_precompile::{bn254, kzg_point_evaluation, secp256k1, secp256r1, PrecompileId};
 
     type TestContext = OpContext<EmptyDB>;
+
+    const ALL_OP_SPECS: [OpSpecId; 11] = [
+        OpSpecId::BEDROCK,
+        OpSpecId::REGOLITH,
+        OpSpecId::CANYON,
+        OpSpecId::ECOTONE,
+        OpSpecId::FJORD,
+        OpSpecId::GRANITE,
+        OpSpecId::HOLOCENE,
+        OpSpecId::ISTHMUS,
+        OpSpecId::JOVIAN,
+        OpSpecId::INTEROP,
+        OpSpecId::OSAKA,
+    ];
+
+    // Compile-time guard: a new `OpSpecId` variant must be added to
+    // `ALL_OP_SPECS` (and to the parity / regression tests below). The
+    // exhaustive match here will fail to compile until the new variant is
+    // wired in.
+    #[allow(dead_code)]
+    fn _assert_all_op_specs_covered(spec: OpSpecId) {
+        match spec {
+            OpSpecId::BEDROCK |
+            OpSpecId::REGOLITH |
+            OpSpecId::CANYON |
+            OpSpecId::ECOTONE |
+            OpSpecId::FJORD |
+            OpSpecId::GRANITE |
+            OpSpecId::HOLOCENE |
+            OpSpecId::ISTHMUS |
+            OpSpecId::JOVIAN |
+            OpSpecId::INTEROP |
+            OpSpecId::OSAKA => {}
+        }
+    }
 
     /// Creates a [`CallInputs`] with `bytecode_address` set to the given address
     /// and `target_address` set to zero, simulating a DELEGATECALL scenario.
@@ -243,6 +269,61 @@ mod tests {
 
     fn create_test_context() -> TestContext {
         Context::op().with_db(EmptyDB::new())
+    }
+
+    fn run_op_precompile(
+        spec: OpSpecId,
+        call_inputs: &CallInputs,
+    ) -> Result<Option<InterpreterResult>, String> {
+        let mut ctx = create_test_context();
+        let mut precompiles = OpPrecompiles::new_with_spec(spec);
+        precompiles.run(&mut ctx, call_inputs)
+    }
+
+    fn run_zkvm_precompile(
+        spec: OpSpecId,
+        call_inputs: &CallInputs,
+    ) -> Result<Option<InterpreterResult>, String> {
+        let mut ctx = create_test_context();
+        let mut precompiles = OpZkvmPrecompiles::new_with_spec(spec);
+        precompiles.run(&mut ctx, call_inputs)
+    }
+
+    fn run_op_precompile_with_top_level_error_context(
+        spec: OpSpecId,
+        call_inputs: &CallInputs,
+    ) -> (Result<Option<InterpreterResult>, String>, Option<String>) {
+        let mut ctx = create_test_context();
+        let checkpoint = ctx.journal_mut().checkpoint();
+        let mut precompiles = OpPrecompiles::new_with_spec(spec);
+        let result = precompiles.run(&mut ctx, call_inputs);
+        let error_context = ctx.local_mut().take_precompile_error_context();
+        ctx.journal_mut().checkpoint_revert(checkpoint);
+        (result, error_context)
+    }
+
+    fn run_zkvm_precompile_with_top_level_error_context(
+        spec: OpSpecId,
+        call_inputs: &CallInputs,
+    ) -> (Result<Option<InterpreterResult>, String>, Option<String>) {
+        let mut ctx = create_test_context();
+        let checkpoint = ctx.journal_mut().checkpoint();
+        let mut precompiles = OpZkvmPrecompiles::new_with_spec(spec);
+        let result = precompiles.run(&mut ctx, call_inputs);
+        let error_context = ctx.local_mut().take_precompile_error_context();
+        ctx.journal_mut().checkpoint_revert(checkpoint);
+        (result, error_context)
+    }
+
+    fn assert_run_matches_op_revm(spec: OpSpecId, address: Address, input: Bytes, gas_limit: u64) {
+        let call_inputs = create_call_inputs(address, input, gas_limit);
+        let op_result = run_op_precompile(spec, &call_inputs);
+        let zkvm_result = run_zkvm_precompile(spec, &call_inputs);
+
+        assert_eq!(
+            zkvm_result, op_result,
+            "ZKVM precompile execution must match canonical OP execution for {spec:?} at {address:?}",
+        );
     }
 
     // ===== Precompile Provider Functional Tests =====
@@ -385,16 +466,197 @@ mod tests {
     // ===== Consistency Tests =====
 
     #[test]
-    fn test_all_accelerated_precompiles_have_tracker_names() {
-        let precompiles = get_precompiles();
-        assert_eq!(precompiles.len(), 6, "Expected 6 accelerated precompiles");
+    fn test_tracked_precompile_ids_have_tracker_names() {
+        let tracked_ids = [
+            PrecompileId::Bn254Add,
+            PrecompileId::Bn254Mul,
+            PrecompileId::Bn254Pairing,
+            PrecompileId::EcRec,
+            PrecompileId::P256Verify,
+            PrecompileId::KzgPointEvaluation,
+        ];
 
-        for precompile in &precompiles {
-            let tracker = get_precompile_tracker_name(precompile.id());
-            assert!(
-                tracker.is_some(),
-                "Precompile {:?} is missing a cycle tracker name",
-                precompile.id()
+        for id in &tracked_ids {
+            let tracker = get_precompile_tracker_name(id);
+            assert!(tracker.is_some(), "Precompile {id:?} is missing a cycle tracker name",);
+        }
+    }
+
+    #[test]
+    fn test_canonical_tracked_precompile_addresses_keep_tracked_ids() {
+        let tracked_precompiles = [
+            (bn254::add::ADDRESS, PrecompileId::Bn254Add),
+            (bn254::mul::ADDRESS, PrecompileId::Bn254Mul),
+            (bn254::pair::ADDRESS, PrecompileId::Bn254Pairing),
+            (*secp256k1::ECRECOVER.address(), PrecompileId::EcRec),
+            (*secp256r1::P256VERIFY.address(), PrecompileId::P256Verify),
+            (kzg_point_evaluation::ADDRESS, PrecompileId::KzgPointEvaluation),
+        ];
+
+        for spec in ALL_OP_SPECS {
+            let op_precompiles = OpPrecompiles::new_with_spec(spec);
+
+            for (address, expected_id) in &tracked_precompiles {
+                let Some(precompile) = op_precompiles.precompiles().get(address) else {
+                    continue;
+                };
+
+                assert_eq!(
+                    precompile.id(),
+                    expected_id,
+                    "Canonical OP precompile at {address:?} for {spec:?} must keep its tracked ID",
+                );
+                assert!(
+                    get_precompile_tracker_name(precompile.id()).is_some(),
+                    "Canonical OP precompile {:?} at {address:?} for {spec:?} is missing a cycle tracker name",
+                    precompile.id(),
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_zkvm_precompiles_match_op_revm_precompiles() {
+        for spec in ALL_OP_SPECS {
+            let op_precompiles = OpPrecompiles::new_with_spec(spec);
+            let zkvm_precompiles = OpZkvmPrecompiles::new_with_spec(spec);
+
+            let op_addresses: Vec<_> =
+                <OpPrecompiles as PrecompileProvider<TestContext>>::warm_addresses(&op_precompiles)
+                    .collect();
+            let zkvm_addresses: Vec<_> =
+                <OpZkvmPrecompiles as PrecompileProvider<TestContext>>::warm_addresses(
+                    &zkvm_precompiles,
+                )
+                .collect();
+
+            assert_eq!(
+                zkvm_addresses.len(),
+                op_addresses.len(),
+                "ZKVM and canonical OP precompile counts must match for {spec:?}",
+            );
+
+            for address in &op_addresses {
+                assert!(
+                    <OpZkvmPrecompiles as PrecompileProvider<TestContext>>::contains(
+                        &zkvm_precompiles,
+                        address,
+                    ),
+                    "ZKVM precompiles missing canonical OP precompile {address:?} for {spec:?}",
+                );
+            }
+
+            for address in &zkvm_addresses {
+                assert!(
+                    <OpPrecompiles as PrecompileProvider<TestContext>>::contains(
+                        &op_precompiles,
+                        address,
+                    ),
+                    "ZKVM precompiles contain non-canonical OP precompile {address:?} for {spec:?}",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_zkvm_precompile_execution_matches_op_revm() {
+        for spec in ALL_OP_SPECS {
+            let op_precompiles = OpPrecompiles::new_with_spec(spec);
+            let op_addresses: Vec<_> =
+                <OpPrecompiles as PrecompileProvider<TestContext>>::warm_addresses(&op_precompiles)
+                    .collect();
+
+            for address in op_addresses {
+                assert_run_matches_op_revm(spec, address, Bytes::new(), u64::MAX);
+                assert_run_matches_op_revm(spec, address, Bytes::new(), 0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_top_level_precompile_error_context_matches_op_revm() {
+        let call_inputs = create_call_inputs(kzg_point_evaluation::ADDRESS, Bytes::new(), u64::MAX);
+
+        let (op_result, op_error_context) =
+            run_op_precompile_with_top_level_error_context(OpSpecId::ECOTONE, &call_inputs);
+        let (zkvm_result, zkvm_error_context) =
+            run_zkvm_precompile_with_top_level_error_context(OpSpecId::ECOTONE, &call_inputs);
+
+        assert_eq!(
+            zkvm_result, op_result,
+            "ZKVM KZG error result must match canonical OP precompile behavior",
+        );
+        assert_eq!(
+            zkvm_error_context, op_error_context,
+            "ZKVM KZG top-level error context must match canonical OP precompile behavior",
+        );
+        assert!(
+            zkvm_error_context.is_some(),
+            "Invalid KZG input should set top-level precompile error context",
+        );
+    }
+
+    /// Smallest `PAIR_ELEMENT_LEN`-aligned input length strictly greater
+    /// than `max`, so `bn254::run_pair`'s modulo check does not fire first
+    /// and the wrapper specifically exercises the per-fork cap check.
+    const fn oversized_aligned_pair_input_len(max: usize) -> usize {
+        (max / bn254::PAIR_ELEMENT_LEN + 1) * bn254::PAIR_ELEMENT_LEN
+    }
+
+    #[test]
+    fn test_jovian_family_uses_canonical_bn254_pairing_limits() {
+        for spec in [OpSpecId::JOVIAN, OpSpecId::INTEROP, OpSpecId::OSAKA] {
+            let oversized_pairing_input =
+                vec![0; oversized_aligned_pair_input_len(bn254_pair::JOVIAN_MAX_INPUT_SIZE)];
+            let call_inputs =
+                create_call_inputs(bn254::pair::ADDRESS, oversized_pairing_input.into(), u64::MAX);
+
+            let op_result = run_op_precompile(spec, &call_inputs);
+            let zkvm_result = run_zkvm_precompile(spec, &call_inputs);
+
+            assert_eq!(
+                zkvm_result, op_result,
+                "{spec:?} BN254 pairing behavior must match canonical OP precompile behavior",
+            );
+
+            let result = zkvm_result.unwrap().expect("BN254 pairing precompile must exist");
+
+            assert_eq!(
+                result.result,
+                InstructionResult::PrecompileError,
+                "{spec:?} must use canonical Jovian BN254 pairing limits",
+            );
+        }
+    }
+
+    /// Direct regression test for the headline bug: under the old
+    /// ISTANBUL overlay, BN254 pairing accepted arbitrary input length on
+    /// Granite/Holocene/Isthmus. Canonical Granite caps input at
+    /// `GRANITE_MAX_INPUT_SIZE`; the wrapper must enforce the same cap.
+    /// Input length is aligned to `PAIR_ELEMENT_LEN` so the test
+    /// distinguishes the cap from `bn254::run_pair`'s modulo check.
+    #[test]
+    fn test_granite_family_uses_canonical_bn254_pairing_limits() {
+        for spec in [OpSpecId::GRANITE, OpSpecId::HOLOCENE, OpSpecId::ISTHMUS] {
+            let oversized_pairing_input =
+                vec![0; oversized_aligned_pair_input_len(bn254_pair::GRANITE_MAX_INPUT_SIZE)];
+            let call_inputs =
+                create_call_inputs(bn254::pair::ADDRESS, oversized_pairing_input.into(), u64::MAX);
+
+            let op_result = run_op_precompile(spec, &call_inputs);
+            let zkvm_result = run_zkvm_precompile(spec, &call_inputs);
+
+            assert_eq!(
+                zkvm_result, op_result,
+                "{spec:?} BN254 pairing behavior must match canonical OP precompile behavior",
+            );
+
+            let result = zkvm_result.unwrap().expect("BN254 pairing precompile must exist");
+
+            assert_eq!(
+                result.result,
+                InstructionResult::PrecompileError,
+                "{spec:?} must use canonical Granite BN254 pairing limits",
             );
         }
     }
