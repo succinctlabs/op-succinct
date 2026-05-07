@@ -114,6 +114,12 @@ jobs:
       if: matrix.run_real && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
       uses: extractions/setup-just@v3
 
+    - name: Start ephemeral EigenDA proxy
+      if: matrix.da == 'eigenda' && matrix.run_real && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
+      uses: ./.github/actions/start-eigenda-proxy
+      with:
+        l1_rpc: ${{ secrets.L1_RPC }}
+
     - name: Run tests
       if: matrix.run_real && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
       run: just fp-integration-tests ${{ matrix.test }} ${{ matrix.da }}
@@ -122,7 +128,7 @@ jobs:
         L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
         L2_RPC: ${{ matrix.da == 'eigenda' && secrets.L2_EIGENDA_RPC || secrets.L2_RPC }}
         L2_NODE_RPC: ${{ matrix.da == 'eigenda' && secrets.L2_EIGENDA_RPC || secrets.L2_NODE_RPC }}
-        EIGENDA_PROXY_ADDRESS: ${{ secrets.EIGENDA_PROXY_ADDRESS }}
+        EIGENDA_PROXY_ADDRESS: http://localhost:4242
 
     - name: Upload test logs on failure
       if: failure() && matrix.run_real
@@ -243,6 +249,12 @@ jobs:
     - name: Install just
       uses: extractions/setup-just@v3
 
+    - name: Start ephemeral EigenDA proxy
+      if: matrix.da == 'eigenda'
+      uses: ./.github/actions/start-eigenda-proxy
+      with:
+        l1_rpc: ${{ secrets.L1_RPC }}
+
     - name: Run tests
       run: just fp-integration-tests ${{ matrix.test }} ${{ matrix.da }}
       env:
@@ -250,7 +262,7 @@ jobs:
         L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
         L2_RPC: ${{ matrix.da == 'eigenda' && secrets.L2_EIGENDA_RPC || secrets.L2_RPC }}
         L2_NODE_RPC: ${{ matrix.da == 'eigenda' && secrets.L2_EIGENDA_RPC || secrets.L2_NODE_RPC }}
-        EIGENDA_PROXY_ADDRESS: ${{ secrets.EIGENDA_PROXY_ADDRESS }}
+        EIGENDA_PROXY_ADDRESS: http://localhost:4242
 
     - name: Upload test logs on failure
       if: failure()
@@ -335,6 +347,12 @@ jobs:
     - name: Install just
       uses: extractions/setup-just@v3
 
+    - name: Start ephemeral EigenDA proxy
+      if: matrix.da == 'eigenda'
+      uses: ./.github/actions/start-eigenda-proxy
+      with:
+        l1_rpc: ${{ secrets.L1_RPC }}
+
     - name: Run tests
       run: just da-integration-tests ${{ matrix.da }}
       env:
@@ -342,7 +360,7 @@ jobs:
         L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
         L2_RPC: ${{ matrix.da == 'eigenda' && secrets.L2_EIGENDA_RPC || secrets.L2_RPC }}
         L2_NODE_RPC: ${{ matrix.da == 'eigenda' && secrets.L2_EIGENDA_RPC || secrets.L2_NODE_RPC }}
-        EIGENDA_PROXY_ADDRESS: ${{ secrets.EIGENDA_PROXY_ADDRESS }}
+        EIGENDA_PROXY_ADDRESS: http://localhost:4242
         OP_SUCCINCT_MOCK: 'true'
 
     - name: Upload test logs on failure
