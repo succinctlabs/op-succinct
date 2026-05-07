@@ -60,8 +60,10 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
 
     /// Get the highest L2 block that can be safely proven given Celestia's Blobstream commitments.
     /// Returns the maximum L2 block number where all referenced Celestia data has been committed
-    /// to Ethereum and is verifiable in proofs.
-    async fn get_finalized_l2_block_number(
+    /// to Ethereum and is verifiable in proofs. Independent of `L1_BLOCK_TAG` /
+    /// `L1_CONFIRMATIONS` (Celestia rejects non-default selections at startup on covered
+    /// entrypoints).
+    async fn get_max_provable_l2_block_number(
         &self,
         fetcher: &OPSuccinctDataFetcher,
         latest_proposed_block_number: u64,
@@ -81,6 +83,27 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
             Some(safe_head) => safe_head.get_l1_hash(fetcher).await,
             None => bail!("Failed to find a safe L1 block for the given L2 block."),
         }
+    }
+
+    /// Celestia's max provable L2 block is driven by Blobstream commitments, not
+    /// `optimism_safeHeadAtL1Block`, so SafeDB activation is irrelevant.
+    ///
+    /// Only reachable when [`Self::supports_non_default_l1_selection`] returns `true`; kept
+    /// here to document intent in case that ever flips.
+    fn requires_safe_db_for_non_default_l1_selection(&self) -> bool {
+        false
+    }
+
+    /// Celestia's proving path ignores `L1_BLOCK_TAG` and `L1_CONFIRMATIONS`:
+    /// `calculate_safe_l1_head` is Blobstream-driven (via the op-celestia-indexer) and
+    /// `get_max_provable_l2_block_number` searches between `latest_proposed_block_number` and
+    /// the L2 finalized header without consulting `fetcher.l1_selection`. Accepting the
+    /// knob as a silent no-op would mislead operators into believing they had tightened
+    /// or relaxed proof latency, so non-default selections are rejected at startup by the
+    /// shared `enforce_l1_selection_supported` helper used in proposer binaries and the
+    /// covered operator-facing utility scripts.
+    fn supports_non_default_l1_selection(&self) -> bool {
+        false
     }
 }
 

@@ -5,7 +5,8 @@ use log::info;
 use op_succinct_host_utils::{
     block_range::{get_validated_block_range, split_range_basic},
     fetcher::OPSuccinctDataFetcher,
-    host::OPSuccinctHost,
+    host::{enforce_l1_selection_supported, OPSuccinctHost},
+    l1_selection::L1BlockSelectionConfig,
     witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
@@ -24,10 +25,14 @@ async fn main() -> Result<()> {
     dotenv::from_path(&args.env_file).ok();
     utils::setup_logger();
 
-    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
+    let l1_selection = L1BlockSelectionConfig::from_env()?;
+    let data_fetcher =
+        OPSuccinctDataFetcher::new_with_rollup_config_and_l1_selection(l1_selection).await?;
     let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
 
     let host = initialize_host(Arc::new(data_fetcher.clone()));
+
+    enforce_l1_selection_supported(host.as_ref(), &data_fetcher, l1_selection).await?;
 
     let (l2_start_block, l2_end_block) = get_validated_block_range(
         host.as_ref(),
