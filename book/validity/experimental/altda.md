@@ -2,13 +2,13 @@
 
 <div class="warning">
 
-This feature is experimental. Configuration keys, feature flags, and on-disk artifacts may change without notice.
+This feature is under active development. Breaking changes to configuration and on-chain parameters may occur between releases — review release notes before upgrading.
 
 </div>
 
 ## Overview
 
-OP Succinct's AltDA mode supports OP Stack chains that publish batch data off-chain and post only commitments to L1 — the architecture commonly called a **validium**. The codebase uses "AltDA" throughout, matching the OP Stack alt-DA pathway it builds on; the rest of this page uses that term.
+OP Succinct's AltDA mode supports OP Stack chains that use the [alt-DA spec](https://specs.optimism.io/experimental/alt-da.html) with a generic op-alt-da server. Specialized DA backends like Celestia and EigenDA also build on the alt-DA pathway but have their own integrations and pages; this page covers the generic-server case only. The most common deployment pattern is a **validium** — an L2 that posts batch data to an off-chain DA layer and only commitments to L1 — though the underlying transport does not require that trust model. The codebase uses "AltDA" / `altda` throughout, and so does this page.
 
 In AltDA mode, chain-layer responsibilities (derivation, validity proving, on-chain settlement) are handled by op-succinct. The data availability layer — the alt-DA server that stores batch data and serves it by commitment — is operated separately and is out of scope for this repository.
 
