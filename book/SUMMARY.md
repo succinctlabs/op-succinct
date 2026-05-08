@@ -20,8 +20,8 @@
     - [Testing Guide]()
   - [Upgrading OP Succinct](./validity/upgrade.md)
   - [Data Availability](./validity/data-availability/intro.md)
-    - [Celestia DA](./validity/data-availability/celestia.md)
-    - [EigenDA DA](./validity/data-availability/eigenda.md)
+    - [Celestia](./validity/data-availability/celestia.md)
+    - [EigenDA](./validity/data-availability/eigenda.md)
   - [Experimental Features](./validity/experimental/experimental.md)
 
 - [OP Succinct Lite (Fault Proofs)](./fault_proofs/intro.md)
@@ -40,8 +40,8 @@
     - [Pre-Flight Validation](./fault_proofs/preflight.md)
     - [Best Practices](./fault_proofs/best_practices.md)
   - [Data Availability](./fault_proofs/data-availability/intro.md)
-    - [Celestia DA](./fault_proofs/data-availability/celestia.md)
-    - [EigenDA DA](./fault_proofs/data-availability/eigenda.md)
+    - [Celestia](./fault_proofs/data-availability/celestia.md)
+    - [EigenDA](./fault_proofs/data-availability/eigenda.md)
   - [Experimental Features](./fault_proofs/experimental/experimental.md)
 
 - [Migration from Optimistic](./migration.md)
