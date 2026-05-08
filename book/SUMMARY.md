@@ -19,9 +19,10 @@
     - [Gas Costs]()
     - [Testing Guide]()
   - [Upgrading OP Succinct](./validity/upgrade.md)
+  - [Data Availability](./validity/data-availability/intro.md)
+    - [Celestia](./validity/data-availability/celestia.md)
+    - [EigenDA](./validity/data-availability/eigenda.md)
   - [Experimental Features](./validity/experimental/experimental.md)
-    - [Celestia DA](./validity/experimental/celestia.md)
-    - [EigenDA DA](./validity/experimental/eigenda.md)
 
 - [OP Succinct Lite (Fault Proofs)](./fault_proofs/intro.md)
   - [Architecture](./fault_proofs/fault_proof_architecture.md)
@@ -38,9 +39,10 @@
     - [Testing Guide](./fault_proofs/testing.md)
     - [Pre-Flight Validation](./fault_proofs/preflight.md)
     - [Best Practices](./fault_proofs/best_practices.md)
+  - [Data Availability](./fault_proofs/data-availability/intro.md)
+    - [Celestia](./fault_proofs/data-availability/celestia.md)
+    - [EigenDA](./fault_proofs/data-availability/eigenda.md)
   - [Experimental Features](./fault_proofs/experimental/experimental.md)
-    - [Celestia DA](./fault_proofs/experimental/celestia.md)
-    - [EigenDA DA](./fault_proofs/experimental/eigenda.md)
 
 - [Migration from Optimistic](./migration.md)
 

@@ -24,22 +24,23 @@ pub async fn get_validated_block_range<H: OPSuccinctHost>(
     end: Option<u64>,
     default_range: u64,
 ) -> Result<(u64, u64)> {
-    // Get the latest finalized block number when end block is not provided.
-    // Even though the safeDB is activated, we use the finalized block number as the
-    // end block by default to ensure the program doesn't run into L2 Block Validation
-    // Failure error.
-    // L2 Block Validation Failure error might still occur. See
-    // [Troubleshooting](../troubleshooting.md#l2-block-validation-failure) for more details.
+    // When `end` is not provided, ask the host for its current max provable L2 block. Under
+    // default `L1_BLOCK_TAG=finalized` this is the L2 finalized block; under non-default
+    // selections (Ethereum/EigenDA) it is the L2 safe head at the configured L1 anchor; under
+    // Celestia it is the highest L2 block included in the latest Blobstream commitment. The
+    // search-start hint is derived from L2 finalized so a non-default selection does not
+    // narrow the lookback window for the host's search. L2 Block Validation Failure may still
+    // occur — see [Troubleshooting](../troubleshooting.md#l2-block-validation-failure).
     let l2_finalized_block_number = data_fetcher.get_l2_header(BlockId::finalized()).await?.number;
+    // `saturating_sub` guards against very low finalized L2 numbers, which can occur on
+    // fresh test chains.
+    let host_search_start = l2_finalized_block_number.saturating_sub(TWO_HOURS_IN_BLOCKS);
     let end_number = host
-        .get_finalized_l2_block_number(
-            data_fetcher,
-            l2_finalized_block_number - TWO_HOURS_IN_BLOCKS,
-        )
+        .get_max_provable_l2_block_number(data_fetcher, host_search_start)
         .await?
-        .expect("Failed to get finalized L2 block number");
+        .expect("Failed to get host-resolved max provable L2 block number");
 
-    // If end block not provided, use latest finalized block
+    // If end block not provided, use the host-resolved end.
     let l2_end_block = match end {
         Some(end) => {
             if end > end_number {
@@ -67,25 +68,40 @@ pub async fn get_validated_block_range<H: OPSuccinctHost>(
     Ok((l2_start_block, l2_end_block))
 }
 
-/// Get a rolling block range whose end aligns with the host's finalized L2 block.
+/// Get a rolling block range whose end aligns with the host's current max provable L2 block.
 ///
-/// The returned tuple represents the last `range` blocks that the host considers finalized
-/// according to its DA-specific logic, making the range safe to use for proof generation.
+/// The returned tuple represents the last `range` blocks that the host is willing to anchor a
+/// proof against (DA- and L1-selection-specific — see
+/// [`OPSuccinctHost::get_max_provable_l2_block_number`]), making the range safe to use for
+/// proof generation.
+///
+/// Returns an error if the requested `range` exceeds the current host-resolved end; this is
+/// preferred over silently returning a smaller range, since callers typically expect to
+/// receive exactly `range` blocks and downstream logic may misbehave otherwise.
 pub async fn get_rolling_block_range<H: OPSuccinctHost>(
     host: &H,
     data_fetcher: &OPSuccinctDataFetcher,
     range: u64,
 ) -> Result<(u64, u64)> {
     let header = data_fetcher.get_l2_header(BlockId::finalized()).await?;
+    // `saturating_sub` guards against very low finalized L2 numbers.
+    let host_search_start = header.number.saturating_sub(TWO_HOURS_IN_BLOCKS);
     let l2_end_block = host
-        .get_finalized_l2_block_number(data_fetcher, header.number - TWO_HOURS_IN_BLOCKS)
+        .get_max_provable_l2_block_number(data_fetcher, host_search_start)
         .await?
-        .expect("Failed to get finalized L2 block number");
+        .expect("Failed to get host-resolved max provable L2 block number");
 
-    Ok((l2_end_block - range, l2_end_block))
+    let l2_start_block = l2_end_block.checked_sub(range).ok_or_else(|| {
+        anyhow::anyhow!(
+            "requested rolling range {range} exceeds current end block {l2_end_block}; \
+             cannot produce a non-underflowing range"
+        )
+    })?;
+
+    Ok((l2_start_block, l2_end_block))
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SpanBatchRange {
     pub start: u64,
     pub end: u64,
@@ -116,13 +132,15 @@ pub fn split_range_basic(start: u64, end: u64, max_range_size: u64) -> Vec<SpanB
 ///
 /// Example: If safeHeads are [27,49,90] and max_size=30, ranges will be [(0,27), (27,49), (49,69),
 /// (69,90)]
+///
+/// Takes the data fetcher by reference so that the configured L1 selection is honored
+/// across the inner safeHead lookups (avoiding split-brain with the caller's fetcher).
 pub async fn split_range_based_on_safe_heads(
+    data_fetcher: &OPSuccinctDataFetcher,
     l2_start: u64,
     l2_end: u64,
     max_range_size: u64,
 ) -> Result<Vec<SpanBatchRange>> {
-    let data_fetcher = OPSuccinctDataFetcher::default();
-
     // Get the L1 origin of l2_start
     let l2_start_hex = format!("0x{l2_start:x}");
     let start_output: OutputResponse = data_fetcher
@@ -143,7 +161,6 @@ pub async fn split_range_based_on_safe_heads(
     let safe_heads = futures::stream::iter(l1_start..=l1_head_number)
         .map(|block| async move {
             let l1_block_hex = format!("0x{block:x}");
-            let data_fetcher = OPSuccinctDataFetcher::default();
             let result: SafeHeadResponse = data_fetcher
                 .fetch_rpc_data_with_mode(
                     RPCMode::L2Node,
@@ -177,4 +194,41 @@ pub async fn split_range_based_on_safe_heads(
     }
 
     Ok(ranges)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn split_range_basic_simple() {
+        let ranges = split_range_basic(0, 100, 30);
+        assert_eq!(
+            ranges,
+            vec![
+                SpanBatchRange { start: 0, end: 30 },
+                SpanBatchRange { start: 30, end: 60 },
+                SpanBatchRange { start: 60, end: 90 },
+                SpanBatchRange { start: 90, end: 100 },
+            ]
+        );
+    }
+
+    #[test]
+    fn split_range_basic_exact_multiple() {
+        let ranges = split_range_basic(0, 90, 30);
+        assert_eq!(
+            ranges,
+            vec![
+                SpanBatchRange { start: 0, end: 30 },
+                SpanBatchRange { start: 30, end: 60 },
+                SpanBatchRange { start: 60, end: 90 },
+            ]
+        );
+    }
+
+    #[test]
+    fn split_range_basic_empty_when_start_equals_end() {
+        assert_eq!(split_range_basic(50, 50, 30), vec![]);
+    }
 }

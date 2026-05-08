@@ -1,4 +1,4 @@
-# EigenDA Data Availability
+# EigenDA
 
 This section describes the requirements to use OP Succinct Lite for a chain with EigenDA as the data availability layer. The requirements are additive to the ones required for OP Succinct Lite. Please refer to the [Proposer](../proposer.md) section for the base configuration, and the [Running with Docker](../docker.md) section for general Docker guidance.
 
@@ -55,7 +55,7 @@ If you run `fetch-fault-dispute-game-config` manually, append `--features eigend
 just deploy-fdg-contracts .env eigenda
 ```
 
-## Run Services with EigenDA DA
+## Run Services with EigenDA
 
 ```bash
 # Navigate to the fault-proof directory

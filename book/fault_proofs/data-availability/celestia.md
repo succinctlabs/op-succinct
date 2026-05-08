@@ -1,12 +1,14 @@
-# Celestia Data Availability
+# Celestia
 
-This section describes the requirements to use OP Succinct for a chain with Celestia DA. The requirements are additive to the ones required for the `op-succinct` service. Please refer to the [Proposer](../proposer.md) section for the base configuration.
+This section describes the requirements to use OP Succinct Lite for a chain with Celestia DA. The requirements are additive to the ones required for the OP Succinct Lite. Please refer to the [Proposer](../proposer.md) section for the base configuration. Also, please refer to the [Docker Setup](../docker.md) section for details on how to run the OP Succinct Lite with Docker.
 
 ## Environment Setup
 
-To use Celestia DA, you need additional environment variables.
+Create a single `.env` file in the `fault-proof` directory with all configuration variables.
 
-**Important:** When using Docker Compose, these variables must be in a `.env` file in the same directory as your `docker-compose-celestia.yml` file. Docker Compose needs these variables in `.env` for variable substitution in the compose file itself.
+### Required Variables
+
+Include all the base configuration variables from the [Proposer](../proposer.md) section, plus these Celestia-specific variables:
 
 | Parameter | Description |
 |-----------|-------------|
@@ -16,15 +18,13 @@ To use Celestia DA, you need additional environment variables.
 | `START_L1_BLOCK` | Starting L1 block number for the indexer to begin syncing from. **Note:** This should be early enough to cover derivation of the starting L2 block from the contract. |
 | `BATCH_INBOX_ADDRESS` | Address of the batch inbox contract on L1. |
 
-Additionally, include all the base configuration variables from the [Proposer](../proposer.md) section in the same `.env` file.
-
 <div class="warning">
 When using Celestia DA, ensure L1 node has sufficient proof history (archive node recommended). If the L1 node doesn't have a sufficient proof history, you may see `error distance to target block exceeds maximum proof window` when making `eth_getProof` RPC calls if proposer falls behind.
 </div>
 
 ## op-celestia-indexer
 
-The op-celestia-indexer is a required component that indexes L2 block locations on both Celestia DA and Ethereum DA. It is automatically included in the `docker-compose-celestia.yml` configuration and will start before the OP Succinct proposer service.
+The op-celestia-indexer is a required component that indexes L2 block locations on both Celestia DA and Ethereum DA. It is automatically included in the `docker-compose-celestia.yml` configuration and will start before the OP Succinct Lite services.
 
 The indexer runs on port 57220 and uses the environment variables from your `.env` file. When using docker-compose, the `CELESTIA_INDEXER_RPC` is automatically set to `http://op-celestia-indexer:57220` for inter-container communication.
 
@@ -56,55 +56,48 @@ docker run -d \
   --rpc.port 57220 \
   --da.rpc <CELESTIA_CONNECTION> \
   --da.namespace <NAMESPACE> \
-  --da.auth_token <CELESTIA_AUTH_TOKEN> \
   --db-path /data/indexer.db
 ```
 
 When running separately, set `CELESTIA_INDEXER_RPC=http://localhost:57220` in your `.env` file.
 
-## Run the Celestia Proposer Service
+## Celestia Contract Configuration
 
-Run the `op-succinct-celestia` service.
+CelestiaDA deployments also require CelestiaDA-specific verification key commitments and rollup config hashes. Always compile these values with the `celestia` feature flag so the range verification key commitment aligns with the Celestia range ELF, the aggregation verification key, and the rollup config hash:
 
 ```bash
+# From the repository root
+cargo run --bin config --release --features celestia -- --env-file fault-proof/.env
+```
+
+The command prints the `Range Verification Key Hash`, `Aggregation Verification Key Hash`, and `Rollup Config Hash`. Confirm these values before updating on-chain storage in `OPSuccinctFaultDisputeGame`.
+
+When you use the `just` helper below, include the `celestia` argument so `fetch-fault-dispute-game-config` runs with the correct feature set. If you run `fetch-fault-dispute-game-config` manually, append `--features celestia`; otherwise the script emits the default Ethereum DA values and your games will revert with `ProofInvalid()` when submitting proofs.
+
+## Deploying `OPSuccinctFaultDisputeGame` with Celestia features
+
+```bash
+just deploy-fdg-contracts .env celestia
+```
+
+## Run Services with Celestia DA
+
+```bash
+# Navigate to the fault-proof directory
+cd fault-proof
+
+# Start both proposer and challenger
 docker compose -f docker-compose-celestia.yml up -d
 ```
 
-To see the logs of the `op-succinct-celestia` service, run:
+To see the logs, run:
 
 ```bash
 docker compose -f docker-compose-celestia.yml logs -f
 ```
 
-To stop the `op-succinct-celestia` service, run:
+To stop the services, run:
 
 ```bash
 docker compose -f docker-compose-celestia.yml down
 ```
-
-## Celestia Contract Configuration
-
-Before deploying or updating contracts, generate the CelestiaDA-specific range verification key, aggregation verification key, and rollup config hash with the correct feature flag. This ensures the range verification key commitment matches the Celestia range ELF:
-
-```bash
-# From the repository root
-cargo run --bin config --release --features celestia -- --env-file .env
-```
-
-The command prints the `Range Verification Key Hash`, `Aggregation Verification Key Hash`, and `Rollup Config Hash`; keep these values and ensure they match what you publish on-chain in `OPSuccinctL2OutputOracle`.
-
-When you use the `just` helpers below, pass the `celestia` feature so `fetch-l2oo-config` runs with the correct ELFs. If you call the binaries manually (`fetch-l2oo-config`, `config`, etc.), append `--features celestia`; otherwise the script emits the default Ethereum DA values and your contracts will revert with `ProofInvalid()` when submitting proofs.
-
-## Deploying `OPSuccinctL2OutputOracle` with Celestia features
-
-```bash
-just deploy-oracle .env celestia
-```
-
-## Updating `OPSuccinctL2OutputOracle` Parameters
-
-```bash
-just update-parameters .env celestia
-```
-
-For more details on the `just update-parameters` command, see the [Updating `OPSuccinctL2OutputOracle` Parameters](../contracts/update-parameters.md) section.

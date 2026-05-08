@@ -9,7 +9,7 @@ OP Succinct supports a rolling update process when [program binaries](../../adva
 ## Rolling update guide
 
 1. Generate new elfs, vkeys, and a rollup config hash by following [this guide](../../advanced/verify-binaries.md).
-2. From the project's root, run `just add_config my_upgrade`.
+2. From the project's root, run `just add-config my_upgrade`.
     - This will automatically fetch the `aggregationVkey` and `rangeVkeyCommitment` from the [`/elf`](https://github.com/succinctlabs/op-succinct/tree/main/elf) directory, and the `rollupConfigHash` from the `L2_RPC` set in the `.env`. The output will look like the following:
 
 ```bash

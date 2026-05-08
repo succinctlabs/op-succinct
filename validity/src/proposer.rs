@@ -216,18 +216,21 @@ where
         let finalized_block_number = match self
             .proof_requester
             .host
-            .get_finalized_l2_block_number(
+            .get_max_provable_l2_block_number(
                 self.driver_config.fetcher.as_ref(),
                 latest_proposed_block_number,
             )
             .await?
         {
             Some(block_number) => {
-                tracing::debug!("Found finalized block number: {}", block_number);
+                tracing::debug!(
+                    "Found host-resolved max provable L2 block number: {}",
+                    block_number
+                );
                 block_number
             }
             None => {
-                tracing::debug!("No new finalized block number found since last proposed block. No new range proof requests will be added.");
+                tracing::debug!("No new max provable L2 block number found since last proposed block. No new range proof requests will be added.");
                 return Ok(());
             }
         };
@@ -1707,12 +1710,31 @@ where
         ValidityGauge::HighestProvenContiguousBlock.set(highest_block_number as f64);
         ValidityGauge::LatestContractL2Block.set(latest_proposed_block_number as f64);
 
-        // Get and set L2 block metrics
+        // Get and set L2 block metrics.
+        //
+        // `L2FinalizedBlock` keeps its literal meaning — the L2 block returned by
+        // `eth_getBlockByNumber("finalized")` — regardless of `L1_BLOCK_TAG`. Operators relying
+        // on the existing dashboards/alerts continue to see the same number under default
+        // selection (and the literal L2 finalized under non-default selection).
+        //
+        // `L2MaxProvableBlock` is the new gauge: the L2 block the host is actually willing to
+        // anchor a proof against under the current backend + L1 selection. The value diverges
+        // from `L2FinalizedBlock` under non-default Ethereum/EigenDA (it reports the L2 safe
+        // head at the configured L1 anchor) and reflects the Blobstream-resolved max provable
+        // L2 block under Celestia.
         let fetcher = &self.proof_requester.fetcher;
         ValidityGauge::L2UnsafeHeadBlock
             .set(fetcher.get_l2_header(BlockId::latest()).await?.number as f64);
-        ValidityGauge::L2FinalizedBlock
-            .set(fetcher.get_l2_header(BlockId::finalized()).await?.number as f64);
+        let l2_finalized_block_number = fetcher.get_l2_header(BlockId::finalized()).await?.number;
+        ValidityGauge::L2FinalizedBlock.set(l2_finalized_block_number as f64);
+        if let Some(max_provable_l2_block_number) = self
+            .proof_requester
+            .host
+            .get_max_provable_l2_block_number(fetcher, latest_proposed_block_number)
+            .await?
+        {
+            ValidityGauge::L2MaxProvableBlock.set(max_provable_l2_block_number as f64);
+        }
 
         // Get submission interval from contract and set gauge
         let contract_submission_interval: u64 =
