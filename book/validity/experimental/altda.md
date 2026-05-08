@@ -8,9 +8,9 @@ This feature is under active development. Breaking changes to configuration and 
 
 ## Overview
 
-OP Succinct's AltDA mode supports OP Stack chains that use the [alt-DA spec](https://specs.optimism.io/experimental/alt-da.html) with a generic op-alt-da server. Specialized DA backends like Celestia and EigenDA also build on the alt-DA pathway but have their own integrations and pages; this page covers the generic-server case only. The most common deployment pattern is a **validium** — an L2 that posts batch data to an off-chain DA layer and only commitments to L1 — though the underlying transport does not require that trust model. The codebase uses "AltDA" / `altda` throughout, and so does this page.
+OP Succinct's AltDA mode supports OP Stack chains that use the [alt-DA spec](https://specs.optimism.io/experimental/alt-da.html) with a generic op-alt-da server. Specialized DA backends like Celestia and EigenDA also build on the alt-DA pathway but have their own integrations and pages; this page covers the generic-server case only. The most common deployment pattern is a **validium**: an L2 that posts batch data to an off-chain DA layer and only commitments to L1. The underlying transport does not require that trust model. The codebase uses "AltDA" / `altda` throughout, and so does this page.
 
-In AltDA mode, chain-layer responsibilities (derivation, validity proving, on-chain settlement) are handled by op-succinct. The data availability layer — the alt-DA server that stores batch data and serves it by commitment — is operated separately and is out of scope for this repository.
+In AltDA mode, chain-layer responsibilities (derivation, validity proving, on-chain settlement) are handled by op-succinct. The data availability layer (the alt-DA server that stores batch data and serves it by commitment) is operated separately and is out of scope for this repository.
 
 ## Architecture
 
@@ -49,7 +49,7 @@ The OP Succinct proposer reads L1 calldata as usual. When a batcher transaction 
 | Keccak256 | `0x00` | Supported. Integrity is enforced inside the zkVM via the preimage oracle (`keccak256(data) == commitment`). |
 | Generic | `0x01` | Not supported in this release. The host rejects this commitment type. |
 
-> Note: the byte `0x01` appears in two distinct positions on the wire — as the `DerivationVersion1` prefix on the L1 batcher transaction (separating alt-DA from Ethereum DA) and as the commitment type byte inside the encoded commitment. The two positions are independent.
+> Note: the byte `0x01` appears in two distinct positions on the wire. It serves as the `DerivationVersion1` prefix on the L1 batcher transaction (separating alt-DA from Ethereum DA) and as the commitment type byte inside the encoded commitment. The two positions are independent.
 
 ## Enabling AltDA Mode
 
