@@ -1,8 +1,8 @@
-# AltDA (Validium)
+# Alt-DA Server
 
 <div class="warning">
 
-This feature is under active development. Breaking changes to configuration and on-chain parameters may occur between releases — review release notes before upgrading.
+This feature is under active development. Breaking changes to configuration and on-chain parameters may occur between releases. Review release notes before upgrading.
 
 </div>
 
