@@ -1,4 +1,4 @@
-# Celestia Data Availability
+# Celestia
 
 This section describes the requirements to use OP Succinct Lite for a chain with Celestia DA. The requirements are additive to the ones required for the OP Succinct Lite. Please refer to the [Proposer](../proposer.md) section for the base configuration. Also, please refer to the [Docker Setup](../docker.md) section for details on how to run the OP Succinct Lite with Docker.
 

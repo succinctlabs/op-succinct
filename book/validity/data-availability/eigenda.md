@@ -1,4 +1,4 @@
-# EigenDA Data Availability
+# EigenDA
 
 This section describes the requirements to use OP Succinct for a chain with EigenDA as the data availability layer. The requirements are additive to the ones required for the `op-succinct` service. Please refer to the [Proposer](../proposer.md) section for the base configuration.
 

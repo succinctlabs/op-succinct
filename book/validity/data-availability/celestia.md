@@ -1,4 +1,4 @@
-# Celestia Data Availability
+# Celestia
 
 This section describes the requirements to use OP Succinct for a chain with Celestia DA. The requirements are additive to the ones required for the `op-succinct` service. Please refer to the [Proposer](../proposer.md) section for the base configuration.
 
