@@ -55,7 +55,7 @@ If you run `fetch-fault-dispute-game-config` manually, append `--features eigend
 just deploy-fdg-contracts .env eigenda
 ```
 
-## Run Services with EigenDA DA
+## Run Services with EigenDA
 
 ```bash
 # Navigate to the fault-proof directory
