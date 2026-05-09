@@ -41,8 +41,21 @@ pub enum ValidityGauge {
     LatestContractL2Block,
     #[strum(serialize = "succinct_l2_unsafe_head_block", message = "L2 unsafe head block number")]
     L2UnsafeHeadBlock,
-    #[strum(serialize = "succinct_l2_finalized_block", message = "L2 finalized block number")]
+    #[strum(
+        serialize = "succinct_l2_finalized_block",
+        message = "L2 block returned by eth_getBlockByNumber(\"finalized\"); literal L2 finalized, \
+                   unaffected by L1_BLOCK_TAG/L1_CONFIRMATIONS"
+    )]
     L2FinalizedBlock,
+    #[strum(
+        serialize = "succinct_l2_max_provable_block",
+        message = "Maximum L2 block the host is willing to anchor a proof against under the \
+                   current backend + L1 selection. Matches L2 finalized under default \
+                   Ethereum/EigenDA; reflects the L2 safe head at the configured L1 anchor under \
+                   non-default Ethereum/EigenDA; reflects the Blobstream-resolved max provable L2 \
+                   block under Celestia."
+    )]
+    L2MaxProvableBlock,
     #[strum(
         serialize = "succinct_min_block_to_prove_to_agg",
         message = "Minimum block number required to prove for aggregation"

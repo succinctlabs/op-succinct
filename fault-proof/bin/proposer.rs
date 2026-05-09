@@ -11,12 +11,15 @@ use fault_proof::{
 };
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
+    host::enforce_l1_selection_supported,
+    l1_selection::L1BlockSelectionConfig,
     metrics::{init_metrics, MetricsGauge},
     setup_logger,
 };
 use op_succinct_proof_utils::initialize_host;
 use op_succinct_signer_utils::SignerLock;
 use tikv_jemallocator::Jemalloc;
+use tracing::info;
 
 #[global_allocator]
 static ALLOCATOR: Jemalloc = Jemalloc;
@@ -37,6 +40,16 @@ async fn main() -> Result<()> {
     let proposer_config = ProposerConfig::from_env()?;
     proposer_config.log();
 
+    // Parse the L1 block selection config first so any user-facing error happens before
+    // we touch RPCs or the dispute game factory.
+    let l1_selection = L1BlockSelectionConfig::from_env()?;
+    info!(
+        tag = ?l1_selection.tag,
+        confirmations = l1_selection.confirmations,
+        is_default = l1_selection.is_default(),
+        "L1 block selection configured"
+    );
+
     let proposer_signer = SignerLock::from_env().await?;
 
     let l1_provider = ProviderBuilder::new().connect_http(proposer_config.l1_rpc.clone());
@@ -48,8 +61,11 @@ async fn main() -> Result<()> {
 
     let factory = DisputeGameFactory::new(proposer_config.factory_address, l1_provider.clone());
 
-    let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
+    let fetcher =
+        OPSuccinctDataFetcher::new_with_rollup_config_and_l1_selection(l1_selection).await?;
     let host = initialize_host(Arc::new(fetcher.clone()));
+
+    enforce_l1_selection_supported(host.as_ref(), &fetcher, l1_selection).await?;
 
     let proposer = Arc::new(
         OPSuccinctProposer::new(
