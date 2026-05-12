@@ -247,7 +247,8 @@ func (s *FaultProofSystem) StartChallenger() {
 
 // faultProofSystemOptions holds optional configuration for NewFaultProofSystem.
 type faultProofSystemOptions struct {
-	challengerCfg *FPChallengerConfig
+	challengerCfg    *FPChallengerConfig
+	enableTimeTravel bool
 }
 
 // FaultProofSystemOption configures optional features of the fault proof system.
@@ -265,8 +266,18 @@ func WithDefaultChallenger() FaultProofSystemOption {
 	return WithChallenger(DefaultFPChallengerConfig())
 }
 
+// WithFPTimeTravel enables time travel for the fault proof system.
+// This is required for tests that use sys.AdvanceTime() to simulate time passing,
+// such as waiting for game resolution delays or finality delays.
+func WithFPTimeTravel() FaultProofSystemOption {
+	return func(o *faultProofSystemOptions) {
+		o.enableTimeTravel = true
+	}
+}
+
 // NewFaultProofSystem creates a new fault proof test system with custom configuration.
 // Use WithChallenger option to include a challenger.
+// Use WithFPTimeTravel option to enable time travel for tests that need sys.AdvanceTime().
 func NewFaultProofSystem(t devtest.T, proposerCfg FPProposerConfig, chain L2ChainConfig, opts ...FaultProofSystemOption) *FaultProofSystem {
 	var options faultProofSystemOptions
 	for _, opt := range opts {
@@ -283,7 +294,13 @@ func NewFaultProofSystem(t devtest.T, proposerCfg FPProposerConfig, chain L2Chai
 		stackOpt = WithSuccinctFPProposer(&ids, proposerCfg, chain)
 	}
 
-	sys, orch, prop := newSystemWithProposer(t, stackOpt, &ids)
+	// Build extra options (e.g., time travel)
+	var extraOpts []stack.CommonOption
+	if options.enableTimeTravel {
+		extraOpts = append(extraOpts, presets.WithTimeTravel())
+	}
+
+	sys, orch, prop := newSystemWithProposer(t, stackOpt, &ids, extraOpts...)
 
 	fp, ok := prop.(sysgo.FaultProofProposer)
 	t.Require().True(ok, "proposer must implement FaultProofProposer")
