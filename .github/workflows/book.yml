@@ -102,11 +102,13 @@ jobs:
       - run: echo "Deploy only runs on push to main"
 
   # Real GitHub Pages deploy — push to main only.
-  # `success()` is required to break transitive skip propagation from the
-  # PR-only `changes` job through `lint`/`build` (which use `if: always()`)
-  # down to this job. Without it, GitHub auto-skips this job on push to main.
+  # `always()` is required to break transitive skip propagation from the
+  # PR-only `changes` job (skipped on push) through `lint`/`build`
+  # (which use `if: always()`) down to this job. `success()` alone does
+  # not override the skip, so we use `always()` plus explicit result
+  # checks to ensure we only deploy when the build actually succeeded.
   deploy-pages:
-    if: success() && github.ref_name == 'main' && github.event_name == 'push'
+    if: always() && needs.lint.result == 'success' && needs.build.result == 'success' && github.ref_name == 'main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     needs: [lint, build]
     name: deploy
