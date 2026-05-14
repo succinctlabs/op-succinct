@@ -75,12 +75,22 @@ contract DeployOPSuccinctFDG is Script, Utils {
     }
 
     function deployContracts(FDGConfig memory config) internal returns (DeployedContracts memory) {
-        // Deploy factory proxy.
-        ERC1967Proxy factoryProxy = new ERC1967Proxy(
-            address(new DisputeGameFactory()),
-            abi.encodeWithSelector(DisputeGameFactory.initialize.selector, msg.sender)
-        );
-        DisputeGameFactory factory = DisputeGameFactory(address(factoryProxy));
+        DisputeGameFactory factory;
+
+        // Check if using existing DGF (for e2e tests where OptimismPortal2 must use the same DGF)
+        if (config.existingDisputeGameFactoryProxy != address(0)) {
+            // Use existing DisputeGameFactory - required for e2e tests where
+            // OptimismPortal2 is already configured with a specific DGF
+            factory = DisputeGameFactory(config.existingDisputeGameFactoryProxy);
+            console.log("Using existing DisputeGameFactory:", address(factory));
+        } else {
+            // Deploy factory proxy.
+            ERC1967Proxy factoryProxy = new ERC1967Proxy(
+                address(new DisputeGameFactory()),
+                abi.encodeWithSelector(DisputeGameFactory.initialize.selector, msg.sender)
+            );
+            factory = DisputeGameFactory(address(factoryProxy));
+        }
 
         GameType gameType = GameType.wrap(config.gameType);
 
@@ -91,10 +101,10 @@ contract DeployOPSuccinctFDG is Script, Utils {
             OutputRoot({root: Hash.wrap(config.startingRoot), l2BlockNumber: config.startingL2BlockNumber});
 
         // Deploy anchor state registry
-        AnchorStateRegistry registry = deployAnchorStateRegistry(factory, portalAddress, startingAnchorRoot);
+        AnchorStateRegistry registry = deployAnchorStateRegistry(config, factory, portalAddress, startingAnchorRoot);
 
         // Deploy and configure access manager
-        AccessManager accessManager = deployAccessManager(config, address(factoryProxy));
+        AccessManager accessManager = deployAccessManager(config, address(factory));
 
         // Deploy SP1 verifier and get configuration
         SP1Config memory sp1Config = deploySP1Verifier(config);
@@ -109,13 +119,20 @@ contract DeployOPSuccinctFDG is Script, Utils {
 
         // Create deployed contracts struct
         DeployedContracts memory deployedContracts = DeployedContracts({
-            factoryProxy: address(factoryProxy),
+            factoryProxy: address(factory),
             gameImplementation: address(gameImpl),
             sp1Verifier: sp1Config.verifierAddress,
             anchorStateRegistry: address(registry),
             accessManager: address(accessManager),
             optimismPortal2: portalAddress
         });
+
+        // Output addresses in format expected by Go test infrastructure:
+        // <name>: address 0x...
+        // These are parsed by parseNamedAddresses in deployer_succinct.go
+        console.log("factoryProxy: address", address(factory));
+        console.log("anchorStateRegistry: address", address(registry));
+        console.log("sp1Verifier: address", sp1Config.verifierAddress);
 
         return deployedContracts;
     }
@@ -142,10 +159,18 @@ contract DeployOPSuccinctFDG is Script, Utils {
     }
 
     function deployAnchorStateRegistry(
+        FDGConfig memory config,
         DisputeGameFactory factory,
         address payable portalAddress,
         OutputRoot memory startingAnchorRoot
     ) internal returns (AnchorStateRegistry) {
+        // Check if using existing ASR (for e2e tests where games must use the same ASR as OptimismPortal2)
+        if (config.existingAnchorStateRegistry != address(0)) {
+            AnchorStateRegistry registry = AnchorStateRegistry(config.existingAnchorStateRegistry);
+            console.log("Using existing AnchorStateRegistry:", address(registry));
+            return registry;
+        }
+
         // Deploy the anchor state registry proxy.
         ERC1967Proxy registryProxy = new ERC1967Proxy(
             address(new AnchorStateRegistry()),
@@ -161,7 +186,7 @@ contract DeployOPSuccinctFDG is Script, Utils {
         );
 
         AnchorStateRegistry registry = AnchorStateRegistry(address(registryProxy));
-        console.log("Anchor state registry:", address(registry));
+        console.log("Deployed new AnchorStateRegistry:", address(registry));
         return registry;
     }
 
