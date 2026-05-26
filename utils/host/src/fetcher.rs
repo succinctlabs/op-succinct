@@ -1032,7 +1032,12 @@ impl OPSuccinctDataFetcher {
             server: true,
             rollup_config_path: self.rollup_config_path.clone(),
             l1_config_path: self.l1_config_path.clone(),
-            enable_experimental_witness_endpoint: false,
+            enable_experimental_witness_endpoint: std::env::var(
+                "ENABLE_EXPERIMENTAL_WITNESS_ENDPOINT",
+            )
+            .ok()
+            .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes"))
+            .unwrap_or(false),
         })
     }
 }

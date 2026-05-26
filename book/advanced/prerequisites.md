@@ -11,15 +11,16 @@ You must have the following installed:
 You must have the following RPCs available:
 - L1 Archive Node
 - L1 Consensus (Beacon) Node
-- L2 Execution Node (`op-geth`)
+- L2 Execution Node (`op-geth` archive node, or `op-reth` with the proof-history ExEx)
 - L2 Rollup Node (`op-node`)
 
 The following RPC endpoints must be accessible:
 
 - L1 Archive Node.
   - `debug_getRawHeader`, `debug_getRawReceipts`, `debug_getRawBlock`
-- L2 Execution Node (`op-geth`): Archive node with hash state scheme.
-  - `debug_getRawHeader`, `debug_getRawTransaction`, `debug_getRawBlock`, `debug_dbGet`
+- L2 Execution Node — one of:
+  - **`op-geth`** archive node with hash state scheme: `debug_getRawHeader`, `debug_getRawTransaction`, `debug_getRawBlock`, `debug_dbGet`.
+  - **`op-reth`** (≥ v2.2.3) launched with `--proofs-history --proofs-history.storage-version=v2`: `debug_getRawHeader`, `debug_getRawTransaction`, `debug_getRawBlock`, `debug_executePayload`. Set `ENABLE_EXPERIMENTAL_WITNESS_ENDPOINT=true` on the proposer to route witness collection through `debug_executePayload`. See [OP Labs' op-reth historical proofs tutorial](https://docs.optimism.io/node-operators/tutorials/reth-historical-proofs).
 - L2 Optimism Node (`op-node`)
   - `optimism_outputAtBlock`, `optimism_rollupConfig`, `optimism_syncStatus`, `optimism_safeHeadAtL1Block`.
 
