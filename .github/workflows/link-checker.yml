@@ -38,6 +38,7 @@ jobs:
             --exclude "^https://www.caldera.xyz"
             --exclude-path target/
             --exclude-path contracts/lib/
+            --exclude-path patches/
             "**/*.md"
           fail: true
           jobSummary: true
