@@ -14,8 +14,6 @@ use crate::{
     host::OPSuccinctHost,
 };
 
-const TWO_HOURS_IN_BLOCKS: u64 = 3600;
-
 /// Get the start and end block numbers for a range, with validation.
 pub async fn get_validated_block_range<H: OPSuccinctHost>(
     host: &H,
@@ -34,7 +32,8 @@ pub async fn get_validated_block_range<H: OPSuccinctHost>(
     let l2_finalized_block_number = data_fetcher.get_l2_header(BlockId::finalized()).await?.number;
     // `saturating_sub` guards against very low finalized L2 numbers, which can occur on
     // fresh test chains.
-    let host_search_start = l2_finalized_block_number.saturating_sub(TWO_HOURS_IN_BLOCKS);
+    let host_search_start =
+        l2_finalized_block_number.saturating_sub(host.max_provable_l2_search_lookback_blocks());
     let end_number = host
         .get_max_provable_l2_block_number(data_fetcher, host_search_start)
         .await?
@@ -85,7 +84,8 @@ pub async fn get_rolling_block_range<H: OPSuccinctHost>(
 ) -> Result<(u64, u64)> {
     let header = data_fetcher.get_l2_header(BlockId::finalized()).await?;
     // `saturating_sub` guards against very low finalized L2 numbers.
-    let host_search_start = header.number.saturating_sub(TWO_HOURS_IN_BLOCKS);
+    let host_search_start =
+        header.number.saturating_sub(host.max_provable_l2_search_lookback_blocks());
     let l2_end_block = host
         .get_max_provable_l2_block_number(data_fetcher, host_search_start)
         .await?

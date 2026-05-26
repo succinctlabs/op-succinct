@@ -131,6 +131,12 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
         latest_proposed_block_number: u64,
     ) -> Result<Option<u64>>;
 
+    /// Number of L2 blocks to search behind finalized when resolving the current max provable L2
+    /// block for rolling ranges.
+    fn max_provable_l2_search_lookback_blocks(&self) -> u64 {
+        3_600
+    }
+
     /// Calculate a safe L1 head hash for the given L2 end block.
     ///
     /// This method is DA-specific:

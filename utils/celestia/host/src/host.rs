@@ -71,6 +71,13 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
         get_highest_finalized_l2_block(fetcher, latest_proposed_block_number).await
     }
 
+    fn max_provable_l2_search_lookback_blocks(&self) -> u64 {
+        // Blobstream commitments can lag L2 finality by more than two hours. The lookup uses
+        // binary search, so a wider Celestia-specific window is cheap and avoids spurious
+        // "no provable L2 blocks found" failures.
+        43_200
+    }
+
     /// Calculate the safe L1 head hash for Celestia DA considering Blobstream commitments.
     /// Finds the latest L1 block containing batches with Celestia data committed via Blobstream.
     async fn calculate_safe_l1_head(
