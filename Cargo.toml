@@ -20,6 +20,7 @@ members = [
     "fault-proof",
     "bindings",
 ]
+exclude = ["patches/multihash-0.16.3"]
 resolver = "2"
 
 [workspace.package]
@@ -235,6 +236,7 @@ substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-s
 p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-6.0.0" }
 k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-6.0.0" }
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-6.0.0" }
+multihash = { path = "patches/multihash-0.16.3" }
 
 # Patch op-alloy and alloy-op-evm to use the optimism monorepo versions
 # Required because kona v1.2.13 uses path deps from the monorepo, and hokulea's
