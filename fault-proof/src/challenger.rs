@@ -16,7 +16,7 @@ use crate::{
     contract::{
         AnchorStateRegistry::AnchorStateRegistryInstance,
         DisputeGameFactory::DisputeGameFactoryInstance, GameStatus, OPSuccinctFaultDisputeGame,
-        ProposalStatus,
+        ProposalStatus, BOND_DISTRIBUTION_MODE_UNDECIDED, MAX_CLOSE_GAME_FAILURES,
     },
     is_parent_challenger_wins, is_parent_resolved,
     prometheus::ChallengerGauge,
@@ -36,6 +36,7 @@ where
     anchor_state_registry: AnchorStateRegistryInstance<P>,
     factory: DisputeGameFactoryInstance<P>,
     challenger_bond: OnceLock<U256>,
+    close_game_failures: Arc<Mutex<HashMap<Address, u8>>>,
     state: Arc<Mutex<ChallengerState>>,
 }
 
@@ -61,6 +62,7 @@ where
             anchor_state_registry,
             factory,
             challenger_bond: OnceLock::new(),
+            close_game_failures: Arc::new(Mutex::new(HashMap::new())),
             state: Arc::new(Mutex::new(ChallengerState {
                 cursor: U256::ZERO,
                 games: HashMap::new(),
@@ -103,6 +105,10 @@ where
 
             if let Err(e) = self.handle_game_resolution().await {
                 tracing::warn!("Failed to handle game resolution: {:?}", e);
+            }
+
+            if let Err(e) = self.handle_game_closing().await {
+                tracing::warn!("Failed to handle game closing: {:?}", e);
             }
 
             if let Err(e) = self.handle_bond_claiming().await {
@@ -180,9 +186,10 @@ where
     ///      wins.
     ///    - Games are marked for resolution if the parent is resolved, the game is over, and it's
     ///      own game.
-    ///    - Games are marked for bond claim if they are finalized and there is credit to claim.
-    ///    - Games are evicted once finalized with no remaining credit or whenever resolves as
-    ///      defender wins.
+    ///    - Finalized UNDECIDED challenger-won games are marked for close.
+    ///    - Closed challenger-won games are marked for bond claim if there is credit to claim.
+    ///    - Closed challenger-won games with no remaining credit are evicted, as are games that
+    ///      resolve as defender wins.
     pub async fn sync_state(&self) -> Result<()> {
         // 1. Load new games.
         let mut next_index = {
@@ -228,6 +235,7 @@ where
                     proposal_status: ProposalStatus,
                     should_attempt_to_challenge: bool,
                     should_attempt_to_resolve: bool,
+                    should_attempt_to_close_game: bool,
                     should_attempt_to_claim_bond: bool,
                 },
                 Remove(U256),
@@ -287,15 +295,45 @@ where
                             proposal_status,
                             should_attempt_to_challenge,
                             should_attempt_to_resolve,
+                            should_attempt_to_close_game: false,
                             should_attempt_to_claim_bond: false,
                         });
                     }
                     GameStatus::CHALLENGER_WINS => {
                         let is_finalized =
                             self.anchor_state_registry.isGameFinalized(game.address).call().await?;
-                        let credit = contract.credit(signer_address).call().await?;
 
-                        if is_finalized && credit == U256::ZERO {
+                        if !is_finalized {
+                            actions.push(GameSyncAction::Update {
+                                index: game.index,
+                                status,
+                                proposal_status,
+                                should_attempt_to_challenge: false,
+                                should_attempt_to_resolve: false,
+                                should_attempt_to_close_game: false,
+                                should_attempt_to_claim_bond: false,
+                            });
+                            continue;
+                        }
+
+                        let bond_distribution_mode = contract.bondDistributionMode().call().await?;
+                        if bond_distribution_mode == BOND_DISTRIBUTION_MODE_UNDECIDED {
+                            actions.push(GameSyncAction::Update {
+                                index: game.index,
+                                status,
+                                proposal_status,
+                                should_attempt_to_challenge: false,
+                                should_attempt_to_resolve: false,
+                                should_attempt_to_close_game: true,
+                                should_attempt_to_claim_bond: false,
+                            });
+                            continue;
+                        }
+
+                        self.close_game_failures.lock().await.remove(&game.address);
+
+                        let credit = contract.credit(signer_address).call().await?;
+                        if credit == U256::ZERO {
                             actions.push(GameSyncAction::Remove(game.index));
                         } else {
                             actions.push(GameSyncAction::Update {
@@ -304,7 +342,8 @@ where
                                 proposal_status,
                                 should_attempt_to_challenge: false,
                                 should_attempt_to_resolve: false,
-                                should_attempt_to_claim_bond: is_finalized && credit > U256::ZERO,
+                                should_attempt_to_close_game: false,
+                                should_attempt_to_claim_bond: true,
                             });
                         }
                     }
@@ -324,6 +363,7 @@ where
                         proposal_status,
                         should_attempt_to_challenge,
                         should_attempt_to_resolve,
+                        should_attempt_to_close_game,
                         should_attempt_to_claim_bond,
                     } => {
                         if let Some(game) = state.games.get_mut(&index) {
@@ -331,6 +371,7 @@ where
                             game.proposal_status = proposal_status;
                             game.should_attempt_to_challenge = should_attempt_to_challenge;
                             game.should_attempt_to_resolve = should_attempt_to_resolve;
+                            game.should_attempt_to_close_game = should_attempt_to_close_game;
                             game.should_attempt_to_claim_bond = should_attempt_to_claim_bond;
                         }
                     }
@@ -385,6 +426,7 @@ where
                     proposal_status: claim_data.status,
                     should_attempt_to_challenge: false,
                     should_attempt_to_resolve: false,
+                    should_attempt_to_close_game: false,
                     should_attempt_to_claim_bond: false,
                 },
             );
@@ -598,6 +640,91 @@ where
         Ok(())
     }
 
+    /// Closes finalized challenger-won games before any bond-claim or eviction decision.
+    #[tracing::instrument(skip(self), level = "info", name = "[[Closing Challenger Games]]")]
+    async fn handle_game_closing(&self) -> Result<()> {
+        let candidates = {
+            let state = self.state.lock().await;
+            state
+                .games
+                .values()
+                .filter(|game| game.should_attempt_to_close_game)
+                .cloned()
+                .collect::<Vec<_>>()
+        };
+
+        for game in candidates {
+            let failure_count =
+                self.close_game_failures.lock().await.get(&game.address).copied().unwrap_or(0);
+            if failure_count >= MAX_CLOSE_GAME_FAILURES {
+                tracing::error!(
+                    game_index = %game.index,
+                    game_address = ?game.address,
+                    failures = failure_count,
+                    "Skipping game close after repeated failures; restart resets this in-memory guard"
+                );
+                continue;
+            }
+
+            if let Err(error) = self.submit_close_game_transaction(&game).await {
+                let mut failures = self.close_game_failures.lock().await;
+                let count = failures.entry(game.address).or_default();
+                *count = count.saturating_add(1);
+                ChallengerGauge::GameCloseError.increment(1.0);
+
+                if error.is_revert() {
+                    tracing::error!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        failures = *count,
+                        ?error,
+                        "Close game tx included but reverted on-chain"
+                    );
+                } else {
+                    tracing::warn!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        failures = *count,
+                        ?error,
+                        "Close game tx unconfirmed (may be on-chain), will verify next cycle"
+                    );
+                }
+                continue;
+            }
+
+            self.close_game_failures.lock().await.remove(&game.address);
+        }
+
+        Ok(())
+    }
+
+    async fn submit_close_game_transaction(&self, game: &Game) -> Result<()> {
+        let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+        let transaction_request = contract.closeGame().gas(200_000).into_transaction_request();
+        let receipt = self
+            .signer
+            .send_transaction_request_with_timeout(
+                self.config.l1_rpc.clone(),
+                transaction_request,
+                self.config.tx_confirmation_timeout,
+            )
+            .await?;
+
+        if !receipt.status() {
+            bail!("{TX_REVERTED_PREFIX} {receipt:?}");
+        }
+
+        tracing::info!(
+            game_index = %game.index,
+            game_address = ?game.address,
+            l2_block_end = %game.l2_block_number,
+            tx_hash = ?receipt.transaction_hash,
+            "Game closed successfully"
+        );
+
+        Ok(())
+    }
+
     /// Claims bonds from games flagged for claiming.
     #[tracing::instrument(skip(self), level = "info", name = "[[Claiming Challenger Bonds]]")]
     pub async fn handle_bond_claiming(&self) -> Result<()> {
@@ -702,6 +829,7 @@ pub struct Game {
     pub proposal_status: ProposalStatus,
     pub should_attempt_to_challenge: bool,
     pub should_attempt_to_resolve: bool,
+    pub should_attempt_to_close_game: bool,
     pub should_attempt_to_claim_bond: bool,
 }
 

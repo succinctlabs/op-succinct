@@ -88,6 +88,11 @@ pub enum ProposerGauge {
     )]
     GameResolutionError,
     #[strum(
+        serialize = "op_succinct_fp_game_close_error",
+        message = "Total number of game close errors encountered by the proposer"
+    )]
+    GameCloseError,
+    #[strum(
         serialize = "op_succinct_fp_bond_claiming_error",
         message = "Total number of bond claiming errors encountered by the proposer"
     )]
@@ -187,6 +192,11 @@ pub enum ChallengerGauge {
         message = "Total number of game resolution errors encountered by the challenger"
     )]
     GameResolutionError,
+    #[strum(
+        serialize = "op_succinct_fp_challenger_game_close_error",
+        message = "Total number of game close errors encountered by the challenger"
+    )]
+    GameCloseError,
     #[strum(
         serialize = "op_succinct_fp_challenger_bond_claiming_error",
         message = "Total number of bond claiming errors encountered by the challenger"
