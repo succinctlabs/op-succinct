@@ -956,7 +956,7 @@ where
             } else {
                 // Checkpoint an L1 block hash that will be used to create the aggregation proof.
                 let latest_header =
-                    self.driver_config.fetcher.get_l1_header(BlockId::latest()).await?;
+                    self.driver_config.fetcher.get_l1_header(BlockId::safe()).await?;
 
                 // Checkpoint the L1 block hash.
                 let transaction_request = self
