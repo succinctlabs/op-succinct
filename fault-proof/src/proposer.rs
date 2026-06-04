@@ -225,6 +225,55 @@ impl ProposerState {
             self.games.remove(&index);
         }
     }
+
+    /// Selects the canonical head: the highest-L2-block game on the best valid chain.
+    ///
+    /// With no anchor, the head is simply the highest game in the cache. With an anchor, the head
+    /// is the highest descendant of the anchor, unless a higher chain branches off earlier
+    /// (genesis-rooted, or a lower parent index than the anchor head) — that alternative chain is
+    /// then followed to its own tip.
+    fn select_canonical_head(&self) -> Option<Game> {
+        let Some(anchor_game) = self.anchor_game.as_ref() else {
+            return self.games.values().max_by_key(|g| g.l2_block).cloned();
+        };
+
+        let reachable = self.descendants_of(anchor_game.index);
+
+        // Best among the anchor's descendants.
+        let anchor_head = self
+            .games
+            .values()
+            .filter(|g| reachable.contains(&g.index))
+            .max_by_key(|g| g.l2_block)
+            .cloned();
+
+        // Override with a higher non-descendant chain that branches off earlier than the anchor
+        // head (genesis-rooted, or a lower parent index). Such a chain's root sits outside the
+        // anchor's subtree, so we follow each qualifying root to its own highest-block tip rather
+        // than stopping at the root — otherwise the head would pin to the root of a genesis-rooted
+        // catch-up chain and stall instead of tracking its tip.
+        let override_head = anchor_head.as_ref().and_then(|anchor| {
+            let roots: Vec<U256> = self
+                .games
+                .values()
+                .filter(|g| {
+                    !reachable.contains(&g.index) &&
+                        g.l2_block > anchor.l2_block &&
+                        (g.parent_index == u32::MAX || g.parent_index < anchor.parent_index)
+                })
+                .map(|g| g.index)
+                .collect();
+
+            roots
+                .into_iter()
+                .flat_map(|root| self.descendants_of(root))
+                .filter_map(|idx| self.games.get(&idx))
+                .max_by_key(|g| g.l2_block)
+                .cloned()
+        });
+
+        override_head.or(anchor_head)
+    }
 }
 
 /// Snapshot of the proposer's cached state for testing and monitoring.
@@ -1094,44 +1143,11 @@ where
         Ok(())
     }
 
-    /// Computes the canonical head by scanning all cached games.
-    ///
-    /// Canonical head is the game with the highest L2 block number. When an anchor game exists,
-    /// the canonical head is chosen from its descendants, unless a non-descendant has a higher L2
-    /// block number and an earlier lineage (parent is genesis or has a lower parent index than the
-    /// best descendant).
+    /// Computes and stores the canonical head used to schedule new proposals, logging on change.
     async fn compute_canonical_head(&self) {
         let mut state = self.state.write().await;
 
-        let canonical_head = match state.anchor_game.as_ref() {
-            None => state.games.values().max_by_key(|g| g.l2_block).cloned(),
-            Some(anchor_game) => {
-                let reachable = state.descendants_of(anchor_game.index);
-
-                // Best among descendants
-                let anchor_head = state
-                    .games
-                    .values()
-                    .filter(|g| reachable.contains(&g.index))
-                    .max_by_key(|g| g.l2_block);
-
-                // Check non-descendants for override (higher block with genesis or lower parent)
-                let override_head = anchor_head.and_then(|anchor| {
-                    state
-                        .games
-                        .values()
-                        .filter(|g| !reachable.contains(&g.index))
-                        .filter(|g| {
-                            g.l2_block > anchor.l2_block &&
-                                (g.parent_index == u32::MAX ||
-                                    g.parent_index < anchor.parent_index)
-                        })
-                        .max_by_key(|g| g.l2_block)
-                });
-
-                override_head.or(anchor_head).cloned()
-            }
-        };
+        let canonical_head = state.select_canonical_head();
 
         let previous_canonical_index = state.canonical_head_index;
 
@@ -2697,6 +2713,93 @@ mod tests {
     use futures::stream::{self, StreamExt, TryStreamExt};
     use rstest::rstest;
     use std::time::Duration;
+
+    mod canonical_head {
+        use super::super::{Game, ProposerState};
+        use crate::contract::{GameStatus, ProposalStatus};
+        use alloy_primitives::{Address, B256, U256};
+
+        fn game_with(index: u64, parent_index: u32, l2_block: u64) -> Game {
+            Game {
+                index: U256::from(index),
+                address: Address::left_padding_from(&[index as u8]),
+                parent_index,
+                l2_block: U256::from(l2_block),
+                status: GameStatus::IN_PROGRESS,
+                proposal_status: ProposalStatus::Unchallenged,
+                deadline: 0,
+                should_attempt_to_resolve: false,
+                should_attempt_to_claim_bond: false,
+                aggregation_vkey: B256::ZERO,
+                range_vkey_commitment: B256::ZERO,
+                rollup_config_hash: B256::ZERO,
+            }
+        }
+
+        fn state(games: Vec<Game>, anchor: Option<Game>) -> ProposerState {
+            ProposerState {
+                games: games.into_iter().map(|g| (g.index, g)).collect(),
+                anchor_game: anchor,
+                ..Default::default()
+            }
+        }
+
+        #[test]
+        fn no_anchor_selects_highest_block_game() {
+            let s = state(vec![game_with(0, u32::MAX, 100), game_with(1, 0, 200)], None);
+            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(1));
+        }
+
+        #[test]
+        fn anchor_subtree_selects_its_tip() {
+            let anchor = game_with(5, 4, 100);
+            let s = state(
+                vec![anchor.clone(), game_with(6, 5, 200), game_with(7, 6, 300)],
+                Some(anchor),
+            );
+            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(7));
+        }
+
+        #[test]
+        fn genesis_rooted_catchup_chain_follows_to_tip() {
+            // Anchor 5 was the canonical head; the proposer could not parent on it (the contract
+            // reverts when the parent is the anchor), so it built a fresh genesis-rooted chain
+            // 6 <- 7 above it. The head must track the chain tip (7), not its root (6).
+            let anchor = game_with(5, 4, 100);
+            let s = state(
+                vec![anchor.clone(), game_with(6, u32::MAX, 200), game_with(7, 6, 300)],
+                Some(anchor),
+            );
+            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(7));
+        }
+
+        #[test]
+        fn genesis_rooted_deep_chain_follows_to_tip() {
+            let anchor = game_with(5, 4, 100);
+            let s = state(
+                vec![
+                    anchor.clone(),
+                    game_with(6, u32::MAX, 200),
+                    game_with(7, 6, 300),
+                    game_with(8, 7, 400),
+                ],
+                Some(anchor),
+            );
+            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(8));
+        }
+
+        #[test]
+        fn earlier_lineage_override_follows_to_tip() {
+            // A chain branching off an earlier lineage than the anchor (parent 2 < anchor parent 4)
+            // must also be followed to its tip.
+            let anchor = game_with(5, 4, 100);
+            let s = state(
+                vec![anchor.clone(), game_with(6, 2, 200), game_with(7, 6, 300)],
+                Some(anchor),
+            );
+            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(7));
+        }
+    }
 
     async fn mock_prove(
         idx: usize,
