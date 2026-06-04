@@ -42,6 +42,25 @@ use crate::{
 /// Number of consecutive poll failures before a cluster proof is marked as permanently failed.
 const MAX_CONSECUTIVE_POLL_FAILURES: u32 = 3;
 
+/// Select the L1 block number to checkpoint for an aggregation proof.
+///
+/// The aggregation guest walks L1 headers back from the checkpointed head *by hash* and requires
+/// every range proof's `l1Head` to lie on that chain, so the checkpoint must be at or after
+/// `batch_max_l1_head` (the largest `l1Head` among the aggregated range proofs). We floor a
+/// reorg-stable `safe` head at that value:
+/// - `safe` keeps the checkpoint inside the EVM `blockhash` window (256 blocks) and immune to tip
+///   reorgs. Under `L1_BLOCK_TAG=finalized|safe`, range `l1Head`s are <= safe, so this is the
+///   selected block.
+/// - The floor guarantees coverage under `L1_BLOCK_TAG=latest`, where a range `l1Head` can be
+///   newer than `safe`. Note the floor is by *number*; the guest enforces by *hash*, so the two
+///   agree only on the canonical chain. A boot `l1Head` above `safe` that is later orphaned stays
+///   reorg-exposed — an inherent property of `latest`, not resolved here.
+///
+/// `None` (no completed range proof has a recorded `l1_head_block_number`) falls back to `safe`.
+fn select_checkpoint_block_number(safe_block_number: u64, batch_max_l1_head: Option<u64>) -> u64 {
+    batch_max_l1_head.map_or(safe_block_number, |max| max.max(safe_block_number))
+}
+
 /// Configuration for the driver.
 pub struct DriverConfig {
     pub network_prover: Option<Arc<NetworkProver>>,
@@ -905,9 +924,28 @@ where
                 )
                 .await?;
 
+            // Largest range-proof `l1Head` in the batch. The checkpoint must cover it (see
+            // `select_checkpoint_block_number`), so it gates both reuse and fresh selection below.
+            // `None` when no completed range proof has a recorded l1 head (e.g. proofs predating
+            // the column), in which case `safe` is a sufficient floor.
+            let batch_max_l1_head = self
+                .driver_config
+                .driver_db_client
+                .get_max_l1_head_block_number_for_range(
+                    latest_proposed_block_number,
+                    highest_proven_contiguous_block_number,
+                    &self.program_config.commitments,
+                    self.requester_config.l1_chain_id,
+                    self.requester_config.l2_chain_id,
+                )
+                .await?
+                .map(u64::try_from)
+                .transpose()
+                .context("Range proof l1_head_block_number is negative")?;
+
             // If there's an existing aggregation request with the same start block, end block, and
             // commitment config, try to reuse its checkpoint as long as it still matches the
-            // on-chain mapping.
+            // on-chain mapping and still covers the batch's max l1Head.
             let reuse_checkpoint = if let Some(existing_request) = existing_request {
                 let existing_l1_block_hash = B256::from_slice(&existing_request.0);
                 let existing_l1_block_number = existing_request.1;
@@ -937,6 +975,13 @@ where
                         "Historic block hash mismatch between database and contract; re-checkpointing."
                     );
                     None
+                } else if batch_max_l1_head.is_some_and(|max| existing_l1_block_number_u64 < max) {
+                    warn!(
+                        block_number = existing_l1_block_number,
+                        ?batch_max_l1_head,
+                        "Cached checkpoint is below the batch's max l1Head; re-checkpointing."
+                    );
+                    None
                 } else {
                     debug!(
                         block_number = existing_l1_block_number,
@@ -954,15 +999,26 @@ where
             {
                 reuse
             } else {
-                // Checkpoint an L1 block hash that will be used to create the aggregation proof.
-                let latest_header =
+                // Checkpoint a reorg-stable `safe` head, floored at the batch's max l1Head so the
+                // aggregation guest's header walk covers every range proof (see
+                // `select_checkpoint_block_number`).
+                let safe_header =
                     self.driver_config.fetcher.get_l1_header(BlockId::safe()).await?;
+
+                let checkpoint_number =
+                    select_checkpoint_block_number(safe_header.number, batch_max_l1_head);
+
+                let checkpoint_header = if checkpoint_number == safe_header.number {
+                    safe_header
+                } else {
+                    self.driver_config.fetcher.get_l1_header(checkpoint_number.into()).await?
+                };
 
                 // Checkpoint the L1 block hash.
                 let transaction_request = self
                     .contract_config
                     .l2oo_contract
-                    .checkpointBlockHash(U256::from(latest_header.number))
+                    .checkpointBlockHash(U256::from(checkpoint_header.number))
                     .into_transaction_request();
 
                 let receipt = self
@@ -980,9 +1036,9 @@ where
                     return Err(anyhow!("Checkpoint block transaction reverted: {:?}", receipt));
                 }
 
-                tracing::info!("Checkpointed L1 block number: {:?}.", latest_header.number);
+                tracing::info!("Checkpointed L1 block number: {:?}.", checkpoint_header.number);
 
-                (latest_header.hash_slow(), latest_header.number as i64)
+                (checkpoint_header.hash_slow(), checkpoint_header.number as i64)
             };
 
             // Create an aggregation proof request to cover the range with the checkpointed L1 block
@@ -1894,5 +1950,26 @@ where
                 ))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::select_checkpoint_block_number;
+
+    #[test]
+    fn checkpoint_falls_back_to_safe_when_no_batch_max() {
+        assert_eq!(select_checkpoint_block_number(100, None), 100);
+    }
+
+    #[test]
+    fn checkpoint_uses_safe_when_batch_max_at_or_below_safe() {
+        assert_eq!(select_checkpoint_block_number(100, Some(80)), 100);
+        assert_eq!(select_checkpoint_block_number(100, Some(100)), 100);
+    }
+
+    #[test]
+    fn checkpoint_floors_at_batch_max_when_above_safe() {
+        assert_eq!(select_checkpoint_block_number(100, Some(150)), 150);
     }
 }
