@@ -51,9 +51,9 @@ const MAX_CONSECUTIVE_POLL_FAILURES: u32 = 3;
 /// - `safe` keeps the checkpoint inside the EVM `blockhash` window (256 blocks) and immune to tip
 ///   reorgs. Under `L1_BLOCK_TAG=finalized|safe`, range `l1Head`s are <= safe, so this is the
 ///   selected block.
-/// - The floor guarantees coverage under `L1_BLOCK_TAG=latest`, where a range `l1Head` can be
-///   newer than `safe`. Note the floor is by *number*; the guest enforces by *hash*, so the two
-///   agree only on the canonical chain. A boot `l1Head` above `safe` that is later orphaned stays
+/// - The floor guarantees coverage under `L1_BLOCK_TAG=latest`, where a range `l1Head` can be newer
+///   than `safe`. Note the floor is by *number*; the guest enforces by *hash*, so the two agree
+///   only on the canonical chain. A boot `l1Head` above `safe` that is later orphaned stays
 ///   reorg-exposed — an inherent property of `latest`, not resolved here.
 ///
 /// `None` (no completed range proof has a recorded `l1_head_block_number`) falls back to `safe`.
@@ -1002,8 +1002,7 @@ where
                 // Checkpoint a reorg-stable `safe` head, floored at the batch's max l1Head so the
                 // aggregation guest's header walk covers every range proof (see
                 // `select_checkpoint_block_number`).
-                let safe_header =
-                    self.driver_config.fetcher.get_l1_header(BlockId::safe()).await?;
+                let safe_header = self.driver_config.fetcher.get_l1_header(BlockId::safe()).await?;
 
                 let checkpoint_number =
                     select_checkpoint_block_number(safe_header.number, batch_max_l1_head);
