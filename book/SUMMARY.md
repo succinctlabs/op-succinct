@@ -23,6 +23,7 @@
     - [Celestia](./validity/data-availability/celestia.md)
     - [EigenDA](./validity/data-availability/eigenda.md)
   - [Experimental Features](./validity/experimental/experimental.md)
+    - [Alt-DA Server](./validity/experimental/altda.md)
 
 - [OP Succinct Lite (Fault Proofs)](./fault_proofs/intro.md)
   - [Architecture](./fault_proofs/fault_proof_architecture.md)
