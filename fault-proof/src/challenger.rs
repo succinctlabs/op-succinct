@@ -545,6 +545,32 @@ where
         };
 
         for game in candidates {
+            // Pre-flight on-chain status check at `latest`. The cached `should_attempt_to_resolve`
+            // flag is captured at sync time and can be stale by submission — between sync and
+            // this loop, another actor's `resolve()` may have landed (or this loop already
+            // resolved an earlier candidate that affected this one). Re-checking at `latest`
+            // avoids submitting a resolution that would only revert on chain.
+            let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+            match contract.status().call().await {
+                Ok(status) if status != GameStatus::IN_PROGRESS => {
+                    tracing::info!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        ?status,
+                        "Skipping resolve: game already resolved on chain"
+                    );
+                    continue;
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        game_address = ?game.address,
+                        error = ?e,
+                        "Pre-flight status check failed, proceeding with resolve"
+                    );
+                }
+                _ => {}
+            }
+
             if let Err(error) = self.submit_resolution_transaction(&game).await {
                 if error.is_revert() {
                     tracing::error!(
@@ -611,7 +637,33 @@ where
                 .collect::<Vec<_>>()
         };
 
+        let signer_address = self.signer.address();
         for game in candidates {
+            // Pre-flight on-chain credit check at `latest`. The cached
+            // `should_attempt_to_claim_bond` flag is captured at sync time and can be stale by
+            // submission — a recently confirmed `claimCredit()` (e.g., from a prior cycle or
+            // another actor) is already reflected at `latest`. Re-checking avoids submitting a
+            // claim that would only revert on chain.
+            let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+            match contract.credit(signer_address).call().await {
+                Ok(credit) if credit == U256::ZERO => {
+                    tracing::info!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        "Skipping claim: bond already claimed on chain"
+                    );
+                    continue;
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        game_address = ?game.address,
+                        error = ?e,
+                        "Pre-flight credit check failed, proceeding with claim"
+                    );
+                }
+                _ => {}
+            }
+
             if let Err(error) = self.submit_bond_claim_transaction(&game).await {
                 if error.is_revert() {
                     tracing::error!(
