@@ -272,6 +272,16 @@ impl ProposerState {
                 .cloned()
         });
 
+        // Log when the head comes from a catch-up chain so operators can tell the proposer is
+        // recovering along a chain outside the anchor subtree.
+        if let Some(head) = override_head.as_ref() {
+            tracing::debug!(
+                head_index = %head.index,
+                head_l2_block = %head.l2_block,
+                "Canonical head selected from a catch-up chain outside the anchor subtree"
+            );
+        }
+
         override_head.or(anchor_head)
     }
 }
