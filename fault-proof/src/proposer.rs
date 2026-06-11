@@ -2799,6 +2799,26 @@ mod tests {
             );
             assert_eq!(s.select_canonical_head().unwrap().index, U256::from(7));
         }
+
+        #[test]
+        fn multiple_catchup_chains_select_highest_tip() {
+            // Repeated stall/recovery cycles can leave several genesis-rooted catch-up chains in
+            // the cache at once. The head must be the highest-block tip across all qualifying
+            // chains pooled together (chain B's tip 9), even though chain B's root (block 250)
+            // sits below chain A's tip (block 300).
+            let anchor = game_with(5, 4, 100);
+            let s = state(
+                vec![
+                    anchor.clone(),
+                    game_with(6, u32::MAX, 200),
+                    game_with(7, 6, 300),
+                    game_with(8, u32::MAX, 250),
+                    game_with(9, 8, 400),
+                ],
+                Some(anchor),
+            );
+            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(9));
+        }
     }
 
     async fn mock_prove(
