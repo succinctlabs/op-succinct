@@ -1028,11 +1028,12 @@ impl OPSuccinctDataFetcher {
             ),
             l1_beacon_address,
             data_dir: None, // Use in-memory key-value store.
+            // Irrelevant with an in-memory KV store (no on-disk preimage data).
+            data_format: kona_host::DataFormat::default(),
             native: false,
             server: true,
             rollup_config_path: self.rollup_config_path.clone(),
             l1_config_path: self.l1_config_path.clone(),
-            enable_experimental_witness_endpoint: false,
         })
     }
 }

@@ -73,6 +73,8 @@ where
             da_provider,
             l1_provider,
             l2_provider,
+            // No interop dependency set: OP Succinct chains are non-interop.
+            None,
         )
         .await?)
     }
