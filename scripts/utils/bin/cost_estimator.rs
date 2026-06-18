@@ -16,6 +16,22 @@ use op_succinct_host_utils::{
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_scripts::HostExecutorArgs;
+
+// Cost-estimator-specific CLI args. Wraps `HostExecutorArgs` and adds the estimator-only
+// `--no-safe-head-split` flag so unrelated host binaries (e.g. `multi`,
+// `gen-sp1-test-artifacts`) don't advertise a flag they ignore.
+#[derive(Debug, Clone, Parser)]
+#[command(about = "Estimate OP Succinct execution costs over an L2 block range")]
+struct CostEstimatorArgs {
+    #[command(flatten)]
+    host: HostExecutorArgs,
+    /// Bypass span-batch-aligned splitting even when SafeDB is active. Forces the basic
+    /// fixed-size splitter so the range is partitioned solely by `--batch-size`. Useful for
+    /// estimating per-segment cost as the proposer sees it (one zkVM execution per
+    /// `RANGE_SPLIT_COUNT` segment) rather than per span batch.
+    #[arg(long)]
+    no_safe_head_split: bool,
+}
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use sp1_sdk::{
     blocking::{CpuProver, Prover},
@@ -227,7 +243,9 @@ fn aggregate_execution_stats(
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args = HostExecutorArgs::parse();
+    let args = CostEstimatorArgs::parse();
+    let no_safe_head_split = args.no_safe_head_split;
+    let args = args.host;
 
     dotenv::from_path(&args.env_file).ok();
     utils::setup_logger();
@@ -261,7 +279,7 @@ async fn main() -> Result<()> {
     // splitting algorithm. Otherwise, we use the simple range splitting algorithm.
     let safe_db_activated = data_fetcher.is_safe_db_activated().await?;
 
-    let split_ranges = if safe_db_activated {
+    let split_ranges = if safe_db_activated && !no_safe_head_split {
         split_range_based_on_safe_heads(
             &data_fetcher,
             l2_start_block,

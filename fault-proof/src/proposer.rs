@@ -225,6 +225,65 @@ impl ProposerState {
             self.games.remove(&index);
         }
     }
+
+    /// Selects the canonical head: the highest-L2-block game on the best valid chain.
+    ///
+    /// With no anchor, the head is simply the highest game in the cache. With an anchor, the head
+    /// is the highest descendant of the anchor, unless a higher chain branches off earlier
+    /// (genesis-rooted, or a lower parent index than the anchor head) — that alternative chain is
+    /// then followed to its own tip.
+    fn select_canonical_head(&self) -> Option<Game> {
+        let Some(anchor_game) = self.anchor_game.as_ref() else {
+            return self.games.values().max_by_key(|g| g.l2_block).cloned();
+        };
+
+        let reachable = self.descendants_of(anchor_game.index);
+
+        // Best among the anchor's descendants.
+        let anchor_head = self
+            .games
+            .values()
+            .filter(|g| reachable.contains(&g.index))
+            .max_by_key(|g| g.l2_block)
+            .cloned();
+
+        // Override with a higher non-descendant chain that branches off earlier than the anchor
+        // head (genesis-rooted, or a lower parent index). Such a chain's root sits outside the
+        // anchor's subtree, so we follow each qualifying root to its own highest-block tip rather
+        // than stopping at the root — otherwise the head would pin to the root of a genesis-rooted
+        // catch-up chain and stall instead of tracking its tip.
+        let override_head = anchor_head.as_ref().and_then(|anchor| {
+            let roots: Vec<U256> = self
+                .games
+                .values()
+                .filter(|g| {
+                    !reachable.contains(&g.index) &&
+                        g.l2_block > anchor.l2_block &&
+                        (g.parent_index == u32::MAX || g.parent_index < anchor.parent_index)
+                })
+                .map(|g| g.index)
+                .collect();
+
+            roots
+                .into_iter()
+                .flat_map(|root| self.descendants_of(root))
+                .filter_map(|idx| self.games.get(&idx))
+                .max_by_key(|g| g.l2_block)
+                .cloned()
+        });
+
+        // Log when the head comes from a catch-up chain so operators can tell the proposer is
+        // recovering along a chain outside the anchor subtree.
+        if let Some(head) = override_head.as_ref() {
+            tracing::debug!(
+                head_index = %head.index,
+                head_l2_block = %head.l2_block,
+                "Canonical head selected from a catch-up chain outside the anchor subtree"
+            );
+        }
+
+        override_head.or(anchor_head)
+    }
 }
 
 /// Snapshot of the proposer's cached state for testing and monitoring.
@@ -654,13 +713,26 @@ where
             latest_block.header.number.saturating_sub(self.config.sync_l1_confirmations);
 
         // If L1 hasn't advanced past the last synced block, all on-chain state is identical.
+        //
+        // `confirmed_number < prev` indicates backend regression from a load-balanced RPC, or a
+        // deep L1 reorg past `sync_l1_confirmations`. This case should be logged at WARN so
+        // operators can detect unhealthy backends or L1 reorg; the equal case stays at DEBUG since
+        // it's the normal "L1 hasn't ticked" path.
         let prev = self.last_synced_l1_block.load(Ordering::Relaxed);
         if confirmed_number > 0 && confirmed_number <= prev {
-            tracing::debug!(
-                confirmed_number,
-                last_synced = prev,
-                "L1 head unchanged, skipping sync"
-            );
+            if confirmed_number < prev {
+                tracing::warn!(
+                    confirmed_number,
+                    last_synced = prev,
+                    "L1 confirmed head moved backwards (backend regression or deep reorg), skipping sync"
+                );
+            } else {
+                tracing::debug!(
+                    confirmed_number,
+                    last_synced = prev,
+                    "L1 head unchanged, skipping sync"
+                );
+            }
             return Ok(());
         }
 
@@ -734,6 +806,20 @@ where
                 .copied()
                 .collect();
             if !future_games.is_empty() {
+                // Determine if the duplicate-creation guard's tracked game is among the
+                // entries this prune is about to remove. Must be evaluated BEFORE the
+                // removal loop while state.games still holds them. Checking "absent from
+                // post-prune cache" instead would over-clear the guard when the just-
+                // created game has not yet been added to the cache (e.g., right after
+                // creation, or after a backup restore that prunes unrelated entries),
+                // allowing should_create_game to re-submit a duplicate at the same L2
+                // block before the cache catches up.
+                let guarded_addr = *self.last_created_game_address.lock().await;
+                let guard_in_pruned = guarded_addr != Address::ZERO &&
+                    future_games.iter().any(|idx| {
+                        state.games.get(idx).is_some_and(|g| g.address == guarded_addr)
+                    });
+
                 for idx in &future_games {
                     state.games.remove(idx);
                 }
@@ -746,6 +832,14 @@ where
                     state.anchor_game.as_ref().is_some_and(|a| !state.games.contains_key(&a.index));
                 if should_clear_anchor {
                     state.anchor_game = None;
+                }
+                if guard_in_pruned {
+                    self.last_created_game_l2_block.store(0, Ordering::Relaxed);
+                    *self.last_created_game_address.lock().await = Address::ZERO;
+                    tracing::warn!(
+                        ?guarded_addr,
+                        "Reset creation guard: tracked game was among pruned entries"
+                    );
                 }
             }
         }
@@ -1059,44 +1153,11 @@ where
         Ok(())
     }
 
-    /// Computes the canonical head by scanning all cached games.
-    ///
-    /// Canonical head is the game with the highest L2 block number. When an anchor game exists,
-    /// the canonical head is chosen from its descendants, unless a non-descendant has a higher L2
-    /// block number and an earlier lineage (parent is genesis or has a lower parent index than the
-    /// best descendant).
+    /// Computes and stores the canonical head used to schedule new proposals, logging on change.
     async fn compute_canonical_head(&self) {
         let mut state = self.state.write().await;
 
-        let canonical_head = match state.anchor_game.as_ref() {
-            None => state.games.values().max_by_key(|g| g.l2_block).cloned(),
-            Some(anchor_game) => {
-                let reachable = state.descendants_of(anchor_game.index);
-
-                // Best among descendants
-                let anchor_head = state
-                    .games
-                    .values()
-                    .filter(|g| reachable.contains(&g.index))
-                    .max_by_key(|g| g.l2_block);
-
-                // Check non-descendants for override (higher block with genesis or lower parent)
-                let override_head = anchor_head.and_then(|anchor| {
-                    state
-                        .games
-                        .values()
-                        .filter(|g| !reachable.contains(&g.index))
-                        .filter(|g| {
-                            g.l2_block > anchor.l2_block &&
-                                (g.parent_index == u32::MAX ||
-                                    g.parent_index < anchor.parent_index)
-                        })
-                        .max_by_key(|g| g.l2_block)
-                });
-
-                override_head.or(anchor_head).cloned()
-            }
-        };
+        let canonical_head = state.select_canonical_head();
 
         let previous_canonical_index = state.canonical_head_index;
 
@@ -1378,6 +1439,31 @@ where
         };
 
         for game in candidates {
+            // Pre-flight on-chain status check at `latest`. The cached `should_attempt_to_resolve`
+            // is derived from the pinned (lagged) snapshot, so a recently confirmed `resolve()` tx
+            // may not yet be reflected. Querying at `latest` avoids re-submitting a resolution
+            // that would only revert on chain.
+            let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+            match contract.status().call().await {
+                Ok(status) if status != GameStatus::IN_PROGRESS => {
+                    tracing::info!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        ?status,
+                        "Skipping resolve: game already resolved on chain"
+                    );
+                    continue;
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        game_address = ?game.address,
+                        error = ?e,
+                        "Pre-flight status check failed, proceeding with resolve"
+                    );
+                }
+                _ => {}
+            }
+
             if let Err(error) = self.submit_resolution_transaction(&game).await {
                 if error.is_revert() {
                     tracing::error!(
@@ -1420,7 +1506,33 @@ where
                 .collect::<Vec<_>>()
         };
 
+        let signer_address = self.signer.address();
         for game in candidates {
+            // Pre-flight on-chain credit check at `latest`. The cached
+            // `should_attempt_to_claim_bond` is derived from the pinned (lagged)
+            // snapshot, so a recently confirmed `claimCredit()` tx may not yet be
+            // reflected. Querying at `latest` avoids re-submitting a claim that
+            // would only revert on chain.
+            let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+            match contract.credit(signer_address).call().await {
+                Ok(credit) if credit == U256::ZERO => {
+                    tracing::info!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        "Skipping claim: bond already claimed on chain"
+                    );
+                    continue;
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        game_address = ?game.address,
+                        error = ?e,
+                        "Pre-flight credit check failed, proceeding with claim"
+                    );
+                }
+                _ => {}
+            }
+
             if let Err(error) = self.submit_bond_claim_transaction(&game).await {
                 if error.is_revert() {
                     tracing::error!(
@@ -2336,6 +2448,7 @@ where
     /// Returns `Ok(true)` if proving should be skipped:
     /// - Game not found in cache
     /// - Game not owned (vkeys don't match)
+    /// - Game is already proven or resolved on chain (pre-flight check at `latest`)
     /// - Deadline has passed
     ///
     /// Returns `Ok(false)` if proving should proceed.
@@ -2361,6 +2474,39 @@ where
                     return Ok(true);
                 }
                 _ => {}
+            }
+        }
+
+        // Pre-flight on-chain status check at `latest`. The cached `proposal_status` is read
+        // from the pinned (lagged) block, so a recently confirmed prove() or resolve() tx may
+        // not yet be reflected. Querying at `latest` avoids expensive proof regeneration that
+        // would only revert on submission. Skip when:
+        // - ProposalStatus is *ValidProofProvided (proof already submitted), or
+        // - ProposalStatus is Resolved (game concluded — set whenever GameStatus moves out of
+        //   IN_PROGRESS, including timeout default-loss).
+        let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+        match contract.claimData().call().await {
+            Ok(claim_data) => {
+                if matches!(
+                    claim_data.status,
+                    ProposalStatus::UnchallengedAndValidProofProvided |
+                        ProposalStatus::ChallengedAndValidProofProvided |
+                        ProposalStatus::Resolved
+                ) {
+                    tracing::info!(
+                        ?game_address,
+                        proposal_status = ?claim_data.status,
+                        "Skipping proving: game already proven or resolved on chain"
+                    );
+                    return Ok(true);
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    ?game_address,
+                    error = ?e,
+                    "Pre-flight proposal status check failed, proceeding with proving"
+                );
             }
         }
 
@@ -2577,6 +2723,113 @@ mod tests {
     use futures::stream::{self, StreamExt, TryStreamExt};
     use rstest::rstest;
     use std::time::Duration;
+
+    mod canonical_head {
+        use super::super::{Game, ProposerState};
+        use crate::contract::{GameStatus, ProposalStatus};
+        use alloy_primitives::{Address, B256, U256};
+
+        fn game_with(index: u64, parent_index: u32, l2_block: u64) -> Game {
+            Game {
+                index: U256::from(index),
+                address: Address::left_padding_from(&[index as u8]),
+                parent_index,
+                l2_block: U256::from(l2_block),
+                status: GameStatus::IN_PROGRESS,
+                proposal_status: ProposalStatus::Unchallenged,
+                deadline: 0,
+                should_attempt_to_resolve: false,
+                should_attempt_to_claim_bond: false,
+                aggregation_vkey: B256::ZERO,
+                range_vkey_commitment: B256::ZERO,
+                rollup_config_hash: B256::ZERO,
+            }
+        }
+
+        fn state(games: Vec<Game>, anchor: Option<Game>) -> ProposerState {
+            ProposerState {
+                games: games.into_iter().map(|g| (g.index, g)).collect(),
+                anchor_game: anchor,
+                ..Default::default()
+            }
+        }
+
+        #[test]
+        fn no_anchor_selects_highest_block_game() {
+            let s = state(vec![game_with(0, u32::MAX, 100), game_with(1, 0, 200)], None);
+            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(1));
+        }
+
+        #[test]
+        fn anchor_subtree_selects_its_tip() {
+            let anchor = game_with(5, 4, 100);
+            let s = state(
+                vec![anchor.clone(), game_with(6, 5, 200), game_with(7, 6, 300)],
+                Some(anchor),
+            );
+            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(7));
+        }
+
+        #[test]
+        fn genesis_rooted_catchup_chain_follows_to_tip() {
+            // Anchor 5 was the canonical head; the proposer could not parent on it (the contract
+            // reverts when the parent is the anchor), so it built a fresh genesis-rooted chain
+            // 6 <- 7 above it. The head must track the chain tip (7), not its root (6).
+            let anchor = game_with(5, 4, 100);
+            let s = state(
+                vec![anchor.clone(), game_with(6, u32::MAX, 200), game_with(7, 6, 300)],
+                Some(anchor),
+            );
+            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(7));
+        }
+
+        #[test]
+        fn genesis_rooted_deep_chain_follows_to_tip() {
+            let anchor = game_with(5, 4, 100);
+            let s = state(
+                vec![
+                    anchor.clone(),
+                    game_with(6, u32::MAX, 200),
+                    game_with(7, 6, 300),
+                    game_with(8, 7, 400),
+                ],
+                Some(anchor),
+            );
+            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(8));
+        }
+
+        #[test]
+        fn earlier_lineage_override_follows_to_tip() {
+            // A chain branching off an earlier lineage than the anchor (parent 2 < anchor parent 4)
+            // must also be followed to its tip.
+            let anchor = game_with(5, 4, 100);
+            let s = state(
+                vec![anchor.clone(), game_with(6, 2, 200), game_with(7, 6, 300)],
+                Some(anchor),
+            );
+            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(7));
+        }
+
+        #[test]
+        fn multiple_catchup_chains_select_highest_tip() {
+            // Repeated stall/recovery cycles can leave several genesis-rooted catch-up chains in
+            // the cache at once. The head must be the highest-block tip across all qualifying
+            // chains pooled together (chain B's tip 9), even though chain B's root (block 250)
+            // sits below chain A's tip (block 300).
+            let anchor = game_with(5, 4, 100);
+            let s = state(
+                vec![
+                    anchor.clone(),
+                    game_with(6, u32::MAX, 200),
+                    game_with(7, 6, 300),
+                    game_with(8, u32::MAX, 250),
+                    game_with(9, 8, 400),
+                ],
+                Some(anchor),
+            );
+            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(9));
+        }
+    }
 
     async fn mock_prove(
         idx: usize,
