@@ -4931,7 +4931,7 @@ checksum = "1b43ede17f21864e81be2fa654110bf1e793774238d86ef8555c37e6519c0403"
 [[package]]
 name = "hana-blobstream"
 version = "0.1.0"
-source = "git+https://github.com/fakedev9999/hana?branch=bump-alloy-2.0.5#6dd25b62697595eadb2148a7eb6f5940220eff35"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.9.0-mocha#b08758022d178dcd9dc7407a3d4ca9bf3945b402"
 dependencies = [
  "alloy-chains",
  "alloy-consensus 2.0.5",
@@ -4949,7 +4949,7 @@ dependencies = [
 [[package]]
 name = "hana-celestia"
 version = "0.1.0"
-source = "git+https://github.com/fakedev9999/hana?branch=bump-alloy-2.0.5#6dd25b62697595eadb2148a7eb6f5940220eff35"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.9.0-mocha#b08758022d178dcd9dc7407a3d4ca9bf3945b402"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -4962,7 +4962,7 @@ dependencies = [
 [[package]]
 name = "hana-client"
 version = "0.1.0"
-source = "git+https://github.com/fakedev9999/hana?branch=bump-alloy-2.0.5#6dd25b62697595eadb2148a7eb6f5940220eff35"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.9.0-mocha#b08758022d178dcd9dc7407a3d4ca9bf3945b402"
 dependencies = [
  "alloy-consensus 2.0.5",
  "alloy-evm",
@@ -4989,7 +4989,7 @@ dependencies = [
 [[package]]
 name = "hana-host"
 version = "0.1.0"
-source = "git+https://github.com/fakedev9999/hana?branch=bump-alloy-2.0.5#6dd25b62697595eadb2148a7eb6f5940220eff35"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.9.0-mocha#b08758022d178dcd9dc7407a3d4ca9bf3945b402"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
@@ -5019,7 +5019,7 @@ dependencies = [
 [[package]]
 name = "hana-oracle"
 version = "0.1.0"
-source = "git+https://github.com/fakedev9999/hana?branch=bump-alloy-2.0.5#6dd25b62697595eadb2148a7eb6f5940220eff35"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.9.0-mocha#b08758022d178dcd9dc7407a3d4ca9bf3945b402"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -5036,7 +5036,7 @@ dependencies = [
 [[package]]
 name = "hana-proofs"
 version = "0.1.0"
-source = "git+https://github.com/fakedev9999/hana?branch=bump-alloy-2.0.5#6dd25b62697595eadb2148a7eb6f5940220eff35"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.9.0-mocha#b08758022d178dcd9dc7407a3d4ca9bf3945b402"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",

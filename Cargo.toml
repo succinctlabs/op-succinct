@@ -104,10 +104,10 @@ kona-registry = { git = "https://github.com/ethereum-optimism/optimism", tag = "
 kona-genesis = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.5.2", default-features = false }
 
 # hana
-hana-blobstream = { git = "https://github.com/fakedev9999/hana", branch = "bump-alloy-2.0.5" }
-hana-celestia = { git = "https://github.com/fakedev9999/hana", branch = "bump-alloy-2.0.5" }
-hana-host = { git = "https://github.com/fakedev9999/hana", branch = "bump-alloy-2.0.5" }
-hana-oracle = { git = "https://github.com/fakedev9999/hana", branch = "bump-alloy-2.0.5" }
+hana-blobstream = { git = "https://github.com/celestiaorg/hana", tag = "v1.9.0-mocha" }
+hana-celestia = { git = "https://github.com/celestiaorg/hana", tag = "v1.9.0-mocha" }
+hana-host = { git = "https://github.com/celestiaorg/hana", tag = "v1.9.0-mocha" }
+hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "v1.9.0-mocha" }
 
 # hokulea
 hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.0" }
