@@ -210,7 +210,7 @@ mod tests {
         OpSpecId::ISTHMUS,
         OpSpecId::JOVIAN,
         OpSpecId::INTEROP,
-        OpSpecId::OSAKA,
+        OpSpecId::KARST,
     ];
 
     // Compile-time guard: a new `OpSpecId` variant must be added to
@@ -230,7 +230,7 @@ mod tests {
             OpSpecId::ISTHMUS |
             OpSpecId::JOVIAN |
             OpSpecId::INTEROP |
-            OpSpecId::OSAKA => {}
+            OpSpecId::KARST => {}
         }
     }
 
@@ -591,7 +591,7 @@ mod tests {
 
     #[test]
     fn test_jovian_family_uses_canonical_bn254_pairing_limits() {
-        for spec in [OpSpecId::JOVIAN, OpSpecId::INTEROP, OpSpecId::OSAKA] {
+        for spec in [OpSpecId::JOVIAN, OpSpecId::INTEROP, OpSpecId::KARST] {
             let oversized_pairing_input =
                 vec![0; oversized_aligned_pair_input_len(bn254_pair::JOVIAN_MAX_INPUT_SIZE)];
             let call_inputs =
