@@ -3,7 +3,7 @@
 use super::OpZkvmPrecompiles;
 use alloy_evm::{Database, EvmEnv, EvmFactory};
 use alloy_op_evm::{
-    post_exec::{PostExecEvmFactoryHooks, PostExecExecutedTx, PostExecTxContext},
+    post_exec::{PostExecEvmFactoryHooks, PostExecExecutedTx, PostExecTxContext, WarmingState},
     OpEvm, OpEvmContext, OpTx, OpTxError,
 };
 use op_revm::{L1BlockInfo, OpBuilder, OpHaltReason, OpSpecId, OpTransaction};
@@ -103,5 +103,21 @@ impl PostExecEvmFactoryHooks for ZkvmOpEvmFactory {
         I: Inspector<Self::Context<DB>>,
     {
         evm.take_last_post_exec_tx_result()
+    }
+
+    fn warming_state<DB, I>(evm: &Self::Evm<DB, I>) -> WarmingState
+    where
+        DB: Database,
+        I: Inspector<Self::Context<DB>>,
+    {
+        evm.warming_state()
+    }
+
+    fn seed_warming_state<DB, I>(evm: &mut Self::Evm<DB, I>, state: WarmingState)
+    where
+        DB: Database,
+        I: Inspector<Self::Context<DB>>,
+    {
+        evm.seed_warming_state(state);
     }
 }

@@ -577,7 +577,7 @@ dependencies = [
 [[package]]
 name = "alloy-op-evm"
 version = "0.32.0"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-consensus 2.0.5",
  "alloy-eips 2.1.0",
@@ -594,7 +594,7 @@ dependencies = [
 [[package]]
 name = "alloy-op-hardforks"
 version = "0.5.0"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-chains",
  "alloy-hardforks 0.4.7",
@@ -2861,7 +2861,7 @@ dependencies = [
 [[package]]
 name = "canoe-bindings"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.0#decf5151399cfca86564be55ac6a5716cbd56efe"
+source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.1#6b89e9c7e48793c98f810e3b78fae477fd322189"
 dependencies = [
  "alloy-sol-types",
  "serde",
@@ -2870,7 +2870,7 @@ dependencies = [
 [[package]]
 name = "canoe-provider"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.0#decf5151399cfca86564be55ac6a5716cbd56efe"
+source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.1#6b89e9c7e48793c98f810e3b78fae477fd322189"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
@@ -2884,7 +2884,7 @@ dependencies = [
 [[package]]
 name = "canoe-sp1-cc-host"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.0#decf5151399cfca86564be55ac6a5716cbd56efe"
+source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.1#6b89e9c7e48793c98f810e3b78fae477fd322189"
 dependencies = [
  "alloy-genesis",
  "alloy-primitives",
@@ -2908,7 +2908,7 @@ dependencies = [
 [[package]]
 name = "canoe-sp1-cc-verifier"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.0#decf5151399cfca86564be55ac6a5716cbd56efe"
+source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.1#6b89e9c7e48793c98f810e3b78fae477fd322189"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
@@ -2926,7 +2926,7 @@ dependencies = [
 [[package]]
 name = "canoe-verifier"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.0#decf5151399cfca86564be55ac6a5716cbd56efe"
+source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.1#6b89e9c7e48793c98f810e3b78fae477fd322189"
 dependencies = [
  "alloy-genesis",
  "alloy-primitives",
@@ -2942,7 +2942,7 @@ dependencies = [
 [[package]]
 name = "canoe-verifier-address-fetcher"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.0#decf5151399cfca86564be55ac6a5716cbd56efe"
+source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.1#6b89e9c7e48793c98f810e3b78fae477fd322189"
 dependencies = [
  "alloy-primitives",
  "eigenda-cert",
@@ -4099,7 +4099,7 @@ dependencies = [
 [[package]]
 name = "eigenda-cert"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.0#decf5151399cfca86564be55ac6a5716cbd56efe"
+source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.1#6b89e9c7e48793c98f810e3b78fae477fd322189"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -4931,7 +4931,7 @@ checksum = "1b43ede17f21864e81be2fa654110bf1e793774238d86ef8555c37e6519c0403"
 [[package]]
 name = "hana-blobstream"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?tag=v1.9.0-mocha#b08758022d178dcd9dc7407a3d4ca9bf3945b402"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.9.1-mocha#a1cc6a029f99691340a4e55d4506a99a99524b54"
 dependencies = [
  "alloy-chains",
  "alloy-consensus 2.0.5",
@@ -4949,7 +4949,7 @@ dependencies = [
 [[package]]
 name = "hana-celestia"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?tag=v1.9.0-mocha#b08758022d178dcd9dc7407a3d4ca9bf3945b402"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.9.1-mocha#a1cc6a029f99691340a4e55d4506a99a99524b54"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -4962,7 +4962,7 @@ dependencies = [
 [[package]]
 name = "hana-client"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?tag=v1.9.0-mocha#b08758022d178dcd9dc7407a3d4ca9bf3945b402"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.9.1-mocha#a1cc6a029f99691340a4e55d4506a99a99524b54"
 dependencies = [
  "alloy-consensus 2.0.5",
  "alloy-evm",
@@ -4989,7 +4989,7 @@ dependencies = [
 [[package]]
 name = "hana-host"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?tag=v1.9.0-mocha#b08758022d178dcd9dc7407a3d4ca9bf3945b402"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.9.1-mocha#a1cc6a029f99691340a4e55d4506a99a99524b54"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
@@ -5019,7 +5019,7 @@ dependencies = [
 [[package]]
 name = "hana-oracle"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?tag=v1.9.0-mocha#b08758022d178dcd9dc7407a3d4ca9bf3945b402"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.9.1-mocha#a1cc6a029f99691340a4e55d4506a99a99524b54"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -5036,7 +5036,7 @@ dependencies = [
 [[package]]
 name = "hana-proofs"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?tag=v1.9.0-mocha#b08758022d178dcd9dc7407a3d4ca9bf3945b402"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.9.1-mocha#a1cc6a029f99691340a4e55d4506a99a99524b54"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
@@ -5156,7 +5156,7 @@ dependencies = [
 [[package]]
 name = "hokulea-client"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.0#decf5151399cfca86564be55ac6a5716cbd56efe"
+source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.1#6b89e9c7e48793c98f810e3b78fae477fd322189"
 dependencies = [
  "alloy-consensus 2.0.5",
  "alloy-evm",
@@ -5178,7 +5178,7 @@ dependencies = [
 [[package]]
 name = "hokulea-client-bin"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.0#decf5151399cfca86564be55ac6a5716cbd56efe"
+source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.1#6b89e9c7e48793c98f810e3b78fae477fd322189"
 dependencies = [
  "alloy-evm",
  "alloy-op-evm",
@@ -5199,7 +5199,7 @@ dependencies = [
 [[package]]
 name = "hokulea-compute-proof"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.0#decf5151399cfca86564be55ac6a5716cbd56efe"
+source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.1#6b89e9c7e48793c98f810e3b78fae477fd322189"
 dependencies = [
  "alloy-primitives",
  "ark-bn254",
@@ -5214,7 +5214,7 @@ dependencies = [
 [[package]]
 name = "hokulea-eigenda"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.0#decf5151399cfca86564be55ac6a5716cbd56efe"
+source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.1#6b89e9c7e48793c98f810e3b78fae477fd322189"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -5230,7 +5230,7 @@ dependencies = [
 [[package]]
 name = "hokulea-host-bin"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.0#decf5151399cfca86564be55ac6a5716cbd56efe"
+source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.1#6b89e9c7e48793c98f810e3b78fae477fd322189"
 dependencies = [
  "alloy-op-evm",
  "alloy-primitives",
@@ -5258,7 +5258,7 @@ dependencies = [
 [[package]]
 name = "hokulea-proof"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.0#decf5151399cfca86564be55ac6a5716cbd56efe"
+source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.1#6b89e9c7e48793c98f810e3b78fae477fd322189"
 dependencies = [
  "alloy-primitives",
  "ark-bn254",
@@ -5280,7 +5280,7 @@ dependencies = [
 [[package]]
 name = "hokulea-witgen"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.0#decf5151399cfca86564be55ac6a5716cbd56efe"
+source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.1#6b89e9c7e48793c98f810e3b78fae477fd322189"
 dependencies = [
  "alloy-consensus 2.0.5",
  "alloy-primitives",
@@ -5300,7 +5300,7 @@ dependencies = [
 [[package]]
 name = "hokulea-zkvm-verification"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.0#decf5151399cfca86564be55ac6a5716cbd56efe"
+source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.2.1#6b89e9c7e48793c98f810e3b78fae477fd322189"
 dependencies = [
  "canoe-verifier",
  "canoe-verifier-address-fetcher",
@@ -6107,7 +6107,7 @@ dependencies = [
 [[package]]
 name = "kona-cli"
 version = "0.3.2"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-chains",
  "alloy-primitives",
@@ -6127,7 +6127,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "1.0.2"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-consensus 2.0.5",
  "alloy-eips 2.1.0",
@@ -6166,7 +6166,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.4.5"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-consensus 2.0.5",
  "alloy-eips 2.1.0",
@@ -6188,7 +6188,7 @@ dependencies = [
 [[package]]
 name = "kona-driver"
 version = "0.4.0"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-consensus 2.0.5",
  "alloy-evm",
@@ -6209,7 +6209,7 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.4.0"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-consensus 2.0.5",
  "alloy-eips 2.1.0",
@@ -6233,7 +6233,7 @@ dependencies = [
 [[package]]
 name = "kona-genesis"
 version = "0.4.5"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-chains",
  "alloy-consensus 2.0.5",
@@ -6254,7 +6254,7 @@ dependencies = [
 [[package]]
 name = "kona-hardforks"
 version = "0.4.5"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-eips 2.1.0",
  "alloy-primitives",
@@ -6269,7 +6269,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "1.0.2"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-consensus 2.0.5",
  "alloy-eips 2.1.0",
@@ -6319,7 +6319,7 @@ dependencies = [
 [[package]]
 name = "kona-interop"
 version = "0.4.5"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-consensus 2.0.5",
  "alloy-eips 2.1.0",
@@ -6341,12 +6341,12 @@ dependencies = [
 [[package]]
 name = "kona-macros"
 version = "0.1.2"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 
 [[package]]
 name = "kona-mpt"
 version = "0.3.0"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -6358,7 +6358,7 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.3.0"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-primitives",
  "async-channel",
@@ -6373,7 +6373,7 @@ dependencies = [
 [[package]]
 name = "kona-proof"
 version = "0.3.0"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-consensus 2.0.5",
  "alloy-eips 2.1.0",
@@ -6410,7 +6410,7 @@ dependencies = [
 [[package]]
 name = "kona-proof-interop"
 version = "0.2.0"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-consensus 2.0.5",
  "alloy-eips 2.1.0",
@@ -6442,7 +6442,7 @@ dependencies = [
 [[package]]
 name = "kona-protocol"
 version = "0.4.5"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus 2.0.5",
@@ -6473,7 +6473,7 @@ dependencies = [
 [[package]]
 name = "kona-providers-alloy"
 version = "0.3.3"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-consensus 2.0.5",
  "alloy-eips 2.1.0",
@@ -6506,7 +6506,7 @@ dependencies = [
 [[package]]
 name = "kona-registry"
 version = "0.4.5"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-chains",
  "alloy-eips 2.1.0",
@@ -6525,7 +6525,7 @@ dependencies = [
 [[package]]
 name = "kona-std-fpvm"
 version = "0.2.0"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "async-trait",
  "buddy_system_allocator",
@@ -6537,7 +6537,7 @@ dependencies = [
 [[package]]
 name = "kona-std-fpvm-proc"
 version = "0.2.0"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "cfg-if",
  "kona-std-fpvm",
@@ -7450,7 +7450,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 [[package]]
 name = "op-alloy"
 version = "2.0.0"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "op-alloy-consensus",
  "op-alloy-network",
@@ -7462,7 +7462,7 @@ dependencies = [
 [[package]]
 name = "op-alloy-consensus"
 version = "2.0.0"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-consensus 2.0.5",
  "alloy-eips 2.1.0",
@@ -7483,7 +7483,7 @@ dependencies = [
 [[package]]
 name = "op-alloy-network"
 version = "2.0.0"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-consensus 2.0.5",
  "alloy-network 2.0.5",
@@ -7496,7 +7496,7 @@ dependencies = [
 [[package]]
 name = "op-alloy-provider"
 version = "2.0.0"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-network 2.0.5",
  "alloy-primitives",
@@ -7510,7 +7510,7 @@ dependencies = [
 [[package]]
 name = "op-alloy-rpc-types"
 version = "2.0.0"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-consensus 2.0.5",
  "alloy-eips 2.1.0",
@@ -7530,7 +7530,7 @@ dependencies = [
 [[package]]
 name = "op-alloy-rpc-types-engine"
 version = "2.0.0"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "alloy-consensus 2.0.5",
  "alloy-eips 2.1.0",
@@ -7550,7 +7550,7 @@ dependencies = [
 [[package]]
 name = "op-revm"
 version = "20.0.0"
-source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.5.2#a5f807798b0896becd497d27b92afe911b088ad4"
+source = "git+https://github.com/ethereum-optimism/optimism?tag=kona-client%2Fv1.6.0#d7cea91bc2f555a76b7720bf9c32f46c0b856119"
 dependencies = [
  "auto_impl",
  "revm",
