@@ -70,6 +70,17 @@ jobs:
         run: |
           STATS_FILE=$(find ${{ github.workspace }}/new_code -name "new_cycle_stats.json" -type f | head -1)
           cp "$STATS_FILE" ${{ github.workspace }}/old_code/scripts/prove/new_cycle_stats.json
+          mkdir -p ${{ github.workspace }}/old_code/configs/L2
+          cp ${{ github.workspace }}/new_code/configs/L2/*.json ${{ github.workspace }}/old_code/configs/L2/
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          for path in Path("${{ github.workspace }}/old_code/configs/L2").glob("*.json"):
+              data = json.loads(path.read_text())
+              data.setdefault("protocol_versions_address", "0x0000000000000000000000000000000000000000")
+              path.write_text(json.dumps(data, indent=2) + "\n")
+          PY
 
       - name: Run Test On Old Branch
         run: |

@@ -31,8 +31,7 @@ impl Default for ZkvmOpEvmFactory {
 }
 
 impl EvmFactory for ZkvmOpEvmFactory {
-    type Evm<DB: Database, I: Inspector<OpEvmContext<DB>>> =
-        OpEvm<DB, I, OpZkvmPrecompiles, OpTx>;
+    type Evm<DB: Database, I: Inspector<OpEvmContext<DB>>> = OpEvm<DB, I, OpZkvmPrecompiles, OpTx>;
     type Context<DB: Database> = OpEvmContext<DB>;
     type Tx = OpTx;
     type Error<DBError: core::error::Error + Send + Sync + 'static> = EVMError<DBError, OpTxError>;
