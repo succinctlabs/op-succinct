@@ -100,18 +100,26 @@ jobs:
       - name: Copy Stats File For Old Branch
         run: |
           STATS_FILE=$(find ${{ github.workspace }}/new_code -name "new_cycle_stats.json" -type f | head -1)
-          cp "$STATS_FILE" ${{ github.workspace }}/old_code/scripts/prove/new_cycle_stats.json
-          mkdir -p ${{ github.workspace }}/old_code/configs/L2
-          cp ${{ github.workspace }}/new_code/configs/L2/*.json ${{ github.workspace }}/old_code/configs/L2/
-          python3 - <<'PY'
+          STATS_DIR=$(dirname "$STATS_FILE")
+          OLD_STATS_DIR=${{ github.workspace }}/old_code/scripts/prove
+          cp "$STATS_FILE" "$OLD_STATS_DIR/new_cycle_stats.json"
+
+          NEW_L2_CONFIG_DIR="$STATS_DIR/configs/L2"
+          OLD_L2_CONFIG_DIR="$OLD_STATS_DIR/configs/L2"
+          if compgen -G "$NEW_L2_CONFIG_DIR/*.json" > /dev/null; then
+            mkdir -p "$OLD_L2_CONFIG_DIR"
+            cp "$NEW_L2_CONFIG_DIR"/*.json "$OLD_L2_CONFIG_DIR/"
+            python3 - "$OLD_L2_CONFIG_DIR" <<'PY'
           import json
+          import sys
           from pathlib import Path
 
-          for path in Path("${{ github.workspace }}/old_code/configs/L2").glob("*.json"):
+          for path in Path(sys.argv[1]).glob("*.json"):
               data = json.loads(path.read_text())
               data.setdefault("protocol_versions_address", "0x0000000000000000000000000000000000000000")
               path.write_text(json.dumps(data, indent=2) + "\n")
           PY
+          fi
 
       - name: Run Test On Old Branch
         run: |
