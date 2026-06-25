@@ -47,25 +47,10 @@ jobs:
       - name: Install just
         uses: extractions/setup-just@v3
 
-      - name: Build ELF files
+      - name: Build and verify ELF files
         run: |
           just build-elfs
 
-      - name: Upload rebuilt ELF files
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: rebuilt-elf-files
-          path: |
-            elf/aggregation-elf
-            elf/altda-range-elf-embedded
-            elf/celestia-range-elf-embedded
-            elf/eigenda-range-elf-embedded
-            elf/range-elf-embedded
-          if-no-files-found: error
-
-      - name: Verify ELF files
-        run: |
           # Check for any changes in the elf directory
           if [ -n "$(git status --porcelain elf/)" ]; then
             echo "❌ ELF files changed during build!"
