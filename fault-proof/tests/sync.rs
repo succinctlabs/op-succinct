@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 pub mod common;
 
 mod asr_filtering {

@@ -1,3 +1,7 @@
+// Deeply nested async future from the SP1 cluster proof types (sp1-cluster-*
+// v2.4.2) exceeds the default recursion limit of 128 when computing its layout.
+#![recursion_limit = "256"]
+
 use anyhow::{Context, Result};
 use clap::Parser;
 use op_succinct_host_utils::{

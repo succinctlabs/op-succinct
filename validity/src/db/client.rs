@@ -806,9 +806,12 @@ mod tests {
     use chrono::Local;
     use postgresql_embedded::{PostgreSQL, Settings};
     use sqlx::types::BigDecimal;
-    use std::str::FromStr;
+    use std::{str::FromStr, sync::LazyLock};
 
     // ==================== Test Harness ====================
+
+    static POSTGRESQL_SETUP_LOCK: LazyLock<tokio::sync::Mutex<()>> =
+        LazyLock::new(|| tokio::sync::Mutex::new(()));
 
     /// A test database instance that manages an embedded PostgreSQL server.
     /// Automatically cleans up when dropped.
@@ -821,7 +824,9 @@ mod tests {
     impl TestDb {
         /// Creates a new test database with migrations applied.
         async fn new() -> Self {
-            let settings = Settings::default();
+            let _setup_guard = POSTGRESQL_SETUP_LOCK.lock().await;
+            let settings =
+                Settings { timeout: Some(Duration::from_secs(30)), ..Default::default() };
             let mut postgresql = PostgreSQL::new(settings);
             postgresql.setup().await.expect("Failed to setup PostgreSQL");
             postgresql.start().await.expect("Failed to start PostgreSQL");
