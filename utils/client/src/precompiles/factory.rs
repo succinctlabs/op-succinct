@@ -2,12 +2,15 @@
 
 use super::OpZkvmPrecompiles;
 use alloy_evm::{Database, EvmEnv, EvmFactory};
-use alloy_op_evm::{OpEvm, OpTxError};
-use op_revm::{DefaultOp, OpBuilder, OpContext, OpHaltReason, OpSpecId, OpTransaction};
+use alloy_op_evm::{
+    post_exec::{PostExecEvmFactoryHooks, PostExecExecutedTx, PostExecTxContext, WarmingState},
+    OpEvm, OpEvmContext, OpTx, OpTxError,
+};
+use op_revm::{L1BlockInfo, OpBuilder, OpHaltReason, OpSpecId, OpTransaction};
 use revm::{
-    context::{result::EVMError, BlockEnv, TxEnv},
+    context::{result::EVMError, BlockEnv, CfgEnv},
     inspector::NoOpInspector,
-    Context, Inspector,
+    Context, Inspector, MainContext,
 };
 
 /// Factory producing [`OpEvm`]s with FPVM-accelerated precompile overrides enabled.
@@ -28,10 +31,9 @@ impl Default for ZkvmOpEvmFactory {
 }
 
 impl EvmFactory for ZkvmOpEvmFactory {
-    type Evm<DB: Database, I: Inspector<OpContext<DB>>> =
-        OpEvm<DB, I, OpZkvmPrecompiles, OpTransaction<TxEnv>>;
-    type Context<DB: Database> = OpContext<DB>;
-    type Tx = OpTransaction<TxEnv>;
+    type Evm<DB: Database, I: Inspector<OpEvmContext<DB>>> = OpEvm<DB, I, OpZkvmPrecompiles, OpTx>;
+    type Context<DB: Database> = OpEvmContext<DB>;
+    type Tx = OpTx;
     type Error<DBError: core::error::Error + Send + Sync + 'static> = EVMError<DBError, OpTxError>;
     type HaltReason = OpHaltReason;
     type Spec = OpSpecId;
@@ -45,7 +47,10 @@ impl EvmFactory for ZkvmOpEvmFactory {
     ) -> Self::Evm<DB, NoOpInspector> {
         let spec_id = input.cfg_env.spec;
         OpEvm::new(
-            Context::op()
+            Context::mainnet()
+                .with_tx(OpTx(OpTransaction::builder().build_fill()))
+                .with_cfg(CfgEnv::new_with_spec(OpSpecId::BEDROCK))
+                .with_chain(L1BlockInfo::default())
                 .with_db(db)
                 .with_block(input.block_env)
                 .with_cfg(input.cfg_env)
@@ -63,7 +68,10 @@ impl EvmFactory for ZkvmOpEvmFactory {
     ) -> Self::Evm<DB, I> {
         let spec_id = input.cfg_env.spec;
         OpEvm::new(
-            Context::op()
+            Context::mainnet()
+                .with_tx(OpTx(OpTransaction::builder().build_fill()))
+                .with_cfg(CfgEnv::new_with_spec(OpSpecId::BEDROCK))
+                .with_chain(L1BlockInfo::default())
                 .with_db(db)
                 .with_block(input.block_env)
                 .with_cfg(input.cfg_env)
@@ -71,5 +79,44 @@ impl EvmFactory for ZkvmOpEvmFactory {
                 .with_precompiles(OpZkvmPrecompiles::new_with_spec(spec_id)),
             true,
         )
+    }
+}
+
+// Post-exec hooks for `ZkvmOpEvmFactory`, mirroring the canonical `OpEvmFactory`
+// impl in alloy-op-evm. `KonaExecutor`/`OpBlockExecutorFactory` require the EVM
+// factory to be wrapped in `PostExecEvmFactoryAdapter<F>`, which in turn requires
+// `F: PostExecEvmFactoryHooks`. The hooks delegate to the inherent post-exec
+// methods on the produced [`OpEvm`].
+impl PostExecEvmFactoryHooks for ZkvmOpEvmFactory {
+    fn begin_post_exec_tx<DB, I>(evm: &mut Self::Evm<DB, I>, ctx: PostExecTxContext)
+    where
+        DB: Database,
+        I: Inspector<Self::Context<DB>>,
+    {
+        evm.begin_post_exec_tx(ctx);
+    }
+
+    fn take_last_post_exec_tx_result<DB, I>(evm: &mut Self::Evm<DB, I>) -> PostExecExecutedTx
+    where
+        DB: Database,
+        I: Inspector<Self::Context<DB>>,
+    {
+        evm.take_last_post_exec_tx_result()
+    }
+
+    fn warming_state<DB, I>(evm: &Self::Evm<DB, I>) -> WarmingState
+    where
+        DB: Database,
+        I: Inspector<Self::Context<DB>>,
+    {
+        evm.warming_state()
+    }
+
+    fn seed_warming_state<DB, I>(evm: &mut Self::Evm<DB, I>, state: WarmingState)
+    where
+        DB: Database,
+        I: Inspector<Self::Context<DB>>,
+    {
+        evm.seed_warming_state(state);
     }
 }

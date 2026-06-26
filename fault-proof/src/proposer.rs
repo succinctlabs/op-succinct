@@ -2001,7 +2001,7 @@ where
             let mut task_counts: HashMap<&str, usize> = HashMap::new();
             let mut proving_games: Vec<String> = Vec::new();
 
-            for (_, (_, info)) in tasks.iter() {
+            for (_, info) in tasks.values() {
                 let task_type = match info {
                     TaskInfo::GameCreation { .. } => "GameCreation",
                     TaskInfo::GameProving { game_address, .. } => {

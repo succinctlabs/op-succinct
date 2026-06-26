@@ -1,3 +1,8 @@
+// The SP1 cluster proof types (sp1-cluster-* v2.4.2) produce deeply nested async
+// futures (e.g. `proposer::handle_proving_requests`) whose layout exceeds the
+// default recursion limit of 128. Raise it so the layout query can complete.
+#![recursion_limit = "256"]
+
 mod config;
 mod contract;
 mod db;
