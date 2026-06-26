@@ -33,6 +33,7 @@ use crate::L2Output;
 
 /// L2ToL1MessagePasser predeploy address (OP Stack).
 const L2_TO_L1_MESSAGE_PASSER: Address = address!("0x4200000000000000000000000000000000000016");
+const ZERO_PROTOCOL_VERSIONS_ADDRESS: &str = "0x0000000000000000000000000000000000000000";
 
 /// Resolve the L2ToL1MessagePasser storage root from a block.
 ///
@@ -92,6 +93,14 @@ fn classify_safe_db_probe_outcome(response: &serde_json::Value) -> Result<bool> 
         "Malformed optimism_safeHeadAtL1Block result: expected SafeHeadResponse".to_string()
     })?;
     Ok(true)
+}
+
+fn decode_rollup_config(mut value: Value) -> Result<RollupConfig> {
+    if let Some(obj) = value.as_object_mut() {
+        obj.entry("protocol_versions_address")
+            .or_insert_with(|| Value::String(ZERO_PROTOCOL_VERSIONS_ADDRESS.to_string()));
+    }
+    serde_json::from_value(value).map_err(Into::into)
 }
 
 #[derive(Clone)]
@@ -475,7 +484,10 @@ impl OPSuccinctDataFetcher {
 
         if rollup_config_path.exists() {
             let file_contents = fs::read_to_string(&rollup_config_path)?;
-            match serde_json::from_str::<RollupConfig>(&file_contents) {
+            match serde_json::from_str::<Value>(&file_contents)
+                .map_err(Into::into)
+                .and_then(decode_rollup_config)
+            {
                 Ok(rollup_config) => {
                     if rollup_config.l2_chain_id.id() != chain_id {
                         bail!(
@@ -509,8 +521,9 @@ impl OPSuccinctDataFetcher {
         }
 
         // Fetch from RPC (no cache, or corrupted cache was deleted).
-        let rollup_config: RollupConfig =
+        let rollup_config_value: Value =
             Self::fetch_rpc_data(&rpc_config.l2_node_rpc, "optimism_rollupConfig", vec![]).await?;
+        let rollup_config = decode_rollup_config(rollup_config_value)?;
 
         // Validate that the config's chain ID matches what l2_rpc reported. These come from
         // different endpoints (l2_rpc = execution client, l2_node_rpc = op-node), so a mismatch
@@ -1054,10 +1067,24 @@ mod tests {
 
         let path = dir.path().join("42220.json");
         fs::write(&path, serde_json::to_string_pretty(&config).unwrap()).unwrap();
-        let loaded: RollupConfig =
-            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        let loaded = decode_rollup_config(
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap(),
+        )
+        .unwrap();
 
         assert_eq!(hash_before, hash_rollup_config(&loaded));
+    }
+
+    #[test]
+    fn rollup_config_defaults_missing_protocol_versions_address() {
+        let config = test_rollup_config(42220);
+        let mut value = serde_json::to_value(&config).unwrap();
+        value.as_object_mut().unwrap().remove("protocol_versions_address");
+
+        let loaded = decode_rollup_config(value).unwrap();
+
+        assert_eq!(loaded.l2_chain_id, config.l2_chain_id);
+        assert_eq!(loaded.protocol_versions_address, Address::ZERO);
     }
 
     #[test]
