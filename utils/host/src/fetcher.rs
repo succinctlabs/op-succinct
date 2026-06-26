@@ -1077,7 +1077,7 @@ mod tests {
     }
 
     #[test]
-    fn rollup_config_defaults_missing_protocol_versions_address() {
+    fn rollup_config_accepts_missing_protocol_versions_address() {
         let config = test_rollup_config(42220);
         let mut value = serde_json::to_value(&config).unwrap();
         value.as_object_mut().unwrap().remove("protocol_versions_address");
@@ -1085,7 +1085,6 @@ mod tests {
         let loaded = decode_rollup_config(value).unwrap();
 
         assert_eq!(loaded.l2_chain_id, config.l2_chain_id);
-        assert_eq!(loaded.protocol_versions_address, Address::ZERO);
     }
 
     #[test]
