@@ -83,42 +83,42 @@ vergen = "=9.0.4"
 vergen-git2 = "=1.0.5"
 
 # kona
-kona-mpt = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14" }
-kona-derive = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14", default-features = false }
-kona-driver = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14" }
-kona-preimage = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14", features = [
+kona-mpt = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0" }
+kona-derive = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0", default-features = false }
+kona-driver = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0" }
+kona-preimage = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14" }
-kona-proof = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14" }
+kona-executor = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0" }
+kona-proof = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0" }
 
-kona-client = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14" }
-kona-host = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14" }
-kona-providers-alloy = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14" }
+kona-client = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0" }
+kona-host = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0" }
+kona-providers-alloy = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0" }
 # Note: kona-rpc is NOT included to avoid rollup-boost -> reth-optimism-primitives dependency
 # which causes alloy version conflicts with hokulea v1.1.4. RPC types are defined locally in
 # utils/host/src/rpc_types.rs instead.
-kona-protocol = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14", default-features = false }
-kona-registry = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14", default-features = false }
-kona-genesis = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14", default-features = false }
+kona-protocol = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0", default-features = false }
+kona-registry = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0", default-features = false }
+kona-genesis = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0", default-features = false }
 
 # hana
-hana-blobstream = { git = "https://github.com/celestiaorg/hana", tag = "v1.7.0-mocha" }
-hana-celestia = { git = "https://github.com/celestiaorg/hana", tag = "v1.7.0-mocha" }
-hana-host = { git = "https://github.com/celestiaorg/hana", tag = "v1.7.0-mocha" }
-hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "v1.7.0-mocha" }
+hana-blobstream = { git = "https://github.com/celestiaorg/hana", tag = "v1.9.1-mocha" }
+hana-celestia = { git = "https://github.com/celestiaorg/hana", tag = "v1.9.1-mocha" }
+hana-host = { git = "https://github.com/celestiaorg/hana", tag = "v1.9.1-mocha" }
+hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "v1.9.1-mocha" }
 
 # hokulea
-hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.9" }
-hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.9" }
-hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.9" }
-hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.9" }
-hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.9" }
-hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.9" }
-canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.9" }
-canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.9" }
-canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.9" }
+hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.1" }
+hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.1" }
+hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.1" }
+hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.1" }
+hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.1" }
+hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.1" }
+canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.1" }
+canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.1" }
+canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.1" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -143,32 +143,32 @@ op-succinct-range-utils = { path = "programs/range/utils" }
 op-succinct-bindings = { path = "bindings" }
 
 # Alloy (Network)
-alloy-signer-local = { version = "1.6.3" }
-alloy-provider = { version = "1.6.3" }
-alloy-transport = { version = "1.6.3" }
-alloy-transport-http = { version = "1.6.3" }
-alloy-contract = { version = "1.6.3" }
-alloy-network = { version = "1.6.3" }
+alloy-signer-local = { version = "2.0.5" }
+alloy-provider = { version = "2.0.5" }
+alloy-transport = { version = "2.0.5" }
+alloy-transport-http = { version = "2.0.5" }
+alloy-contract = { version = "2.0.5" }
+alloy-network = { version = "2.0.5" }
 
 # Alloy
 alloy-rlp = { version = "0.3.13", default-features = false }
 alloy-trie = { version = "0.9.4", default-features = false, features = [
     "ethereum",
 ] }
-alloy-eips = { version = "1.6.3", default-features = false }
-alloy-serde = { version = "1.6.3", default-features = false }
-alloy-consensus = { version = "1.6.3", default-features = false }
-alloy-tx-macros = { version = "1.6.3", default-features = false }
-alloy-rpc-types = { version = "1.6.3", default-features = false }
-alloy-rpc-client = { version = "1.6.3", default-features = false }
-alloy-node-bindings = { version = "1.6.3", default-features = false }
-alloy-rpc-types-engine = { version = "1.6.3", default-features = false }
-alloy-rpc-types-beacon = { version = "1.6.3", default-features = false }
-alloy-rpc-types-eth = { version = "1.6.3", default-features = false }
-alloy-rpc-types-trace = { version = "1.6.3", default-features = false }
-alloy-signer = { version = "1.6.3", default-features = false }
-alloy-signer-gcp = { version = "1.6.3", default-features = false }
-alloy = { version = "1.6.3", features = [
+alloy-eips = { version = "2.0.5", default-features = false }
+alloy-serde = { version = "2.0.5", default-features = false }
+alloy-consensus = { version = "2.0.5", default-features = false }
+alloy-tx-macros = { version = "2.0.5", default-features = false }
+alloy-rpc-types = { version = "2.0.5", default-features = false }
+alloy-rpc-client = { version = "2.0.5", default-features = false }
+alloy-node-bindings = { version = "2.0.5", default-features = false }
+alloy-rpc-types-engine = { version = "2.0.5", default-features = false }
+alloy-rpc-types-beacon = { version = "2.0.5", default-features = false }
+alloy-rpc-types-eth = { version = "2.0.5", default-features = false }
+alloy-rpc-types-trace = { version = "2.0.5", default-features = false }
+alloy-signer = { version = "2.0.5", default-features = false }
+alloy-signer-gcp = { version = "2.0.5", default-features = false }
+alloy = { version = "2.0.5", features = [
     "reqwest",
     "network",
     "providers",
@@ -184,43 +184,54 @@ alloy-sol-types = { version = "1.5.6", default-features = false }
 alloy-sol-macro = { version = "1.5.6", default-features = false }
 alloy-chains = { version = "0.2.30", default-features = false }
 
-# OP Alloy - from the optimism monorepo to match kona v1.2.13
-op-alloy-consensus = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14", default-features = false }
-op-alloy-rpc-types = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14", default-features = false }
-op-alloy-rpc-types-engine = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14", default-features = false }
-op-alloy-network = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14", default-features = false }
+# OP Alloy - from the optimism monorepo to match kona v1.6.0
+op-alloy-consensus = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0", default-features = false }
+op-alloy-rpc-types = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0", default-features = false }
+op-alloy-rpc-types-engine = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0", default-features = false }
+op-alloy-network = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0", default-features = false }
 
 # Execution
-alloy-evm = { version = "0.27.2", default-features = false }
-alloy-op-evm = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14", default-features = false }
+alloy-evm = { version = "0.34.0", default-features = false }
+alloy-op-evm = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0", default-features = false }
 # Use kzg-rs and substrate-bn for the zkVM.
-# Versions aligned with kona v1.2.13
-revm = { version = "34.0.0", default-features = false, features = [
+# Versions aligned with kona v1.6.0
+revm = { version = "38.0.0", default-features = false, features = [
     "bn",
 ] }
-revm-precompile = { version = "32.1.0", default-features = false }
-op-revm = { version = "15.0.0", default-features = false }
+revm-precompile = { version = "34.0.0", default-features = false }
+# op-revm from the optimism monorepo to match kona v1.6.0 (alloy-op-evm + kona
+# pull this git op-revm; the crates.io op-revm is a distinct type and causes
+# OpSpecId/OpHaltReason/OpEvm mismatches against the kona executor).
+op-revm = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0", default-features = false }
 
-# SP1 v6.1.0 (Hypercube)
-sp1-sdk = { version = "=6.1.0", features = ["network", "blocking", "profiling"] }
-sp1-lib = { version = "=6.1.0", features = ["verify"] }
-sp1-zkvm = { version = "=6.1.0", features = ["verify"] }
-sp1-build = "=6.1.0"
-sp1-prover = "=6.1.0"
-sp1-prover-types = "=6.1.0"
-sp1-core-executor = "=6.1.0"
-sp1-hypercube = "=6.1.0"
-sp1-primitives = "=6.1.0"
-sp1-cluster-artifact = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.1.2" }
-sp1-cluster-common = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.1.2" }
-sp1-cluster-utils = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.1.2" }
+# SP1 v6.2.4 (Hypercube)
+sp1-sdk = { version = "=6.2.4", features = ["network", "blocking", "profiling"] }
+sp1-lib = { version = "=6.2.4", features = ["verify"] }
+sp1-zkvm = { version = "=6.2.4", features = ["verify"] }
+sp1-build = "=6.2.4"
+sp1-prover = "=6.2.4"
+sp1-prover-types = "=6.2.4"
+sp1-core-executor = "=6.2.4"
+sp1-hypercube = "=6.2.4"
+sp1-primitives = "=6.2.4"
+sp1-cluster-artifact = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.4.2" }
+sp1-cluster-common = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.4.2" }
+sp1-cluster-utils = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.4.2" }
 
 # kzg
 kzg-rs = { version = "0.2.8", features = ["rkyv", "serde"] }
 c-kzg = { version = "2.0.0", default-features = false }
 
 # Cloud dependencies
-gcloud-sdk = "0.27"
+# Must match the gcloud-sdk version + TLS feature used by alloy-signer-gcp 2.0.5
+# (0.29, tls-webpki-roots). gcloud-sdk's default `tls-roots` and `tls-webpki-roots`
+# are mutually exclusive (both define `init_tls_config`), so default features are
+# disabled and the same feature set as alloy-signer-gcp is selected here.
+gcloud-sdk = { version = "0.29", default-features = false, features = [
+    "google-cloud-kms-v1",
+    "google-longrunning",
+    "tls-webpki-roots",
+] }
 
 [profile.release-client-lto]
 inherits = "release"
@@ -230,22 +241,26 @@ lto = "fat"
 
 [patch.crates-io]
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.9-sp1-6.0.0" }
-sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-6.0.0" }
+sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.11.0-sp1-6.0.0" }
 substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-sp1-6.0.0-substrate-bn" }
 p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-6.0.0" }
 k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-6.0.0" }
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-6.0.0" }
 
 # Patch op-alloy and alloy-op-evm to use the optimism monorepo versions
-# Required because kona v1.2.13 uses path deps from the monorepo, and hokulea's
+# Required because kona v1.6.0 uses path deps from the monorepo, and hokulea's
 # own [patch] section doesn't propagate when used as a git dependency.
-op-alloy-consensus = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14" }
-op-alloy-network = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14" }
-op-alloy-rpc-types = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14" }
-op-alloy-rpc-types-engine = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14" }
-op-alloy-provider = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14" }
-alloy-op-evm = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14" }
-alloy-op-hardforks = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14" }
-op-alloy = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.2.14" }
+op-alloy-consensus = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0" }
+op-alloy-network = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0" }
+op-alloy-rpc-types = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0" }
+op-alloy-rpc-types-engine = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0" }
+op-alloy-provider = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0" }
+alloy-op-evm = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0" }
+alloy-op-hardforks = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0" }
+op-alloy = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0" }
+# op-revm must also be patched to git: alloy-op-evm (git) carries the git op-revm,
+# but hokulea/hana pull op-revm from crates.io, producing two op-revm versions and
+# OpSpecId/OpEvm type mismatches. Patching unifies the whole graph on the git op-revm.
+op-revm = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0" }
 
-# Patch old kona (op-rs/kona v1.2.7) used by hana to use the new kona (v1.2.13) from the optimism monorepo
+# Patch old kona (op-rs/kona v1.2.7) used by hana to use the new kona (v1.6.0) from the optimism monorepo

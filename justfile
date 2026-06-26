@@ -436,23 +436,23 @@ build-range-elfs:
     #!/usr/bin/env bash
 
     cd programs/range/ethereum
-    ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-embedded --docker --tag v6.1.0 --output-directory ../../../elf
+    ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-embedded --docker --tag v6.2.4 --output-directory ../../../elf
 
     cd ../celestia
-    ~/.sp1/bin/cargo-prove prove build --elf-name celestia-range-elf-embedded --docker --tag v6.1.0 --output-directory ../../../elf
+    ~/.sp1/bin/cargo-prove prove build --elf-name celestia-range-elf-embedded --docker --tag v6.2.4 --output-directory ../../../elf
 
     cd ../eigenda
-    ~/.sp1/bin/cargo-prove prove build --elf-name eigenda-range-elf-embedded --docker --tag v6.1.0 --output-directory ../../../elf
+    ~/.sp1/bin/cargo-prove prove build --elf-name eigenda-range-elf-embedded --docker --tag v6.2.4 --output-directory ../../../elf
 
     cd ../altda
-    ~/.sp1/bin/cargo-prove prove build --elf-name altda-range-elf-embedded --docker --tag v6.1.0 --output-directory ../../../elf
+    ~/.sp1/bin/cargo-prove prove build --elf-name altda-range-elf-embedded --docker --tag v6.2.4 --output-directory ../../../elf
 
 # Build ELF file for aggregation program.
 build-agg-elf:
     #!/usr/bin/env bash
 
     cd programs/aggregation
-    ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v6.1.0 --output-directory ../../elf
+    ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v6.2.4 --output-directory ../../elf
 
 # Run all unit tests except for the specified ones.
 tests:

@@ -131,7 +131,7 @@ where
         .map(|r| r.unwrap())
         .collect::<Vec<_>>();
 
-    let execution_inputs = stdins.into_iter().zip(block_data.into_iter()).collect::<Vec<_>>();
+    let execution_inputs = stdins.into_iter().zip(block_data).collect::<Vec<_>>();
 
     // Execute the program for each block range in parallel.
     // CpuProver creates its own tokio runtime, so run it outside the async context.
@@ -218,7 +218,7 @@ fn aggregate_execution_stats(
 
     // For statistics that are per-block or per-transaction, we take the average over the entire
     // range.
-    let safe_div = |a: u64, b: u64| if b > 0 { a / b } else { 0 };
+    let safe_div = |a: u64, b: u64| a.checked_div(b).unwrap_or(0);
     aggregate_stats.cycles_per_block =
         safe_div(aggregate_stats.total_instruction_count, aggregate_stats.nb_blocks);
     aggregate_stats.cycles_per_transaction =

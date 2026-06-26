@@ -145,20 +145,19 @@ where
         #[cfg(target_os = "zkvm")]
         println!("cycle-tracker-report-end: block-execution");
 
+        let mut transactions =
+            Vec::with_capacity(attributes.transactions.as_ref().map_or(0, Vec::len));
+        if let Some(raw_transactions) = &attributes.transactions {
+            for tx in raw_transactions {
+                transactions
+                    .push(OpTxEnvelope::decode(&mut tx.as_ref()).map_err(DriverError::Rlp)?);
+            }
+        }
+
         // Construct the block.
         let block = OpBlock {
             header: outcome.header.inner().clone(),
-            body: BlockBody {
-                transactions: attributes
-                    .transactions
-                    .as_ref()
-                    .unwrap_or(&Vec::new())
-                    .iter()
-                    .map(|tx| OpTxEnvelope::decode(&mut tx.as_ref()).map_err(DriverError::Rlp))
-                    .collect::<DriverResult<Vec<OpTxEnvelope>, E::Error>>()?,
-                ommers: Vec::new(),
-                withdrawals: None,
-            },
+            body: BlockBody { transactions, ommers: Vec::new(), withdrawals: None },
         };
 
         // Get the pipeline origin and update the tip cursor.

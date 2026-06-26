@@ -1,5 +1,6 @@
 use std::{fmt::Debug, sync::Arc};
 
+use alloy_op_evm::{block::OpAlloyReceiptBuilder, post_exec::PostExecEvmFactoryAdapter};
 use alloy_primitives::Sealed;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -135,7 +136,11 @@ pub trait WitnessExecutor {
             rollup_config.as_ref(),
             l2_provider.clone(),
             l2_provider,
-            ZkvmOpEvmFactory::new(),
+            // `KonaExecutor`/`OpBlockExecutorFactory` only implement `BlockExecutorFactory`
+            // for EVM factories wrapped in `PostExecEvmFactoryAdapter`, so wrap the custom
+            // zkVM factory here.
+            PostExecEvmFactoryAdapter::new(ZkvmOpEvmFactory::new()),
+            OpAlloyReceiptBuilder::default(),
             None,
         );
         let mut driver = Driver::new(cursor, executor, pipeline);
