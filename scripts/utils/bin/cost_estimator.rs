@@ -275,11 +275,14 @@ async fn main() -> Result<()> {
         .await?
     };
 
-    // Check if the safeDB is activated on the L2 node. If it is, we use the safeHead based range
-    // splitting algorithm. Otherwise, we use the simple range splitting algorithm.
-    let safe_db_activated = data_fetcher.is_safe_db_activated().await?;
-
-    let split_ranges = if safe_db_activated && !no_safe_head_split {
+    // Pick the splitter. With --no-safe-head-split the caller wants the basic fixed-size splitter
+    // regardless, so skip the is_safe_db_activated() probe entirely: that probe queries the op-node
+    // safeDB (optimism_safeHeadAtL1Block), which may be disabled or unreachable, and there is no
+    // reason to touch it on a path that will not use safeHead-aligned splitting. Otherwise probe,
+    // and use the basic splitter when the safeDB is not active.
+    let split_ranges = if no_safe_head_split {
+        split_range_basic(l2_start_block, l2_end_block, args.effective_batch_size())
+    } else if data_fetcher.is_safe_db_activated().await? {
         split_range_based_on_safe_heads(
             &data_fetcher,
             l2_start_block,
