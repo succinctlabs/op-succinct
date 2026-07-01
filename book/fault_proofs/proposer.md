@@ -109,7 +109,7 @@ Depending on the one you choose, you must provide the corresponding environment 
 | `AGG_CYCLE_LIMIT` | The cycle limit to use for aggregation proofs. | `1,000,000,000,000` |
 | `AGG_GAS_LIMIT` | The gas limit to use for aggregation proofs. | `1,000,000,000,000` |
 | `WHITELIST` | The list of prover addresses that are allowed to bid on proof requests. | `` |
-| `PRIVATE_STDIN` | Gated SPN feature. Keeps program inputs private from bidders; [contact Succinct](https://partner.succinct.xyz/) to enable it for your requester account. | `false` |
+| `PRIVATE_STDIN` | Gated Succinct Prover Network feature. Keeps program inputs private from bidders; [contact us](https://partner.succinct.xyz/) to enable it for your requester account. | `false` |
 | `BACKUP_PATH` | Path to backup file for persisting proposer state across restarts. Enables faster recovery by restoring cached state instead of re-syncing from the factory. | (disabled) |
 | `TX_CONFIRMATION_TIMEOUT` | Maximum time (in seconds) to wait for an L1 transaction to reach the required number of confirmations. Setting this too low risks timeout-triggered retries that can produce duplicate sibling games. | `60` |
 
