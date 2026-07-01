@@ -97,6 +97,7 @@ async fn main() -> Result<()> {
         agg_cycle_limit: env_config.agg_cycle_limit,
         agg_gas_limit: env_config.agg_gas_limit,
         whitelist: env_config.whitelist,
+        private_stdin: env_config.private_stdin,
         min_auction_period: env_config.min_auction_period,
         auction_timeout: env_config.auction_timeout,
         tx_confirmation_timeout: env_config.tx_confirmation_timeout,
