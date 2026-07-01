@@ -247,7 +247,7 @@ pub struct ProofProviderConfig {
     /// The list of prover addresses that are allowed to bid on proof requests.
     pub whitelist: Option<Vec<Address>>,
 
-    /// Whether proof requests should upload stdin through the private artifact path.
+    /// Whether SP1 network proof requests should use private stdin.
     pub private_stdin: bool,
 }
 
