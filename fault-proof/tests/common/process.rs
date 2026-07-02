@@ -85,6 +85,7 @@ pub async fn new_proposer_with_confirmations(
             max_price_per_pgu: 300_000_000, // 0.3 PROVE per billion PGU
             min_auction_period: 1,
             whitelist: None,
+            private_stdin: false,
         },
         sync_l1_confirmations,
     };
