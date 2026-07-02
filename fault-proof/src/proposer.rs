@@ -361,6 +361,10 @@ where
             !(is_cluster && config.mock_mode),
             "mock and cluster modes are mutually exclusive — set only one of SP1_PROVER=cluster or mock_mode=true"
         );
+        anyhow::ensure!(
+            !config.proof_provider.private_stdin || (!config.mock_mode && !is_cluster),
+            "PRIVATE_STDIN only applies to SP1 network proof requests; disable mock mode and SP1_PROVER=cluster"
+        );
 
         let (range_pk, range_vk, agg_pk, agg_vk, network_prover, network_mode) = if is_cluster {
             let (range_pk, range_vk, agg_pk, agg_vk) = cluster_setup_keys().await?;

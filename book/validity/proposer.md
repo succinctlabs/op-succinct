@@ -73,6 +73,7 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 | `AGG_CYCLE_LIMIT` | Default: `1,000,000,000,000`. The cycle limit to use for aggregation proofs. |
 | `AGG_GAS_LIMIT` | Default: `1,000,000,000,000`. The gas limit to use for aggregation proofs. |
 | `WHITELIST` | Default: ``. The list of prover addresses that are allowed to bid on proof requests. |
+| `PRIVATE_STDIN` | Default: `false`. Gated Succinct Prover Network feature. Keeps program inputs private from bidders; [contact us](https://partner.succinct.xyz/) to enable it for your requester account. |
 | `MIN_AUCTION_PERIOD` | Default: `1`. The minimum auction period (in seconds). |
 | `AUCTION_TIMEOUT` | Default: `60` (1 minute). How long to wait before canceling a proof request that hasn't been assigned (in seconds). |
 | `TX_CONFIRMATION_TIMEOUT` | Default: `60`. Maximum time (in seconds) to wait for an L1 transaction to reach the required number of confirmations. Raise on congested L1s to avoid timeout-triggered retries. |

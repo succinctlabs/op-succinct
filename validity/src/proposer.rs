@@ -97,6 +97,12 @@ where
         loop_interval: u64,
         host: Arc<H>,
     ) -> Result<Self> {
+        let is_cluster = is_cluster_mode();
+        anyhow::ensure!(
+            !requester_config.private_stdin || (!requester_config.mock && !is_cluster),
+            "PRIVATE_STDIN only applies to SP1 network proof requests; disable mock mode and SP1_PROVER=cluster"
+        );
+
         // This check prevents users from running multiple proposers for the same chain at the same
         // time.
         let is_locked = db_client
@@ -116,8 +122,6 @@ where
         db_client
             .add_chain_lock(requester_config.l1_chain_id, requester_config.l2_chain_id)
             .await?;
-
-        let is_cluster = is_cluster_mode();
 
         let cluster_config =
             if is_cluster { Some(Arc::new(ClusterProofConfig::from_env().await?)) } else { None };
@@ -190,6 +194,7 @@ where
             requester_config.agg_cycle_limit,
             requester_config.agg_gas_limit,
             requester_config.whitelist.clone(),
+            requester_config.private_stdin,
             requester_config.min_auction_period,
             requester_config.auction_timeout,
         )?);
