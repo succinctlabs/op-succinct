@@ -36,6 +36,7 @@ pub struct EnvironmentConfig {
     pub agg_cycle_limit: u64,
     pub agg_gas_limit: u64,
     pub whitelist: Option<Vec<Address>>,
+    pub private_stdin: bool,
     pub min_auction_period: u64,
     pub auction_timeout: u64,
     pub tx_confirmation_timeout: u64,
@@ -139,6 +140,7 @@ pub async fn read_proposer_env() -> Result<EnvironmentConfig> {
         agg_cycle_limit: get_env_var("AGG_CYCLE_LIMIT", Some(1_000_000_000_000))?, // 1 trillion
         agg_gas_limit: get_env_var("AGG_GAS_LIMIT", Some(1_000_000_000_000))?,   // 1 trillion
         whitelist: parse_whitelist(&get_env_var("WHITELIST", Some("".to_string()))?)?,
+        private_stdin: get_env_var("PRIVATE_STDIN", Some(false))?,
         min_auction_period: get_env_var("MIN_AUCTION_PERIOD", Some(1))?,
         auction_timeout: get_env_var("AUCTION_TIMEOUT", Some(60))?, // 1 minute
         tx_confirmation_timeout: get_env_var("TX_CONFIRMATION_TIMEOUT", Some(60))?,

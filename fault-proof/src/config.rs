@@ -193,6 +193,7 @@ impl ProposerConfig {
             max_price_per_pgu = self.proof_provider.max_price_per_pgu,
             min_auction_period = self.proof_provider.min_auction_period,
             whitelist = ?self.proof_provider.whitelist,
+            private_stdin = self.proof_provider.private_stdin,
             backup_path = ?self.backup_path,
             sync_l1_confirmations = self.sync_l1_confirmations,
             tx_confirmation_timeout = self.tx_confirmation_timeout,
@@ -245,6 +246,9 @@ pub struct ProofProviderConfig {
 
     /// The list of prover addresses that are allowed to bid on proof requests.
     pub whitelist: Option<Vec<Address>>,
+
+    /// Whether SP1 network proof requests should use private stdin.
+    pub private_stdin: bool,
 }
 
 impl ProofProviderConfig {
@@ -291,6 +295,7 @@ impl ProofProviderConfig {
                 .unwrap_or("1".to_string())
                 .parse()?,
             whitelist: parse_whitelist(&env::var("WHITELIST").unwrap_or("".to_string()))?,
+            private_stdin: env::var("PRIVATE_STDIN").unwrap_or("false".to_string()).parse()?,
         })
     }
 }

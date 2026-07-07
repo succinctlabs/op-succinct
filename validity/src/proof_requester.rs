@@ -50,6 +50,7 @@ pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
     pub agg_cycle_limit: u64,
     pub agg_gas_limit: u64,
     pub whitelist: Option<Vec<Address>>,
+    pub private_stdin: bool,
     pub min_auction_period: u64,
     pub auction_timeout: u64,
 }
@@ -77,6 +78,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         agg_cycle_limit: u64,
         agg_gas_limit: u64,
         whitelist: Option<Vec<Address>>,
+        private_stdin: bool,
         min_auction_period: u64,
         auction_timeout: u64,
     ) -> Result<Self> {
@@ -109,6 +111,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             agg_cycle_limit,
             agg_gas_limit,
             whitelist,
+            private_stdin,
             min_auction_period,
             auction_timeout,
         })
@@ -270,6 +273,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .max_price_per_pgu(self.max_price_per_pgu)
             .cycle_limit(self.range_cycle_limit)
             .gas_limit(self.range_gas_limit)
+            .private_stdin(self.private_stdin)
             .whitelist(self.whitelist.clone())
             .request()
             .await
@@ -300,6 +304,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .max_price_per_pgu(self.max_price_per_pgu)
             .cycle_limit(self.agg_cycle_limit)
             .gas_limit(self.agg_gas_limit)
+            .private_stdin(self.private_stdin)
             .whitelist(self.whitelist.clone())
             .request()
             .await

@@ -95,6 +95,9 @@ pub struct RequesterConfig {
     /// The list of prover addresses that are allowed to bid on proof requests.
     pub whitelist: Option<Vec<Address>>,
 
+    /// Whether SP1 network proof requests should use private stdin.
+    pub private_stdin: bool,
+
     /// The minimum auction period (in seconds).
     pub min_auction_period: u64,
 
@@ -138,6 +141,7 @@ impl RequesterConfig {
             agg_cycle_limit = self.agg_cycle_limit,
             agg_gas_limit = self.agg_gas_limit,
             whitelist = ?self.whitelist,
+            private_stdin = self.private_stdin,
             min_auction_period = self.min_auction_period,
             auction_timeout = self.auction_timeout,
             tx_confirmation_timeout = self.tx_confirmation_timeout,
