@@ -104,6 +104,8 @@ jobs:
           cp "$STATS_FILE" ${{ github.workspace }}/old_code/scripts/prove/new_cycle_stats.json
           cp ${{ github.workspace }}/new_code/scripts/prove/tests/cycle_count_diff.rs \
             ${{ github.workspace }}/old_code/scripts/prove/tests/cycle_count_diff.rs
+          cp ${{ github.workspace }}/new_code/utils/eigenda/host/src/witness_generator.rs \
+            ${{ github.workspace }}/old_code/utils/eigenda/host/src/witness_generator.rs
 
       - name: Restart EigenDA proxy before old branch
         run: docker rm -f eigenda-proxy

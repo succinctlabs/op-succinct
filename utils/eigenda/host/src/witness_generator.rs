@@ -127,10 +127,16 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
 
         let executor = EigenDAWitnessExecutor::new(eigenda_preimage_provider);
 
+        println!("cycle-count-debug: eigenda.get_inputs_for_pipeline start");
         let (boot_info, input) = get_inputs_for_pipeline(oracle.clone()).await?;
+        println!(
+            "cycle-count-debug: eigenda.get_inputs_for_pipeline done input={}",
+            input.is_some()
+        );
         if let Some((cursor, l1_provider, l2_provider)) = input {
             let rollup_config = Arc::new(boot_info.rollup_config.clone());
             let l1_config = Arc::new(boot_info.l1_config.clone());
+            println!("cycle-count-debug: eigenda.create_pipeline start");
             let pipeline = WitnessExecutorTrait::create_pipeline(
                 &executor,
                 rollup_config,
@@ -142,14 +148,21 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
                 l2_provider.clone(),
             )
             .await?;
+            println!("cycle-count-debug: eigenda.create_pipeline done");
+            println!("cycle-count-debug: eigenda.witness_executor.run start");
             WitnessExecutorTrait::run(&executor, boot_info.clone(), pipeline, cursor, l2_provider)
                 .await?;
+            println!("cycle-count-debug: eigenda.witness_executor.run done");
         }
 
         // Extract the EigenDA preimage data
+        println!("cycle-count-debug: eigenda.extract_preimage start");
         let eigenda_preimage_data = std::mem::take(&mut *eigenda_preimage.lock().unwrap());
+        println!("cycle-count-debug: eigenda.extract_preimage done");
 
+        println!("cycle-count-debug: eigenda.kzg_proofs start");
         let kzg_proofs = create_kzg_proofs_for_eigenda_preimage(&eigenda_preimage_data);
+        println!("cycle-count-debug: eigenda.kzg_proofs done");
 
         // Generate canoe proofs using the reduced proof provider for proof aggregation
         use alloy_rpc_client::RpcClient;
@@ -164,6 +177,7 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
             eth_rpc_url.parse().map_err(|_| anyhow::anyhow!("Failed to parse L1_RPC as URL"))?,
         );
         let canoe_provider = CanoeSp1CCReducedProofProvider { eth_rpc_client, mock_mode };
+        println!("cycle-count-debug: eigenda.canoe_proof start");
         let maybe_canoe_proof = hokulea_witgen::from_boot_info_to_canoe_proof(
             &boot_info,
             &eigenda_preimage_data,
@@ -172,6 +186,7 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
             CanoeVerifierAddressFetcherDeployedByEigenLabs {},
         )
         .await?;
+        println!("cycle-count-debug: eigenda.canoe_proof done");
 
         let maybe_canoe_proof_bytes =
             maybe_canoe_proof.map(|proof| serde_cbor::to_vec(&proof).expect("serde error"));
@@ -182,8 +197,10 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
             maybe_canoe_proof_bytes,
         )?;
 
+        println!("cycle-count-debug: eigenda.serialize_witness start");
         let eigenda_witness_bytes =
             serde_cbor::to_vec(&eigenda_witness).expect("Failed to serialize EigenDA witness data");
+        println!("cycle-count-debug: eigenda.serialize_witness done");
 
         let witness = EigenDAWitnessData {
             preimage_store: preimage_witness_store.lock().unwrap().clone(),
