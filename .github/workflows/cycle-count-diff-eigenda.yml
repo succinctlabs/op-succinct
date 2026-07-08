@@ -102,6 +102,8 @@ jobs:
         run: |
           STATS_FILE=$(find ${{ github.workspace }}/new_code -name "new_cycle_stats.json" -type f | head -1)
           cp "$STATS_FILE" ${{ github.workspace }}/old_code/scripts/prove/new_cycle_stats.json
+          cp ${{ github.workspace }}/new_code/scripts/prove/tests/cycle_count_diff.rs \
+            ${{ github.workspace }}/old_code/scripts/prove/tests/cycle_count_diff.rs
 
       - name: Run Test On Old Branch
         timeout-minutes: 30
