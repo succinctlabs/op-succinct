@@ -52,6 +52,14 @@ use std::{
     sync::Arc,
 };
 
+fn cost_estimator_l1_selection(has_explicit_l1_head: bool) -> Result<L1BlockSelectionConfig> {
+    if has_explicit_l1_head {
+        Ok(L1BlockSelectionConfig::default())
+    } else {
+        L1BlockSelectionConfig::from_env()
+    }
+}
+
 /// Run the zkVM execution process for each split range in parallel. Writes the execution stats for
 /// each block range to a CSV file after each execution completes (not guaranteed to be in order).
 async fn execute_blocks_and_write_stats_csv<H>(
@@ -258,7 +266,7 @@ async fn main() -> Result<()> {
     dotenv::from_path(&args.env_file).ok();
     utils::setup_logger();
 
-    let l1_selection = L1BlockSelectionConfig::from_env()?;
+    let l1_selection = cost_estimator_l1_selection(l1_head.is_some())?;
     let data_fetcher =
         OPSuccinctDataFetcher::new_with_rollup_config_and_l1_selection(l1_selection).await?;
     let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
@@ -350,4 +358,21 @@ async fn main() -> Result<()> {
     );
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use op_succinct_host_utils::l1_selection::{L1_BLOCK_TAG_ENV, L1_CONFIRMATIONS_ENV};
+
+    #[test]
+    fn explicit_l1_head_ignores_non_default_l1_selection_env() {
+        std::env::set_var(L1_BLOCK_TAG_ENV, "safe");
+        std::env::set_var(L1_CONFIRMATIONS_ENV, "4");
+        let l1_selection = cost_estimator_l1_selection(true).unwrap();
+        std::env::remove_var(L1_BLOCK_TAG_ENV);
+        std::env::remove_var(L1_CONFIRMATIONS_ENV);
+
+        assert_eq!(l1_selection, L1BlockSelectionConfig::default());
+    }
 }
