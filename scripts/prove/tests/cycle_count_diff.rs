@@ -129,11 +129,12 @@ async fn test_cycle_count_diff() -> Result<()> {
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     let host = initialize_host(Arc::new(data_fetcher.clone()));
-    let (l2_start_block, l2_end_block) = match std::env::var("NEW_BRANCH")
+    let new_branch = std::env::var("NEW_BRANCH")
         .expect("NEW_BRANCH must be set")
         .parse::<bool>()
-        .unwrap_or_default()
-    {
+        .unwrap_or_default();
+    println!("cycle-count-debug: branch={}", if new_branch { "new" } else { "old" });
+    let (l2_start_block, l2_end_block) = match new_branch {
         true => get_rolling_block_range(host.as_ref(), &data_fetcher, DEFAULT_RANGE).await?,
         false => {
             let base_stats =
@@ -141,22 +142,27 @@ async fn test_cycle_count_diff() -> Result<()> {
             (base_stats.batch_start, base_stats.batch_end)
         }
     };
+    println!("cycle-count-debug: range={l2_start_block}..{l2_end_block}");
 
+    println!("cycle-count-debug: host.fetch start");
     let host_args = host.fetch(l2_start_block, l2_end_block, None, false).await?;
+    println!("cycle-count-debug: host.fetch done");
 
+    println!("cycle-count-debug: host.run start");
     let witness_data = host.run(&host_args).await?;
+    println!("cycle-count-debug: host.run done");
+    println!("cycle-count-debug: sp1_stdin start");
     let sp1_stdin = host.witness_generator().get_sp1_stdin(witness_data)?;
+    println!("cycle-count-debug: sp1_stdin done");
+    println!("cycle-count-debug: execute_multi start");
     let (block_data, report, execution_duration) =
         execute_multi(&data_fetcher, sp1_stdin, l2_start_block, l2_end_block).await?;
+    println!("cycle-count-debug: execute_multi done");
 
     let new_stats = ExecutionStats::new(0, &block_data, &report, 0, execution_duration.as_secs());
 
     println!("Execution Stats:\n{}", MarkdownExecutionStats::new(new_stats.clone()));
-    let mut file = match std::env::var("NEW_BRANCH")
-        .expect("NEW_BRANCH must be set")
-        .parse::<bool>()
-        .unwrap_or_default()
-    {
+    let mut file = match new_branch {
         true => File::create("new_cycle_stats.json")?,
         false => File::create("old_cycle_stats.json")?,
     };
