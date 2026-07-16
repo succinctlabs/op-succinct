@@ -61,6 +61,15 @@ jobs:
           L2_RPC: ${{ secrets.L2_RPC }}
         run: |
           set -euo pipefail
+          host=$(python3 -c 'import os, urllib.parse; print(urllib.parse.urlsplit(os.environ["L2_RPC"]).hostname)')
+          chain_id=$(curl --silent --show-error \
+            --connect-timeout 5 \
+            --max-time 15 \
+            --header 'content-type: application/json' \
+            --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' \
+            "$L2_RPC" | jq -r '.result')
+          echo "L2_RPC: host=$host chain_id=$chain_id"
+
           body=$(mktemp)
           trap 'rm -f "$body"' EXIT
           status=$(curl --silent --show-error \
