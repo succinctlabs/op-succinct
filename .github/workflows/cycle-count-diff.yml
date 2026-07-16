@@ -56,6 +56,34 @@ jobs:
           path: old_code
           submodules: recursive
 
+      - name: Check execution witness RPC
+        env:
+          L2_RPC: ${{ secrets.L2_RPC }}
+        run: |
+          set -euo pipefail
+          body=$(mktemp)
+          trap 'rm -f "$body"' EXIT
+          status=$(curl --silent --show-error \
+            --connect-timeout 5 \
+            --max-time 15 \
+            --output "$body" \
+            --write-out '%{http_code}' \
+            --header 'content-type: application/json' \
+            --data '{"jsonrpc":"2.0","id":1,"method":"debug_executePayload","params":[]}' \
+            "$L2_RPC")
+          code=$(jq -r '.error.code // empty' "$body")
+          message=$(jq -r '.error.message // empty' "$body")
+          echo "debug_executePayload: http=$status error_code=$code error=$message"
+
+          normalized=${message,,}
+          if [[ "$status" == 401 || "$status" == 403 ||
+                "$code" == -32601 || "$code" == -32001 ||
+                "$normalized" == *"not available"* ||
+                "$normalized" == *"method not found"* ]]; then
+            echo "L2_RPC does not expose debug_executePayload"
+            exit 1
+          fi
+
       - name: Run Test On New Branch
         timeout-minutes: 30
         run: |
