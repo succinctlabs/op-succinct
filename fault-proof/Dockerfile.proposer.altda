@@ -25,7 +25,6 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 # Install Rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH=/root/.cargo/bin:$PATH
-RUN rustup install stable && rustup default stable
 
 # Install SP1
 RUN curl -L https://sp1.succinct.xyz | bash && \
@@ -55,7 +54,6 @@ RUN apt-get update && apt-get install -y \
 # Install Rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH=/root/.cargo/bin:$PATH
-RUN rustup install stable && rustup default stable
 
 # Copy the built proposer binary
 COPY --from=builder /usr/src/app/target/release/proposer /usr/local/bin/
