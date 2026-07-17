@@ -6,6 +6,7 @@ use op_succinct_host_utils::{
     block_range::get_rolling_block_range,
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
+    setup_logger,
     stats::{ExecutionStats, MarkdownExecutionStats},
     witness_generation::WitnessGenerator,
 };
@@ -119,6 +120,7 @@ fn create_diff_report(base: &ExecutionStats, current: &ExecutionStats) -> String
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn test_cycle_count_diff() -> Result<()> {
+    setup_logger();
     dotenv::dotenv()?;
 
     let provider = rustls::crypto::ring::default_provider();

@@ -96,7 +96,7 @@ jobs:
       - name: Run Test On New Branch
         timeout-minutes: 30
         run: |
-          RUST_LOG=info NEW_BRANCH=true cargo test test_cycle_count_diff --release -- --exact --nocapture
+          RUST_LOG=host_backend=debug,info NEW_BRANCH=true cargo test test_cycle_count_diff --release -- --exact --nocapture
         working-directory: ./new_code
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
@@ -114,7 +114,7 @@ jobs:
       - name: Run Test On Old Branch
         timeout-minutes: 30
         run: |
-          RUST_LOG=info NEW_BRANCH=false cargo test test_cycle_count_diff --release -- --exact --nocapture
+          RUST_LOG=host_backend=debug,info NEW_BRANCH=false cargo test test_cycle_count_diff --release -- --exact --nocapture
         working-directory: ./old_code
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
