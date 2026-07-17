@@ -1,3 +1,4 @@
+use alloy_primitives::B256;
 use anyhow::Result;
 use clap::Parser;
 use futures::StreamExt;
@@ -18,8 +19,8 @@ use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_scripts::HostExecutorArgs;
 
 // Cost-estimator-specific CLI args. Wraps `HostExecutorArgs` and adds the estimator-only
-// `--no-safe-head-split` flag so unrelated host binaries (e.g. `multi`,
-// `gen-sp1-test-artifacts`) don't advertise a flag they ignore.
+// `--no-safe-head-split` and `--l1-head` flags so unrelated host binaries (e.g. `multi`,
+// `gen-sp1-test-artifacts`) don't advertise flags they ignore.
 #[derive(Debug, Clone, Parser)]
 #[command(about = "Estimate OP Succinct execution costs over an L2 block range")]
 struct CostEstimatorArgs {
@@ -31,6 +32,12 @@ struct CostEstimatorArgs {
     /// `RANGE_SPLIT_COUNT` segment) rather than per span batch.
     #[arg(long)]
     no_safe_head_split: bool,
+    /// L1 head block hash to derive the L2 range from. When set, it is used directly instead of
+    /// looking it up via the op-node safeDB, so a caller that already knows the L1 head can skip
+    /// the safeDB binary search (and the `--safe-db-fallback` timestamp estimation). This matches
+    /// the fault-proof proposer, which anchors each range to the L1 head committed on-chain.
+    #[arg(long)]
+    l1_head: Option<B256>,
 }
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use sp1_sdk::{
@@ -44,6 +51,14 @@ use std::{
     path::PathBuf,
     sync::Arc,
 };
+
+fn cost_estimator_l1_selection(has_explicit_l1_head: bool) -> Result<L1BlockSelectionConfig> {
+    if has_explicit_l1_head {
+        Ok(L1BlockSelectionConfig::default())
+    } else {
+        L1BlockSelectionConfig::from_env()
+    }
+}
 
 /// Run the zkVM execution process for each split range in parallel. Writes the execution stats for
 /// each block range to a CSV file after each execution completes (not guaranteed to be in order).
@@ -245,12 +260,13 @@ fn aggregate_execution_stats(
 async fn main() -> Result<()> {
     let args = CostEstimatorArgs::parse();
     let no_safe_head_split = args.no_safe_head_split;
+    let l1_head = args.l1_head;
     let args = args.host;
 
     dotenv::from_path(&args.env_file).ok();
     utils::setup_logger();
 
-    let l1_selection = L1BlockSelectionConfig::from_env()?;
+    let l1_selection = cost_estimator_l1_selection(l1_head.is_some())?;
     let data_fetcher =
         OPSuccinctDataFetcher::new_with_rollup_config_and_l1_selection(l1_selection).await?;
     let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
@@ -275,11 +291,14 @@ async fn main() -> Result<()> {
         .await?
     };
 
-    // Check if the safeDB is activated on the L2 node. If it is, we use the safeHead based range
-    // splitting algorithm. Otherwise, we use the simple range splitting algorithm.
-    let safe_db_activated = data_fetcher.is_safe_db_activated().await?;
-
-    let split_ranges = if safe_db_activated && !no_safe_head_split {
+    // Pick the splitter. With --no-safe-head-split the caller wants the basic fixed-size splitter
+    // regardless, so skip the is_safe_db_activated() probe entirely: that probe queries the op-node
+    // safeDB (optimism_safeHeadAtL1Block), which may be disabled or unreachable, and there is no
+    // reason to touch it on a path that will not use safeHead-aligned splitting. Otherwise probe,
+    // and use the basic splitter when the safeDB is not active.
+    let split_ranges = if no_safe_head_split {
+        split_range_basic(l2_start_block, l2_end_block, args.effective_batch_size())
+    } else if data_fetcher.is_safe_db_activated().await? {
         split_range_based_on_safe_heads(
             &data_fetcher,
             l2_start_block,
@@ -295,7 +314,7 @@ async fn main() -> Result<()> {
 
     let host_args = futures::stream::iter(split_ranges.iter())
         .map(|range| async {
-            host.fetch(range.start, range.end, None, args.safe_db_fallback)
+            host.fetch(range.start, range.end, l1_head, args.safe_db_fallback)
                 .await
                 .expect("Failed to get host CLI args")
         })
@@ -339,4 +358,21 @@ async fn main() -> Result<()> {
     );
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use op_succinct_host_utils::l1_selection::{L1_BLOCK_TAG_ENV, L1_CONFIRMATIONS_ENV};
+
+    #[test]
+    fn explicit_l1_head_ignores_non_default_l1_selection_env() {
+        std::env::set_var(L1_BLOCK_TAG_ENV, "safe");
+        std::env::set_var(L1_CONFIRMATIONS_ENV, "4");
+        let l1_selection = cost_estimator_l1_selection(true).unwrap();
+        std::env::remove_var(L1_BLOCK_TAG_ENV);
+        std::env::remove_var(L1_CONFIRMATIONS_ENV);
+
+        assert_eq!(l1_selection, L1BlockSelectionConfig::default());
+    }
 }
