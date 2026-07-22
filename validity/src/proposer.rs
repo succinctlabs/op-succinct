@@ -61,6 +61,34 @@ fn select_checkpoint_block_number(safe_block_number: u64, batch_max_l1_head: Opt
     batch_max_l1_head.map_or(safe_block_number, |max| max.max(safe_block_number))
 }
 
+/// Return the end of the completed range chain beginning at `expected_start`.
+fn highest_contiguous_end(
+    expected_start: i64,
+    completed_ranges: &[(i64, i64)],
+) -> Result<Option<i64>> {
+    let mut current_end = expected_start;
+    let mut found = false;
+
+    for &(start, end) in completed_ranges {
+        if start > current_end {
+            break;
+        }
+        if start < current_end {
+            return Err(anyhow!(
+                "Completed range ({start}, {end}] overlaps the contiguous chain ending at {current_end}"
+            ));
+        }
+        if end <= start {
+            return Err(anyhow!("Completed range ({start}, {end}] is empty or reversed"));
+        }
+
+        current_end = end;
+        found = true;
+    }
+
+    Ok(found.then_some(current_end))
+}
+
 /// Configuration for the driver.
 pub struct DriverConfig {
     pub network_prover: Option<Arc<NetworkProver>>,
@@ -890,12 +918,10 @@ where
             .await?;
 
         // Get the highest block number of the completed range proofs.
-        let highest_proven_contiguous_block_number = match self
-            .get_highest_proven_contiguous_block(completed_range_proofs)?
-        {
-            Some(block) => block,
-            None => return Ok(()), /* No completed range proofs contiguous to the latest proposed
-                                    * block number, so no need to create an aggregation proof. */
+        let Some(highest_proven_contiguous_block_number) =
+            highest_contiguous_end(latest_proposed_block_number, &completed_range_proofs)?
+        else {
+            return Ok(());
         };
 
         // Get the submission interval from the contract.
@@ -1710,9 +1736,9 @@ where
             .await?;
 
         // Get the highest proven contiguous block.
-        let highest_block_number = self
-            .get_highest_proven_contiguous_block(completed_range_proofs)?
-            .map_or(latest_proposed_block_number, |block| block as u64);
+        let highest_block_number =
+            highest_contiguous_end(latest_proposed_block_number as i64, &completed_range_proofs)?
+                .map_or(latest_proposed_block_number, |block| block as u64);
 
         // Fetch request counts for different statuses
         let commitments = &self.program_config.commitments;
@@ -1877,28 +1903,6 @@ where
         Ok(())
     }
 
-    /// Get the highest block number at the end of the largest contiguous range of completed range
-    /// proofs. Returns None if there are no completed range proofs.
-    fn get_highest_proven_contiguous_block(
-        &self,
-        completed_range_proofs: Vec<(i64, i64)>,
-    ) -> Result<Option<i64>> {
-        if completed_range_proofs.is_empty() {
-            return Ok(None);
-        }
-
-        let mut current_end = completed_range_proofs[0].1;
-
-        for proof in completed_range_proofs.iter().skip(1) {
-            if proof.0 != current_end {
-                break;
-            }
-            current_end = proof.1;
-        }
-
-        Ok(Some(current_end))
-    }
-
     /// Wrap a network prover call with timeout, logging, and metrics.
     async fn network_call_with_timeout<F, T>(
         &self,
@@ -1959,7 +1963,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::select_checkpoint_block_number;
+    use super::{highest_contiguous_end, select_checkpoint_block_number};
 
     #[test]
     fn checkpoint_falls_back_to_safe_when_no_batch_max() {
@@ -1975,5 +1979,26 @@ mod tests {
     #[test]
     fn checkpoint_floors_at_batch_max_when_above_safe() {
         assert_eq!(select_checkpoint_block_number(100, Some(150)), 150);
+    }
+
+    #[test]
+    fn contiguous_ranges_must_begin_at_expected_start() {
+        assert_eq!(highest_contiguous_end(100, &[(200, 300), (300, 400)]).unwrap(), None);
+        assert_eq!(
+            highest_contiguous_end(100, &[(100, 200), (200, 300), (400, 500)]).unwrap(),
+            Some(300)
+        );
+    }
+
+    #[test]
+    fn contiguous_ranges_reject_overlap() {
+        let error = highest_contiguous_end(100, &[(100, 200), (150, 250)]).unwrap_err();
+        assert!(error.to_string().contains("overlaps"));
+    }
+
+    #[test]
+    fn contiguous_ranges_reject_empty_range() {
+        let error = highest_contiguous_end(100, &[(100, 100)]).unwrap_err();
+        assert!(error.to_string().contains("empty or reversed"));
     }
 }
