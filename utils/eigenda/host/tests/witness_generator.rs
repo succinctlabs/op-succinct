@@ -96,6 +96,7 @@ mod integration {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_witness_generation_e2e() -> Result<()> {
+        std::env::set_var("RUST_LOG", "host_backend=trace,single_hint_handler=warn");
         setup_logger();
 
         dotenv::dotenv().ok();
@@ -111,7 +112,10 @@ mod integration {
         let host_args = host.fetch(start, end, None, false).await?;
         assert!(host_args.eigenda_proxy_address.is_some());
 
-        let witness_data = host.run(&host_args).await?;
+        let witness_data =
+            tokio::time::timeout(std::time::Duration::from_secs(180), host.run(&host_args))
+                .await
+                .expect("witness generation timed out after 180 seconds")?;
         assert!(witness_data.eigenda_data.is_some(), "EigenDA data should be present");
 
         // Verify EigenDAWitness structure and check for canoe proof
