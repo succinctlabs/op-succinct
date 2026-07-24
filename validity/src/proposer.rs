@@ -742,7 +742,7 @@ where
                     .driver_db_client
                     .update_proof_to_complete(request.id, &proof_bytes)
                     .await?;
-                anyhow::ensure!(stored, "Request {} was invalidated while completing", request.id);
+                anyhow::ensure!(stored, "Request {} could not transition to Complete", request.id);
                 // Update the prove_duration based on the current time and the proof_request_time.
                 self.driver_config.driver_db_client.update_prove_duration(request.id).await?;
 
@@ -999,7 +999,7 @@ where
                     .driver_db_client
                     .update_proof_to_complete(request.id, &proof_bytes)
                     .await?;
-                anyhow::ensure!(stored, "Request {} was invalidated while completing", request.id);
+                anyhow::ensure!(stored, "Request {} could not transition to Complete", request.id);
                 self.driver_config.driver_db_client.update_prove_duration(request.id).await?;
 
                 let prove_duration_s = request
