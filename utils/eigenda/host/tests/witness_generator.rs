@@ -85,7 +85,6 @@ mod integration {
     use alloy_rpc_client::RpcClient;
     use anyhow::{Context, Result};
     use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
-    use tracing::{error, info};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_failing_raw_header_probe() -> Result<()> {
@@ -99,37 +98,45 @@ mod integration {
 
         let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
         match fetcher.get_l2_header(BlockId::number(8_497_788)).await {
-            Ok(header) => info!(
+            Ok(header) => println!(
                 "eth_getBlockByNumber: hash={}, number={}, parentHash={}",
                 header.hash_slow(),
                 header.number,
                 header.parent_hash
             ),
-            Err(err) => error!("eth_getBlockByNumber: {err}"),
+            Err(err) => println!("eth_getBlockByNumber: {err}"),
         }
 
         match fetcher.get_l2_header(BlockId::hash(block_hash)).await {
-            Ok(header) => info!(
+            Ok(header) => println!(
                 "eth_getBlockByHash: hash={}, number={}, parentHash={}",
                 header.hash_slow(),
                 header.number,
                 header.parent_hash
             ),
-            Err(err) => error!("eth_getBlockByHash: {err}"),
+            Err(err) => println!("eth_getBlockByHash: {err}"),
         }
 
         match client.request::<_, Bytes>("debug_getRawHeader", [block_number]).await {
             Ok(raw) => {
-                info!("debug_getRawHeader(number): bytes={}, keccak={}", raw.len(), keccak256(&raw))
+                println!(
+                    "debug_getRawHeader(number): bytes={}, keccak={}",
+                    raw.len(),
+                    keccak256(&raw)
+                )
             }
-            Err(err) => error!("debug_getRawHeader(number): {err}"),
+            Err(err) => println!("debug_getRawHeader(number): {err}"),
         }
 
         match client.request::<_, Bytes>("debug_getRawHeader", [block_hash]).await {
             Ok(raw) => {
-                info!("debug_getRawHeader(hash): bytes={}, keccak={}", raw.len(), keccak256(&raw))
+                println!(
+                    "debug_getRawHeader(hash): bytes={}, keccak={}",
+                    raw.len(),
+                    keccak256(&raw)
+                )
             }
-            Err(err) => error!("debug_getRawHeader(hash): {err}"),
+            Err(err) => println!("debug_getRawHeader(hash): {err}"),
         }
 
         Ok(())
