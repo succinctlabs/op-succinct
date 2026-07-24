@@ -19,6 +19,7 @@ pub enum RequestStatus {
     Relayed = 5,
     Failed = 6,
     Cancelled = 7,
+    Invalidated = 8,
 }
 
 impl From<i16> for RequestStatus {
@@ -32,9 +33,30 @@ impl From<i16> for RequestStatus {
             5 => RequestStatus::Relayed,
             6 => RequestStatus::Failed,
             7 => RequestStatus::Cancelled,
+            8 => RequestStatus::Invalidated,
             _ => panic!("Invalid request status: {value}"),
         }
     }
+}
+
+/// Canonicality metadata for a completed range proof.
+#[derive(FromRow)]
+pub struct CompletedRangeMetadata {
+    pub id: i64,
+    pub start_block: i64,
+    pub end_block: i64,
+    pub l1_head_block_number: Option<i64>,
+    pub l1_head_block_hash: Option<Vec<u8>>,
+}
+
+/// A completed range proof that still needs canonicality metadata recovered.
+#[derive(FromRow)]
+pub struct MissingRangeMetadata {
+    pub id: i64,
+    pub start_block: i64,
+    pub end_block: i64,
+    pub l1_head_block_number: Option<i64>,
+    pub proof: Option<Vec<u8>>,
 }
 
 #[derive(sqlx::Type, Debug, Copy, Clone, PartialEq, Eq, Default)]
