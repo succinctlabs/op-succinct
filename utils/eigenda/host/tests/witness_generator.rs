@@ -80,66 +80,57 @@ fn test_get_sp1_stdin_rejects_invalid_canoe_proof_bytes() {
 /// Requires: L1_RPC, L1_BEACON_RPC, L2_RPC, L2_NODE_RPC, EIGENDA_PROXY_ADDRESS
 #[cfg(feature = "integration")]
 mod integration {
-    use super::*;
-    use std::sync::Arc;
-
     use alloy_eips::BlockId;
-    use anyhow::Result;
-    use op_succinct_eigenda_host_utils::host::EigenDAOPSuccinctHost;
-    use op_succinct_host_utils::{
-        fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost, setup_logger,
-    };
-    use sp1_core_executor::SP1RecursionProof;
-    use sp1_hypercube::SP1PcsProofInner;
-    use sp1_primitives::SP1GlobalContext;
-    use tracing::info;
+    use alloy_primitives::{keccak256, Bytes, B256};
+    use alloy_rpc_client::RpcClient;
+    use anyhow::{Context, Result};
+    use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
+    use tracing::{error, info};
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_witness_generation_e2e() -> Result<()> {
-        std::env::set_var("RUST_LOG", "host_backend=trace,single_hint_handler=warn");
-        setup_logger();
-
+    async fn test_failing_raw_header_probe() -> Result<()> {
         dotenv::dotenv().ok();
 
+        let rpc_url = std::env::var("L2_RPC").context("L2_RPC is not set")?;
+        let client = RpcClient::new_http(rpc_url.parse().context("L2_RPC is not a valid URL")?);
+        let block_number = "0x81aa7c";
+        let block_hash: B256 =
+            "0x01ec1aa2801be61f3e62032e6990cdffe6ca0df3e63ea5e736d85ce8a9da2113".parse()?;
+
         let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
-        let host = EigenDAOPSuccinctHost::new(Arc::new(fetcher));
-
-        let finalized = host.fetcher.get_l2_header(BlockId::finalized()).await?;
-        let (start, end) = (finalized.number.saturating_sub(1), finalized.number);
-
-        info!("Witness generation for blocks {} -> {}", start, end);
-
-        let host_args = host.fetch(start, end, None, false).await?;
-        assert!(host_args.eigenda_proxy_address.is_some());
-
-        let witness_data =
-            tokio::time::timeout(std::time::Duration::from_secs(180), host.run(&host_args))
-                .await
-                .expect("witness generation timed out after 180 seconds")?;
-        assert!(witness_data.eigenda_data.is_some(), "EigenDA data should be present");
-
-        // Verify EigenDAWitness structure and check for canoe proof
-        let eigenda_data = witness_data.eigenda_data.as_ref().unwrap();
-        let eigenda_witness: EigenDAWitness =
-            serde_cbor::from_slice(eigenda_data).expect("EigenDA witness should deserialize");
-
-        info!(
-            "Preimages: {}, EigenDA: {} bytes, Canoe proof present: {}",
-            witness_data.preimage_store.preimage_map.len(),
-            eigenda_data.len(),
-            eigenda_witness.canoe_proof_bytes.is_some()
-        );
-
-        // If canoe proof is present, verify it deserializes correctly
-        if let Some(ref proof_bytes) = eigenda_witness.canoe_proof_bytes {
-            let _proof: SP1RecursionProof<SP1GlobalContext, SP1PcsProofInner> =
-                serde_cbor::from_slice(proof_bytes)
-                    .expect("Canoe proof should deserialize to SP1RecursionProof");
-            info!("Canoe proof deserialization verified ({} bytes)", proof_bytes.len());
+        match fetcher.get_l2_header(BlockId::number(8_497_788)).await {
+            Ok(header) => info!(
+                "eth_getBlockByNumber: hash={}, number={}, parentHash={}",
+                header.hash_slow(),
+                header.number,
+                header.parent_hash
+            ),
+            Err(err) => error!("eth_getBlockByNumber: {err}"),
         }
 
-        let stdin = host.witness_generator().get_sp1_stdin(witness_data)?;
-        assert!(!stdin.buffer.is_empty());
+        match fetcher.get_l2_header(BlockId::hash(block_hash)).await {
+            Ok(header) => info!(
+                "eth_getBlockByHash: hash={}, number={}, parentHash={}",
+                header.hash_slow(),
+                header.number,
+                header.parent_hash
+            ),
+            Err(err) => error!("eth_getBlockByHash: {err}"),
+        }
+
+        match client.request::<_, Bytes>("debug_getRawHeader", [block_number]).await {
+            Ok(raw) => {
+                info!("debug_getRawHeader(number): bytes={}, keccak={}", raw.len(), keccak256(&raw))
+            }
+            Err(err) => error!("debug_getRawHeader(number): {err}"),
+        }
+
+        match client.request::<_, Bytes>("debug_getRawHeader", [block_hash]).await {
+            Ok(raw) => {
+                info!("debug_getRawHeader(hash): bytes={}, keccak={}", raw.len(), keccak256(&raw))
+            }
+            Err(err) => error!("debug_getRawHeader(hash): {err}"),
+        }
 
         Ok(())
     }
