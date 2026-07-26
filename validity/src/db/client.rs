@@ -9,7 +9,10 @@ use sqlx::{
 use std::time::Duration;
 use tracing::info;
 
-use crate::{CommitmentConfig, DriverDBClient, OPSuccinctRequest, RequestStatus, RequestType};
+use crate::{
+    CommitmentConfig, CompletedRangeMetadata, DriverDBClient, MissingRangeMetadata,
+    OPSuccinctRequest, RequestStatus, RequestType,
+};
 
 impl DriverDBClient {
     pub async fn new(database_url: &str) -> Result<Self> {
@@ -184,18 +187,18 @@ impl DriverDBClient {
         l2_chain_id: i64,
     ) -> Result<Option<i64>, Error> {
         let status_values: Vec<i16> = statuses.iter().map(|s| *s as i16).collect();
-        let result = sqlx::query!(
-            "SELECT end_block FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = ANY($3) AND req_type = $4 AND l1_chain_id = $5 AND l2_chain_id = $6 ORDER BY end_block DESC LIMIT 1",
-            &commitment.range_vkey_commitment[..],
-            &commitment.rollup_config_hash[..],
-            &status_values[..],
-            RequestType::Range as i16,
-            l1_chain_id,
-            l2_chain_id,
+        let result = sqlx::query_scalar::<_, i64>(
+            "SELECT end_block FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = ANY($3) AND req_type = $4 AND invalidated_at IS NULL AND l1_chain_id = $5 AND l2_chain_id = $6 ORDER BY end_block DESC LIMIT 1",
         )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(&status_values[..])
+        .bind(RequestType::Range as i16)
+        .bind(l1_chain_id)
+        .bind(l2_chain_id)
         .fetch_optional(&self.pool)
         .await?;
-        Ok(result.map(|r| r.end_block))
+        Ok(result)
     }
 
     /// Fetch all range requests that have one of the given statuses and start block >=
@@ -209,20 +212,20 @@ impl DriverDBClient {
         l2_chain_id: i64,
     ) -> Result<Vec<(i64, i64)>, Error> {
         let status_values: Vec<i16> = statuses.iter().map(|s| *s as i16).collect();
-        let ranges = sqlx::query!(
-            "SELECT start_block, end_block FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = ANY($3) AND req_type = $4 AND start_block >= $5 AND l1_chain_id = $6 AND l2_chain_id = $7",
-            &commitment.range_vkey_commitment[..],
-            &commitment.rollup_config_hash[..],
-            &status_values[..],
-            RequestType::Range as i16,
-            latest_contract_l2_block,
-            l1_chain_id,
-            l2_chain_id,
+        let ranges = sqlx::query_as::<_, (i64, i64)>(
+            "SELECT start_block, end_block FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = ANY($3) AND req_type = $4 AND invalidated_at IS NULL AND start_block >= $5 AND l1_chain_id = $6 AND l2_chain_id = $7",
         )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(&status_values[..])
+        .bind(RequestType::Range as i16)
+        .bind(latest_contract_l2_block)
+        .bind(l1_chain_id)
+        .bind(l2_chain_id)
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(ranges.into_iter().map(|r| (r.start_block, r.end_block)).collect())
+        Ok(ranges)
     }
 
     /// Fetch the number of requests with a specific status.
@@ -277,18 +280,17 @@ impl DriverDBClient {
         l1_chain_id: i64,
         l2_chain_id: i64,
     ) -> Result<Vec<OPSuccinctRequest>, Error> {
-        let requests = sqlx::query_as!(
-            OPSuccinctRequest,
-            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND req_type = $4 AND start_block >= $5 AND end_block <= $6 AND l1_chain_id = $7 AND l2_chain_id = $8 ORDER BY start_block ASC",
-            &commitment.range_vkey_commitment[..],
-            &commitment.rollup_config_hash[..],
-            RequestStatus::Complete as i16,
-            RequestType::Range as i16,
-            start_block,
-            end_block,
-            l1_chain_id,
-            l2_chain_id,
+        let requests = sqlx::query_as::<_, OPSuccinctRequest>(
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND req_type = $4 AND invalidated_at IS NULL AND start_block >= $5 AND end_block <= $6 AND l1_chain_id = $7 AND l2_chain_id = $8 ORDER BY start_block ASC",
         )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(RequestStatus::Complete as i16)
+        .bind(RequestType::Range as i16)
+        .bind(start_block)
+        .bind(end_block)
+        .bind(l1_chain_id)
+        .bind(l2_chain_id)
         .fetch_all(&self.pool)
         .await?;
         Ok(requests)
@@ -312,25 +314,25 @@ impl DriverDBClient {
         l1_chain_id: i64,
         l2_chain_id: i64,
     ) -> Result<Option<i64>, Error> {
-        let result = sqlx::query!(
-            "SELECT MAX(l1_head_block_number) AS max_l1_head FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND req_type = $4 AND start_block >= $5 AND end_block <= $6 AND l1_chain_id = $7 AND l2_chain_id = $8",
-            &commitment.range_vkey_commitment[..],
-            &commitment.rollup_config_hash[..],
-            RequestStatus::Complete as i16,
-            RequestType::Range as i16,
-            start_block,
-            end_block,
-            l1_chain_id,
-            l2_chain_id,
+        let result = sqlx::query_scalar::<_, Option<i64>>(
+            "SELECT MAX(l1_head_block_number) FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND req_type = $4 AND invalidated_at IS NULL AND start_block >= $5 AND end_block <= $6 AND l1_chain_id = $7 AND l2_chain_id = $8",
         )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(RequestStatus::Complete as i16)
+        .bind(RequestType::Range as i16)
+        .bind(start_block)
+        .bind(end_block)
+        .bind(l1_chain_id)
+        .bind(l2_chain_id)
         .fetch_one(&self.pool)
         .await?;
-        Ok(result.max_l1_head)
+        Ok(result)
     }
 
     /// Fetch the checkpointed block hash and number for an aggregation request with the same start
     /// block, end block, and commitment config.
-    pub async fn fetch_failed_agg_request_with_checkpointed_block_hash(
+    pub async fn fetch_reusable_agg_checkpoint(
         &self,
         start_block: i64,
         end_block: i64,
@@ -338,24 +340,23 @@ impl DriverDBClient {
         l1_chain_id: i64,
         l2_chain_id: i64,
     ) -> Result<Option<(Vec<u8>, i64)>, Error> {
-        let result = sqlx::query!(
-            "SELECT checkpointed_l1_block_hash, checkpointed_l1_block_number FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND req_type = $4 AND start_block = $5 AND end_block = $6 AND status = $7 AND checkpointed_l1_block_hash IS NOT NULL AND checkpointed_l1_block_number IS NOT NULL AND l1_chain_id = $8 AND l2_chain_id = $9 LIMIT 1",
-            &commitment.range_vkey_commitment[..],
-            &commitment.rollup_config_hash[..],
-            &commitment.agg_vkey_hash[..],
-            RequestType::Aggregation as i16,
-            start_block,
-            end_block,
-            RequestStatus::Failed as i16,
-            l1_chain_id,
-            l2_chain_id,
+        let reusable_statuses = [RequestStatus::Failed as i16, RequestStatus::Invalidated as i16];
+        let result = sqlx::query_as::<_, (Vec<u8>, i64)>(
+            "SELECT checkpointed_l1_block_hash, checkpointed_l1_block_number FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND req_type = $4 AND start_block = $5 AND end_block = $6 AND status = ANY($7) AND checkpointed_l1_block_hash IS NOT NULL AND checkpointed_l1_block_number IS NOT NULL AND l1_chain_id = $8 AND l2_chain_id = $9 LIMIT 1",
         )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(&commitment.agg_vkey_hash[..])
+        .bind(RequestType::Aggregation as i16)
+        .bind(start_block)
+        .bind(end_block)
+        .bind(&reusable_statuses[..])
+        .bind(l1_chain_id)
+        .bind(l2_chain_id)
         .fetch_optional(&self.pool)
         .await?;
 
-        Ok(result.map(|r| {
-            (r.checkpointed_l1_block_hash.unwrap(), r.checkpointed_l1_block_number.unwrap())
-        }))
+        Ok(result)
     }
     /// Fetch the count of active (non-failed, non-cancelled) Aggregation proofs with the same start
     /// block, range vkey commitment, and aggregation vkey.
@@ -375,20 +376,20 @@ impl DriverDBClient {
         ];
         // Note: Relayed is not included in the status list in case the user re-starts the proposer
         // with the same DB and a different contract at the same starting block.
-        let result = sqlx::query!(
-            "SELECT COUNT(*) as count FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND status = ANY($4) AND req_type = $5 AND start_block = $6 AND l1_chain_id = $7 AND l2_chain_id = $8",
-            &commitment.range_vkey_commitment[..],
-            &commitment.rollup_config_hash[..],
-            &commitment.agg_vkey_hash[..],
-            &status_values[..],
-            RequestType::Aggregation as i16,
-            start_block,
-            l1_chain_id,
-            l2_chain_id,
+        let result = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND status = ANY($4) AND invalidated_at IS NULL AND req_type = $5 AND start_block = $6 AND l1_chain_id = $7 AND l2_chain_id = $8",
         )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(&commitment.agg_vkey_hash[..])
+        .bind(&status_values[..])
+        .bind(RequestType::Aggregation as i16)
+        .bind(start_block)
+        .bind(l1_chain_id)
+        .bind(l2_chain_id)
         .fetch_one(&self.pool)
         .await?;
-        Ok(result.count.unwrap_or(0))
+        Ok(result)
     }
 
     /// Fetch the sorted list of Aggregation proofs with status Unrequested that have a start_block
@@ -406,18 +407,17 @@ impl DriverDBClient {
         l1_chain_id: i64,
         l2_chain_id: i64,
     ) -> Result<Option<OPSuccinctRequest>, Error> {
-        let request = sqlx::query_as!(
-            OPSuccinctRequest,
-            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND status = $4 AND req_type = $5 AND start_block >= $6 AND l1_chain_id = $7 AND l2_chain_id = $8 ORDER BY start_block ASC LIMIT 1",
-            &commitment.range_vkey_commitment[..],
-            &commitment.rollup_config_hash[..],
-            &commitment.agg_vkey_hash[..],
-            RequestStatus::Unrequested as i16,
-            RequestType::Aggregation as i16,
-            latest_contract_l2_block,
-            l1_chain_id,
-            l2_chain_id,
+        let request = sqlx::query_as::<_, OPSuccinctRequest>(
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND status = $4 AND invalidated_at IS NULL AND req_type = $5 AND start_block >= $6 AND l1_chain_id = $7 AND l2_chain_id = $8 ORDER BY start_block ASC LIMIT 1",
         )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(&commitment.agg_vkey_hash[..])
+        .bind(RequestStatus::Unrequested as i16)
+        .bind(RequestType::Aggregation as i16)
+        .bind(latest_contract_l2_block)
+        .bind(l1_chain_id)
+        .bind(l2_chain_id)
         .fetch_optional(&self.pool)
         .await?;
 
@@ -433,17 +433,16 @@ impl DriverDBClient {
         l1_chain_id: i64,
         l2_chain_id: i64,
     ) -> Result<Option<OPSuccinctRequest>, Error> {
-        let request = sqlx::query_as!(
-            OPSuccinctRequest,
-            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND req_type = $4 AND start_block >= $5 AND l1_chain_id = $6 AND l2_chain_id = $7 ORDER BY start_block ASC LIMIT 1",
-            &commitment.range_vkey_commitment[..],
-            &commitment.rollup_config_hash[..],
-            RequestStatus::Unrequested as i16,
-            RequestType::Range as i16,
-            latest_contract_l2_block,
-            l1_chain_id,
-            l2_chain_id,
+        let request = sqlx::query_as::<_, OPSuccinctRequest>(
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND invalidated_at IS NULL AND req_type = $4 AND start_block >= $5 AND l1_chain_id = $6 AND l2_chain_id = $7 ORDER BY start_block ASC LIMIT 1",
         )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(RequestStatus::Unrequested as i16)
+        .bind(RequestType::Range as i16)
+        .bind(latest_contract_l2_block)
+        .bind(l1_chain_id)
+        .bind(l2_chain_id)
         .fetch_optional(&self.pool)
         .await?;
         Ok(request)
@@ -458,37 +457,169 @@ impl DriverDBClient {
         l1_chain_id: i64,
         l2_chain_id: i64,
     ) -> Result<Vec<(i64, i64)>, Error> {
-        let blocks = sqlx::query!(
-            "SELECT start_block, end_block FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND req_type = $4 AND start_block >= $5 AND l1_chain_id = $6 AND l2_chain_id = $7 ORDER BY start_block ASC",
-            &commitment.range_vkey_commitment[..],
-            &commitment.rollup_config_hash[..],
-            RequestStatus::Complete as i16,
-            RequestType::Range as i16,
-            latest_contract_l2_block,
-            l1_chain_id,
-            l2_chain_id,
+        let blocks = sqlx::query_as::<_, (i64, i64)>(
+            "SELECT start_block, end_block FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND invalidated_at IS NULL AND req_type = $4 AND start_block >= $5 AND l1_chain_id = $6 AND l2_chain_id = $7 ORDER BY start_block ASC",
         )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(RequestStatus::Complete as i16)
+        .bind(RequestType::Range as i16)
+        .bind(latest_contract_l2_block)
+        .bind(l1_chain_id)
+        .bind(l2_chain_id)
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(blocks.iter().map(|block| (block.start_block, block.end_block)).collect())
+        Ok(blocks)
     }
 
-    /// Update the l1_head_block_number for a request.
-    pub async fn update_l1_head_block_number(
+    /// Fetch canonicality metadata for active completed range proofs.
+    pub async fn fetch_completed_range_metadata(
+        &self,
+        commitment: &CommitmentConfig,
+        latest_contract_l2_block: i64,
+        l1_chain_id: i64,
+        l2_chain_id: i64,
+    ) -> Result<Vec<CompletedRangeMetadata>, Error> {
+        sqlx::query_as::<_, CompletedRangeMetadata>(
+            "SELECT id, start_block, end_block, l1_head_block_number, l1_head_block_hash FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND invalidated_at IS NULL AND req_type = $4 AND start_block >= $5 AND l1_chain_id = $6 AND l2_chain_id = $7 ORDER BY start_block ASC",
+        )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(RequestStatus::Complete as i16)
+        .bind(RequestType::Range as i16)
+        .bind(latest_contract_l2_block)
+        .bind(l1_chain_id)
+        .bind(l2_chain_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    /// Fetch a bounded batch of completed range proofs missing canonicality metadata.
+    pub async fn fetch_missing_range_metadata(
+        &self,
+        commitment: &CommitmentConfig,
+        latest_contract_l2_block: i64,
+        l1_chain_id: i64,
+        l2_chain_id: i64,
+        limit: i64,
+    ) -> Result<Vec<MissingRangeMetadata>, Error> {
+        sqlx::query_as::<_, MissingRangeMetadata>(
+            "SELECT id, start_block, end_block, l1_head_block_number, proof FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND invalidated_at IS NULL AND req_type = $4 AND start_block >= $5 AND l1_chain_id = $6 AND l2_chain_id = $7 AND (l1_head_block_number IS NULL OR l1_head_block_hash IS NULL) ORDER BY start_block ASC LIMIT $8",
+        )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(RequestStatus::Complete as i16)
+        .bind(RequestType::Range as i16)
+        .bind(latest_contract_l2_block)
+        .bind(l1_chain_id)
+        .bind(l2_chain_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    /// Record the L1 block identity used by a range proof.
+    pub async fn update_l1_head(
         &self,
         id: i64,
         l1_head_block_number: i64,
+        l1_head_block_hash: B256,
     ) -> Result<PgQueryResult, Error> {
-        sqlx::query!(
-            r#"
-            UPDATE requests SET l1_head_block_number = $1 WHERE id = $2
-            "#,
-            l1_head_block_number,
-            id,
+        sqlx::query(
+            "UPDATE requests SET l1_head_block_number = $1, l1_head_block_hash = $2, updated_at = NOW() WHERE id = $3",
         )
+        .bind(l1_head_block_number)
+        .bind(l1_head_block_hash.as_slice())
+        .bind(id)
         .execute(&self.pool)
         .await
+    }
+
+    /// Return whether a request has been logically invalidated.
+    pub async fn is_request_invalidated(&self, id: i64) -> Result<bool, Error> {
+        sqlx::query_scalar::<_, bool>(
+            "SELECT invalidated_at IS NOT NULL FROM requests WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    /// Begin witness generation only for a still-valid queued request.
+    pub async fn try_start_witness_generation(&self, id: i64) -> Result<bool, Error> {
+        let result = sqlx::query(
+            "UPDATE requests SET status = $1, updated_at = NOW() WHERE id = $2 AND status = $3 AND invalidated_at IS NULL",
+        )
+        .bind(RequestStatus::WitnessGeneration as i16)
+        .bind(id)
+        .bind(RequestStatus::Unrequested as i16)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() == 1)
+    }
+
+    /// Move an invalidated physical request to its terminal status.
+    pub async fn finish_invalidated_request(&self, id: i64) -> Result<bool, Error> {
+        let result = sqlx::query(
+            "UPDATE requests SET status = $1, updated_at = NOW() WHERE id = $2 AND invalidated_at IS NOT NULL AND status != $1",
+        )
+        .bind(RequestStatus::Invalidated as i16)
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() == 1)
+    }
+
+    /// Invalidate stale completed ranges and every pre-relay aggregation containing them.
+    pub async fn invalidate_noncanonical_ranges(
+        &self,
+        stale_range_ids: &[i64],
+        commitment: &CommitmentConfig,
+        l1_chain_id: i64,
+        l2_chain_id: i64,
+    ) -> Result<(u64, u64), Error> {
+        if stale_range_ids.is_empty() {
+            return Ok((0, 0));
+        }
+
+        let mut tx = self.pool.begin().await?;
+        let range_result = sqlx::query(
+            "UPDATE requests SET status = $1, invalidated_at = NOW(), updated_at = NOW() WHERE id = ANY($2) AND req_type = $3 AND status = $4 AND invalidated_at IS NULL",
+        )
+        .bind(RequestStatus::Invalidated as i16)
+        .bind(stale_range_ids)
+        .bind(RequestType::Range as i16)
+        .bind(RequestStatus::Complete as i16)
+        .execute(&mut *tx)
+        .await?;
+
+        let active_statuses = [
+            RequestStatus::Unrequested as i16,
+            RequestStatus::WitnessGeneration as i16,
+            RequestStatus::Execution as i16,
+            RequestStatus::Prove as i16,
+            RequestStatus::Complete as i16,
+        ];
+        let terminal_statuses = [RequestStatus::Unrequested as i16, RequestStatus::Complete as i16];
+        let agg_result = sqlx::query(
+            "UPDATE requests AS agg SET status = CASE WHEN agg.status = ANY($1) THEN $2 ELSE agg.status END, invalidated_at = NOW(), updated_at = NOW() WHERE agg.req_type = $3 AND agg.status = ANY($4) AND agg.invalidated_at IS NULL AND agg.range_vkey_commitment = $5 AND agg.rollup_config_hash = $6 AND agg.aggregation_vkey_hash = $7 AND agg.l1_chain_id = $8 AND agg.l2_chain_id = $9 AND EXISTS (SELECT 1 FROM requests AS stale WHERE stale.id = ANY($10) AND agg.start_block <= stale.start_block AND stale.end_block <= agg.end_block)",
+        )
+        .bind(&terminal_statuses[..])
+        .bind(RequestStatus::Invalidated as i16)
+        .bind(RequestType::Aggregation as i16)
+        .bind(&active_statuses[..])
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(&commitment.agg_vkey_hash[..])
+        .bind(l1_chain_id)
+        .bind(l2_chain_id)
+        .bind(stale_range_ids)
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+        Ok((range_result.rows_affected(), agg_result.rows_affected()))
     }
 
     /// Update the prove_duration based on the current time and the proof_request_time.
@@ -504,21 +635,18 @@ impl DriverDBClient {
     }
 
     /// Add a completed proof to the database.
-    pub async fn update_proof_to_complete(
-        &self,
-        id: i64,
-        proof: &[u8],
-    ) -> Result<PgQueryResult, Error> {
-        sqlx::query!(
-            r#"
-            UPDATE requests SET proof = $1, status = $2, updated_at = NOW() WHERE id = $3
-            "#,
-            proof,
-            RequestStatus::Complete as i16,
-            id,
+    pub async fn update_proof_to_complete(&self, id: i64, proof: &[u8]) -> Result<bool, Error> {
+        let completable_statuses = [RequestStatus::Execution as i16, RequestStatus::Prove as i16];
+        let result = sqlx::query(
+            "UPDATE requests SET proof = $1, status = $2, updated_at = NOW() WHERE id = $3 AND status = ANY($4) AND invalidated_at IS NULL",
         )
+        .bind(proof)
+        .bind(RequestStatus::Complete as i16)
+        .bind(id)
+        .bind(&completable_statuses[..])
         .execute(&self.pool)
-        .await
+        .await?;
+        Ok(result.rows_affected() == 1)
     }
 
     /// Update the witness generation duration of a request in the database.
@@ -611,18 +739,18 @@ impl DriverDBClient {
         id: i64,
         relay_tx_hash: B256,
         contract_address: Address,
-    ) -> Result<PgQueryResult, Error> {
-        sqlx::query!(
-            r#"
-            UPDATE requests SET status = $1, relay_tx_hash = $2, contract_address = $3, updated_at = NOW() WHERE id = $4
-            "#,
-            RequestStatus::Relayed as i16,
-            relay_tx_hash.to_vec(),
-            contract_address.to_vec(),
-            id,
+    ) -> Result<bool, Error> {
+        let result = sqlx::query(
+            "UPDATE requests SET status = $1, relay_tx_hash = $2, contract_address = $3, updated_at = NOW() WHERE id = $4 AND status = $5 AND invalidated_at IS NULL",
         )
+        .bind(RequestStatus::Relayed as i16)
+        .bind(relay_tx_hash.as_slice())
+        .bind(contract_address.as_slice())
+        .bind(id)
+        .bind(RequestStatus::Complete as i16)
         .execute(&self.pool)
-        .await
+        .await?;
+        Ok(result.rows_affected() == 1)
     }
 
     /// Fetch a single completed aggregation proof after the given start block.
@@ -633,18 +761,17 @@ impl DriverDBClient {
         l1_chain_id: i64,
         l2_chain_id: i64,
     ) -> Result<Option<OPSuccinctRequest>, Error> {
-        let request = sqlx::query_as!(
-            OPSuccinctRequest,
-            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND status = $4 AND req_type = $5 AND start_block = $6 AND l1_chain_id = $7 AND l2_chain_id = $8 ORDER BY start_block ASC LIMIT 1",
-            &commitment.range_vkey_commitment[..],
-            &commitment.rollup_config_hash[..],
-            &commitment.agg_vkey_hash[..],
-            RequestStatus::Complete as i16,
-            RequestType::Aggregation as i16,
-            latest_contract_l2_block,
-            l1_chain_id,
-            l2_chain_id,
+        let request = sqlx::query_as::<_, OPSuccinctRequest>(
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND status = $4 AND invalidated_at IS NULL AND req_type = $5 AND start_block = $6 AND l1_chain_id = $7 AND l2_chain_id = $8 ORDER BY start_block ASC LIMIT 1",
         )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(&commitment.agg_vkey_hash[..])
+        .bind(RequestStatus::Complete as i16)
+        .bind(RequestType::Aggregation as i16)
+        .bind(latest_contract_l2_block)
+        .bind(l1_chain_id)
+        .bind(l2_chain_id)
         .fetch_optional(&self.pool)
         .await?;
         Ok(request)
@@ -698,14 +825,12 @@ impl DriverDBClient {
         l2_chain_id: i64,
     ) -> Result<PgQueryResult, Error> {
         let status_values: Vec<i16> = statuses.iter().map(|s| *s as i16).collect();
-        sqlx::query!(
-            r#"
-            DELETE FROM requests WHERE status = ANY($1) AND l1_chain_id = $2 AND l2_chain_id = $3
-            "#,
-            &status_values[..],
-            l1_chain_id,
-            l2_chain_id,
+        sqlx::query(
+            "DELETE FROM requests WHERE status = ANY($1) AND invalidated_at IS NULL AND l1_chain_id = $2 AND l2_chain_id = $3",
         )
+        .bind(&status_values[..])
+        .bind(l1_chain_id)
+        .bind(l2_chain_id)
         .execute(&self.pool)
         .await
     }
@@ -1509,5 +1634,172 @@ mod tests {
         let result =
             c.fetch_completed_agg_proof_after_block(100, &diff_comm, L1ID, L2ID).await.unwrap();
         assert!(result.is_some());
+    }
+
+    #[tokio::test]
+    async fn invalidation_cascades_to_every_containing_aggregation() {
+        let db = TestDb::new().await;
+        let c = db.client();
+        let cases =
+            [(0, vec![0]), (1_000, vec![1_100]), (2_000, vec![2_200]), (3_000, vec![3_000, 3_200])];
+
+        for (offset, _) in &cases {
+            insert_requests(
+                c,
+                &[
+                    completed_range(*offset, offset + 100),
+                    completed_range(offset + 100, offset + 200),
+                    completed_range(offset + 200, offset + 300),
+                    agg_request(*offset, offset + 100, RequestStatus::Complete),
+                    agg_request(offset + 100, offset + 200, RequestStatus::Complete),
+                    agg_request(offset + 200, offset + 300, RequestStatus::Complete),
+                    agg_request(*offset, offset + 300, RequestStatus::Complete),
+                ],
+            )
+            .await;
+        }
+
+        let ranges =
+            c.fetch_completed_range_metadata(&default_commitment(), 0, L1ID, L2ID).await.unwrap();
+        for (_, stale_starts) in &cases {
+            let stale_ids = ranges
+                .iter()
+                .filter(|range| stale_starts.contains(&range.start_block))
+                .map(|range| range.id)
+                .collect::<Vec<_>>();
+            c.invalidate_noncanonical_ranges(&stale_ids, &default_commitment(), L1ID, L2ID)
+                .await
+                .unwrap();
+
+            for range in ranges.iter().filter(|range| stale_ids.contains(&range.id)) {
+                let (status, invalidated): (i16, bool) = sqlx::query_as(
+                    "SELECT status, invalidated_at IS NOT NULL FROM requests WHERE id = $1",
+                )
+                .bind(range.id)
+                .fetch_one(&c.pool)
+                .await
+                .unwrap();
+                assert_eq!(RequestStatus::from(status), RequestStatus::Invalidated);
+                assert!(invalidated);
+            }
+
+            let offset = stale_starts[0] / 1_000 * 1_000;
+            let aggregations: Vec<(i64, i64, i16, bool)> = sqlx::query_as(
+                "SELECT start_block, end_block, status, invalidated_at IS NOT NULL FROM requests WHERE req_type = $1 AND start_block >= $2 AND start_block < $3 ORDER BY start_block, end_block",
+            )
+            .bind(RequestType::Aggregation as i16)
+            .bind(offset)
+            .bind(offset + 1_000)
+            .fetch_all(&c.pool)
+            .await
+            .unwrap();
+            for (start_block, end_block, status, invalidated) in aggregations {
+                let expected = stale_starts.iter().any(|stale_start| {
+                    start_block <= *stale_start && stale_start + 100 <= end_block
+                });
+                assert_eq!(invalidated, expected, "aggregation ({start_block}, {end_block}]");
+                assert_eq!(
+                    RequestStatus::from(status),
+                    if expected { RequestStatus::Invalidated } else { RequestStatus::Complete }
+                );
+            }
+        }
+
+        let repeated_ids = ranges
+            .iter()
+            .filter(|range| [3_000, 3_200].contains(&range.start_block))
+            .map(|range| range.id)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            c.invalidate_noncanonical_ranges(&repeated_ids, &default_commitment(), L1ID, L2ID,)
+                .await
+                .unwrap(),
+            (0, 0)
+        );
+    }
+
+    #[tokio::test]
+    async fn invalidation_preserves_in_flight_status_until_terminal() {
+        let db = TestDb::new().await;
+        let c = db.client();
+        insert_requests(
+            c,
+            &[
+                completed_range(0, 100),
+                agg_request(0, 101, RequestStatus::Unrequested),
+                agg_request(0, 102, RequestStatus::WitnessGeneration),
+                agg_request(0, 103, RequestStatus::Execution),
+                agg_request(0, 104, RequestStatus::Prove),
+                agg_request(0, 105, RequestStatus::Complete),
+                agg_request(0, 106, RequestStatus::Relayed),
+            ],
+        )
+        .await;
+        let stale_id =
+            c.fetch_completed_range_metadata(&default_commitment(), 0, L1ID, L2ID).await.unwrap()
+                [0]
+            .id;
+
+        assert_eq!(
+            c.invalidate_noncanonical_ranges(&[stale_id], &default_commitment(), L1ID, L2ID,)
+                .await
+                .unwrap(),
+            (1, 5)
+        );
+
+        let aggregations: Vec<(i64, i16, bool)> = sqlx::query_as(
+            "SELECT end_block, status, invalidated_at IS NOT NULL FROM requests WHERE req_type = $1 ORDER BY end_block",
+        )
+        .bind(RequestType::Aggregation as i16)
+        .fetch_all(&c.pool)
+        .await
+        .unwrap();
+        let expected = [
+            (101, RequestStatus::Invalidated, true),
+            (102, RequestStatus::WitnessGeneration, true),
+            (103, RequestStatus::Execution, true),
+            (104, RequestStatus::Prove, true),
+            (105, RequestStatus::Invalidated, true),
+            (106, RequestStatus::Relayed, false),
+        ];
+        for ((end, status, invalidated), expected) in aggregations.into_iter().zip(expected) {
+            assert_eq!((end, RequestStatus::from(status), invalidated), expected);
+        }
+
+        assert_eq!(
+            c.fetch_active_agg_proofs_count(0, &default_commitment(), L1ID, L2ID).await.unwrap(),
+            0
+        );
+        assert_eq!(count(c, RequestStatus::Prove).await, 1);
+        assert!(c
+            .fetch_unrequested_agg_proof(0, &default_commitment(), L1ID, L2ID)
+            .await
+            .unwrap()
+            .is_none());
+        assert!(c
+            .fetch_completed_agg_proof_after_block(0, &default_commitment(), L1ID, L2ID)
+            .await
+            .unwrap()
+            .is_none());
+
+        let queued_id: i64 = sqlx::query_scalar("SELECT id FROM requests WHERE end_block = 101")
+            .fetch_one(&c.pool)
+            .await
+            .unwrap();
+        assert!(!c.try_start_witness_generation(queued_id).await.unwrap());
+
+        let witness_id: i64 = sqlx::query_scalar("SELECT id FROM requests WHERE end_block = 102")
+            .fetch_one(&c.pool)
+            .await
+            .unwrap();
+        c.update_request_to_prove(witness_id, B256::repeat_byte(1)).await.unwrap();
+        assert!(c.is_request_invalidated(witness_id).await.unwrap());
+
+        let prove_id: i64 = sqlx::query_scalar("SELECT id FROM requests WHERE end_block = 104")
+            .fetch_one(&c.pool)
+            .await
+            .unwrap();
+        assert!(!c.update_proof_to_complete(prove_id, &[1, 2, 3]).await.unwrap());
+        assert!(c.finish_invalidated_request(prove_id).await.unwrap());
     }
 }
