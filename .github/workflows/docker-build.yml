@@ -39,6 +39,15 @@ jobs:
             type=ref,event=tag
             type=sha
 
+      - name: Docker meta for op-succinct-altda
+        id: meta-succinct-altda
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/op-succinct-altda
+          tags: |
+            type=ref,event=tag
+            type=sha
+
       - name: Docker meta for op-succinct-celestia
         id: meta-succinct-celestia
         uses: docker/metadata-action@v5
@@ -72,6 +81,17 @@ jobs:
           push: true
           tags: ${{ steps.meta-succinct.outputs.tags }}
           labels: ${{ steps.meta-succinct.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push op-succinct-altda
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: validity/Dockerfile.altda
+          push: true
+          tags: ${{ steps.meta-succinct-altda.outputs.tags }}
+          labels: ${{ steps.meta-succinct-altda.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
