@@ -16,8 +16,6 @@
   - [Validity Proposer](./validity/validity-mode.md)
     - [Proposer Configuration](./validity/proposer.md)
     - [Proposer Lifecycle](./validity/proposer-lifecycle.md)
-    - [Gas Costs]()
-    - [Testing Guide]()
   - [Upgrading OP Succinct](./validity/upgrade.md)
   - [Data Availability](./validity/data-availability/intro.md)
     - [Celestia](./validity/data-availability/celestia.md)
