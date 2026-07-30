@@ -100,15 +100,17 @@ fn highest_contiguous_end(
     Ok(found.then_some(current_end))
 }
 
-async fn handle_terminal_proof_failure<F, Fut>(
+async fn handle_terminal_proof_failure_before_request_details<F, FailureFut, DetailsFut, T>(
     request: OPSuccinctRequest,
     status: &GetProofRequestStatusResponse,
     current_time: u64,
     handle_failed: F,
-) -> Result<bool>
+    request_details: DetailsFut,
+) -> Result<Option<T>>
 where
-    F: FnOnce(OPSuccinctRequest, i32) -> Fut,
-    Fut: Future<Output = Result<()>>,
+    F: FnOnce(OPSuccinctRequest, i32) -> FailureFut,
+    FailureFut: Future<Output = Result<()>>,
+    DetailsFut: Future<Output = Result<T>>,
 {
     if current_time > status.deadline() {
         if let Err(error) = handle_failed(request.clone(), status.execution_status()).await {
@@ -128,11 +130,11 @@ where
             current_time,
             "Proof request timed out"
         );
-        return Ok(true);
+        return Ok(None);
     }
 
     if status.fulfillment_status() != FulfillmentStatus::Unfulfillable as i32 {
-        return Ok(false);
+        return Ok(Some(request_details.await?));
     }
 
     match request.req_type {
@@ -165,7 +167,7 @@ where
 
     handle_failed(request, status.execution_status()).await?;
     ValidityGauge::ProofRequestRetryCount.increment(1.0);
-    Ok(true)
+    Ok(None)
 }
 
 /// Configuration for the driver.
@@ -697,20 +699,6 @@ where
                 return Ok(());
             }
 
-            if !request_invalidated &&
-                handle_terminal_proof_failure(
-                    request.clone(),
-                    &status,
-                    current_time,
-                    |request, execution_status| {
-                        self.proof_requester.handle_failed_request(request, execution_status)
-                    },
-                )
-                .await?
-            {
-                return Ok(());
-            }
-
             if request_invalidated {
                 if network_prover.network_mode() == NetworkMode::Mainnet {
                     let request_details = self
@@ -738,6 +726,34 @@ where
                 }
                 return Ok(());
             }
+
+            let request_details = async {
+                if status.fulfillment_status() == FulfillmentStatus::Fulfilled as i32 ||
+                    network_prover.network_mode() != NetworkMode::Mainnet
+                {
+                    return Ok(None);
+                }
+
+                self.network_call_with_timeout(
+                    network_prover.get_proof_request(proof_request_id),
+                    "waiting for proof request details",
+                    &request,
+                )
+                .await
+            };
+            let Some(request_details) = handle_terminal_proof_failure_before_request_details(
+                request.clone(),
+                &status,
+                current_time,
+                |request, execution_status| {
+                    self.proof_requester.handle_failed_request(request, execution_status)
+                },
+                request_details,
+            )
+            .await?
+            else {
+                return Ok(());
+            };
 
             // If the proof request has been fulfilled, update the request to status Complete and
             // add the proof bytes to the database.
@@ -819,16 +835,7 @@ where
                 return Ok(());
             }
 
-            // Mainnet auction cancellation requires request details; reserved requests do not.
             if network_prover.network_mode() == NetworkMode::Mainnet {
-                let request_details = self
-                    .network_call_with_timeout(
-                        network_prover.get_proof_request(proof_request_id),
-                        "waiting for proof request details",
-                        &request,
-                    )
-                    .await?;
-
                 if let Some(request_details) = request_details {
                     let auction_deadline =
                         request_details.created_at + self.requester_config.auction_timeout;
@@ -2235,18 +2242,15 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc, Mutex as StdMutex,
-    };
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     use sp1_sdk::network::proto::{
         base_types, types::FulfillmentStatus, GetProofRequestStatusResponse,
     };
 
     use super::{
-        handle_terminal_proof_failure, highest_contiguous_end, select_checkpoint_block_number,
-        OPSuccinctRequest, RequestStatus, RequestType,
+        handle_terminal_proof_failure_before_request_details, highest_contiguous_end,
+        select_checkpoint_block_number, OPSuccinctRequest, RequestStatus, RequestType,
     };
 
     #[test]
@@ -2288,12 +2292,6 @@ mod tests {
 
     #[tokio::test]
     async fn unfulfillable_status_is_handled_before_request_details() {
-        #[derive(Default)]
-        struct FailureState {
-            failed_request_ids: Vec<i64>,
-            recreated_ranges: Vec<(i64, i64)>,
-        }
-
         let request = OPSuccinctRequest {
             id: 496,
             status: RequestStatus::Prove,
@@ -2308,33 +2306,32 @@ mod tests {
                 deadline: u64::MAX,
                 ..Default::default()
             });
-        let state = Arc::new(StdMutex::new(FailureState::default()));
-        let callback_state = state.clone();
+        let failure_calls = AtomicUsize::new(0);
         let details_requests = AtomicUsize::new(0);
+        let failure_calls_for_handler = &failure_calls;
 
-        let handled =
-            handle_terminal_proof_failure(request, &status, 0, move |failed_request, _| {
-                let callback_state = callback_state.clone();
-                async move {
-                    let mut state = callback_state.lock().unwrap();
-                    state.failed_request_ids.push(failed_request.id);
-                    state
-                        .recreated_ranges
-                        .push((failed_request.start_block, failed_request.end_block));
-                    Ok(())
-                }
-            })
-            .await
-            .unwrap();
-
-        if !handled {
+        let request_details = async {
             details_requests.fetch_add(1, Ordering::Relaxed);
-            panic!("proof request details timed out");
-        }
+            Err::<(), _>(anyhow::anyhow!("proof request details timed out"))
+        };
+        let result = handle_terminal_proof_failure_before_request_details(
+            request,
+            &status,
+            0,
+            |failed_request, _| async move {
+                assert_eq!(failed_request.id, 496);
+                assert_eq!(failed_request.start_block, 2_433_375);
+                assert_eq!(failed_request.end_block, 2_433_675);
+                failure_calls_for_handler.fetch_add(1, Ordering::Relaxed);
+                Ok(())
+            },
+            request_details,
+        )
+        .await
+        .unwrap();
 
-        let state = state.lock().unwrap();
+        assert!(result.is_none());
+        assert_eq!(failure_calls.load(Ordering::Relaxed), 1);
         assert_eq!(details_requests.load(Ordering::Relaxed), 0);
-        assert_eq!(state.failed_request_ids, [496]);
-        assert_eq!(state.recreated_ranges, [(2_433_375, 2_433_675)]);
     }
 }
