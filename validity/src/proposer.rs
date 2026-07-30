@@ -1,4 +1,6 @@
-use std::{collections::HashMap, ops::Range, str::FromStr, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap, future::Future, ops::Range, str::FromStr, sync::Arc, time::Duration,
+};
 
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
@@ -26,7 +28,10 @@ use op_succinct_proof_utils::{
 use op_succinct_signer_utils::SignerLock;
 use sp1_sdk::{
     network::{
-        proto::types::{ExecutionStatus, FulfillmentStatus},
+        proto::{
+            types::{ExecutionStatus, FulfillmentStatus},
+            GetProofRequestStatusResponse,
+        },
         NetworkMode,
     },
     Elf, HashableKey, NetworkProver, Prover, ProverClient, ProvingKey, SP1Proof,
@@ -93,6 +98,76 @@ fn highest_contiguous_end(
     }
 
     Ok(found.then_some(current_end))
+}
+
+async fn handle_terminal_proof_failure_before_request_details<F, FailureFut, DetailsFut, T>(
+    request: OPSuccinctRequest,
+    status: &GetProofRequestStatusResponse,
+    current_time: u64,
+    handle_failed: F,
+    request_details: DetailsFut,
+) -> Result<Option<T>>
+where
+    F: FnOnce(OPSuccinctRequest, i32) -> FailureFut,
+    FailureFut: Future<Output = Result<()>>,
+    DetailsFut: Future<Output = Result<T>>,
+{
+    if current_time > status.deadline() {
+        if let Err(error) = handle_failed(request.clone(), status.execution_status()).await {
+            ValidityGauge::RetryErrorCount.increment(1.0);
+            return Err(error);
+        }
+
+        ValidityGauge::ProofRequestRetryCount.increment(1.0);
+        ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
+
+        warn!(
+            proof_id = request.id,
+            start_block = request.start_block,
+            end_block = request.end_block,
+            req_type = ?request.req_type,
+            deadline = status.deadline(),
+            current_time,
+            "Proof request timed out"
+        );
+        return Ok(None);
+    }
+
+    if status.fulfillment_status() != FulfillmentStatus::Unfulfillable as i32 {
+        return Ok(Some(request_details.await?));
+    }
+
+    match request.req_type {
+        RequestType::Range => {
+            warn!(
+                proof_id = request.id,
+                start_block = request.start_block,
+                end_block = request.end_block,
+                proof_request_time = ?request.proof_request_time,
+                total_tx_fees = %request.total_tx_fees,
+                total_transactions = request.total_nb_transactions,
+                witnessgen_duration_s = request.witnessgen_duration,
+                total_eth_gas_used = request.total_eth_gas_used,
+                total_l1_fees = %request.total_l1_fees,
+                execution_status = ?status.execution_status(),
+                "Range proof request failed - unfulfillable"
+            );
+        }
+        RequestType::Aggregation => {
+            warn!(
+                proof_id = request.id,
+                start_block = request.start_block,
+                end_block = request.end_block,
+                witnessgen_duration_s = request.witnessgen_duration,
+                execution_status = ?status.execution_status(),
+                "Aggregation proof request failed - unfulfillable"
+            );
+        }
+    }
+
+    handle_failed(request, status.execution_status()).await?;
+    ValidityGauge::ProofRequestRetryCount.increment(1.0);
+    Ok(None)
 }
 
 /// Configuration for the driver.
@@ -609,114 +684,76 @@ where
                 )
                 .await?;
 
-            let request_details = self
-                .network_call_with_timeout(
+            // Check if current time exceeds deadline. If so, the proof has timed out.
+            let current_time =
+                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
+            let request_invalidated =
+                self.driver_config.driver_db_client.is_request_invalidated(request.id).await?;
+
+            if request_invalidated &&
+                (status.fulfillment_status() == FulfillmentStatus::Fulfilled as i32 ||
+                    status.fulfillment_status() == FulfillmentStatus::Unfulfillable as i32 ||
+                    current_time > status.deadline())
+            {
+                self.driver_config.driver_db_client.finish_invalidated_request(request.id).await?;
+                return Ok(());
+            }
+
+            if request_invalidated {
+                if network_prover.network_mode() == NetworkMode::Mainnet {
+                    let request_details = self
+                        .network_call_with_timeout(
+                            network_prover.get_proof_request(proof_request_id),
+                            "waiting for proof request details",
+                            &request,
+                        )
+                        .await?;
+
+                    if request_details.as_ref().is_some_and(|details| {
+                        details.fulfillment_status == FulfillmentStatus::Requested as i32
+                    }) {
+                        self.network_call_with_timeout(
+                            network_prover.cancel_request(proof_request_id),
+                            "cancelling invalidated proof request",
+                            &request,
+                        )
+                        .await?;
+                        self.driver_config
+                            .driver_db_client
+                            .finish_invalidated_request(request.id)
+                            .await?;
+                    }
+                }
+                return Ok(());
+            }
+
+            let request_details = async {
+                if status.fulfillment_status() == FulfillmentStatus::Fulfilled as i32 ||
+                    network_prover.network_mode() != NetworkMode::Mainnet
+                {
+                    return Ok(None);
+                }
+
+                self.network_call_with_timeout(
                     network_prover.get_proof_request(proof_request_id),
                     "waiting for proof request details",
                     &request,
                 )
-                .await?;
-
-            // Check if current time exceeds deadline. If so, the proof has timed out.
-            let current_time =
-                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
-
-            if self.driver_config.driver_db_client.is_request_invalidated(request.id).await? {
-                if network_prover.network_mode() == NetworkMode::Mainnet &&
-                    request_details.as_ref().is_some_and(|details| {
-                        details.fulfillment_status == FulfillmentStatus::Requested as i32
-                    })
-                {
-                    self.network_call_with_timeout(
-                        network_prover.cancel_request(proof_request_id),
-                        "cancelling invalidated proof request",
-                        &request,
-                    )
-                    .await?;
-                    self.driver_config
-                        .driver_db_client
-                        .finish_invalidated_request(request.id)
-                        .await?;
-                } else if status.fulfillment_status() == FulfillmentStatus::Fulfilled as i32 ||
-                    status.fulfillment_status() == FulfillmentStatus::Unfulfillable as i32 ||
-                    current_time > status.deadline()
-                {
-                    self.driver_config
-                        .driver_db_client
-                        .finish_invalidated_request(request.id)
-                        .await?;
-                }
+                .await
+            };
+            let Some(request_details) = handle_terminal_proof_failure_before_request_details(
+                request.clone(),
+                &status,
+                current_time,
+                |request, execution_status| {
+                    self.proof_requester.handle_failed_request(request, execution_status)
+                },
+                request_details,
+            )
+            .await?
+            else {
                 return Ok(());
-            }
-
-            // Cancel the request in the network if the auction timeout is exceeded.
-            if let Some(request_details) = request_details {
-                let auction_deadline =
-                    request_details.created_at + self.requester_config.auction_timeout;
-                if network_prover.network_mode() == NetworkMode::Mainnet &&
-                    request_details.fulfillment_status == FulfillmentStatus::Requested as i32 &&
-                    current_time > auction_deadline
-                {
-                    // Cancel the request in the network.
-                    self.network_call_with_timeout(
-                        network_prover.cancel_request(proof_request_id),
-                        "cancelling proof request",
-                        &request,
-                    )
-                    .await?;
-
-                    // Mark the request as cancelled in the database.
-                    match self.proof_requester.handle_cancelled_request(request.clone()).await {
-                        Ok(_) => ValidityGauge::ProofRequestRetryCount.increment(1.0),
-                        Err(e) => {
-                            ValidityGauge::RetryErrorCount.increment(1.0);
-                            return Err(e);
-                        }
-                    }
-
-                    ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
-
-                    warn!(
-                        proof_id = request.id,
-                        start_block = request.start_block,
-                        end_block = request.end_block,
-                        req_type = ?request.req_type,
-                        auction_deadline,
-                        current_time,
-                        "Proof request auction deadline exceeded"
-                    );
-
-                    return Ok(());
-                }
-            }
-
-            if current_time > status.deadline() {
-                match self
-                    .proof_requester
-                    .handle_failed_request(request.clone(), status.execution_status())
-                    .await
-                {
-                    Ok(_) => ValidityGauge::ProofRequestRetryCount.increment(1.0),
-                    Err(e) => {
-                        ValidityGauge::RetryErrorCount.increment(1.0);
-                        return Err(e);
-                    }
-                }
-
-                ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
-
-                warn!(
-                    proof_id = request.id,
-                    start_block = request.start_block,
-                    end_block = request.end_block,
-                    req_type = ?request.req_type,
-                    deadline = status.deadline(),
-                    current_time,
-                    "Proof request timed out"
-                );
-
-                return Ok(());
-            }
+            };
 
             // If the proof request has been fulfilled, update the request to status Complete and
             // add the proof bytes to the database.
@@ -795,40 +832,44 @@ where
                         );
                     }
                 }
-            } else if status.fulfillment_status() == FulfillmentStatus::Unfulfillable as i32 {
-                // Log failure of range and aggregation proofs.
-                match request.req_type {
-                    RequestType::Range => {
+                return Ok(());
+            }
+
+            if network_prover.network_mode() == NetworkMode::Mainnet {
+                if let Some(request_details) = request_details {
+                    let auction_deadline =
+                        request_details.created_at + self.requester_config.auction_timeout;
+                    if request_details.fulfillment_status == FulfillmentStatus::Requested as i32 &&
+                        current_time > auction_deadline
+                    {
+                        self.network_call_with_timeout(
+                            network_prover.cancel_request(proof_request_id),
+                            "cancelling proof request",
+                            &request,
+                        )
+                        .await?;
+
+                        match self.proof_requester.handle_cancelled_request(request.clone()).await {
+                            Ok(_) => ValidityGauge::ProofRequestRetryCount.increment(1.0),
+                            Err(e) => {
+                                ValidityGauge::RetryErrorCount.increment(1.0);
+                                return Err(e);
+                            }
+                        }
+
+                        ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
+
                         warn!(
                             proof_id = request.id,
                             start_block = request.start_block,
                             end_block = request.end_block,
-                            proof_request_time = ?request.proof_request_time,
-                            total_tx_fees = %request.total_tx_fees,
-                            total_transactions = request.total_nb_transactions,
-                            witnessgen_duration_s = request.witnessgen_duration,
-                            total_eth_gas_used = request.total_eth_gas_used,
-                            total_l1_fees = %request.total_l1_fees,
-                            execution_status = ?status.execution_status(),
-                            "Range proof request failed - unfulfillable"
-                        );
-                    }
-                    RequestType::Aggregation => {
-                        warn!(
-                            proof_id = request.id,
-                            start_block = request.start_block,
-                            end_block = request.end_block,
-                            witnessgen_duration_s = request.witnessgen_duration,
-                            execution_status = ?status.execution_status(),
-                            "Aggregation proof request failed - unfulfillable"
+                            req_type = ?request.req_type,
+                            auction_deadline,
+                            current_time,
+                            "Proof request auction deadline exceeded"
                         );
                     }
                 }
-
-                self.proof_requester
-                    .handle_failed_request(request, status.execution_status())
-                    .await?;
-                ValidityGauge::ProofRequestRetryCount.increment(1.0);
             }
         } else {
             // There should never be a proof request in Prove status without a proof request id.
@@ -2201,7 +2242,16 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{highest_contiguous_end, select_checkpoint_block_number};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use sp1_sdk::network::proto::{
+        base_types, types::FulfillmentStatus, GetProofRequestStatusResponse,
+    };
+
+    use super::{
+        handle_terminal_proof_failure_before_request_details, highest_contiguous_end,
+        select_checkpoint_block_number, OPSuccinctRequest, RequestStatus, RequestType,
+    };
 
     #[test]
     fn checkpoint_falls_back_to_safe_when_no_batch_max() {
@@ -2238,5 +2288,50 @@ mod tests {
     fn contiguous_ranges_reject_empty_range() {
         let error = highest_contiguous_end(100, &[(100, 100)]).unwrap_err();
         assert!(error.to_string().contains("empty or reversed"));
+    }
+
+    #[tokio::test]
+    async fn unfulfillable_status_is_handled_before_request_details() {
+        let request = OPSuccinctRequest {
+            id: 496,
+            status: RequestStatus::Prove,
+            req_type: RequestType::Range,
+            start_block: 2_433_375,
+            end_block: 2_433_675,
+            ..Default::default()
+        };
+        let status =
+            GetProofRequestStatusResponse::Base(base_types::GetProofRequestStatusResponse {
+                fulfillment_status: FulfillmentStatus::Unfulfillable as i32,
+                deadline: u64::MAX,
+                ..Default::default()
+            });
+        let failure_calls = AtomicUsize::new(0);
+        let details_requests = AtomicUsize::new(0);
+        let failure_calls_for_handler = &failure_calls;
+
+        let request_details = async {
+            details_requests.fetch_add(1, Ordering::Relaxed);
+            Err::<(), _>(anyhow::anyhow!("proof request details timed out"))
+        };
+        let result = handle_terminal_proof_failure_before_request_details(
+            request,
+            &status,
+            0,
+            |failed_request, _| async move {
+                assert_eq!(failed_request.id, 496);
+                assert_eq!(failed_request.start_block, 2_433_375);
+                assert_eq!(failed_request.end_block, 2_433_675);
+                failure_calls_for_handler.fetch_add(1, Ordering::Relaxed);
+                Ok(())
+            },
+            request_details,
+        )
+        .await
+        .unwrap();
+
+        assert!(result.is_none());
+        assert_eq!(failure_calls.load(Ordering::Relaxed), 1);
+        assert_eq!(details_requests.load(Ordering::Relaxed), 0);
     }
 }
