@@ -27,6 +27,7 @@ pub struct EnvironmentConfig {
     pub mock: bool,
     pub safe_db_fallback: bool,
     pub op_succinct_config_name: String,
+    pub grpc_addr: Option<std::net::SocketAddr>,
     pub use_kms_requester: bool,
     pub max_price_per_pgu: u64,
     pub proving_timeout: u64,
@@ -100,10 +101,11 @@ pub async fn read_proposer_env() -> Result<EnvironmentConfig> {
 
     // Parse proof mode
     let agg_proof_mode =
-        if get_env_var("AGG_PROOF_MODE", Some("plonk".to_string()))?.to_lowercase() == "groth16" {
-            SP1ProofMode::Groth16
-        } else {
-            SP1ProofMode::Plonk
+        match get_env_var("AGG_PROOF_MODE", Some("plonk".to_string()))?.to_lowercase().as_str() {
+            "groth16" => SP1ProofMode::Groth16,
+            // For when the proof is consumed by another proof rather than verified on-chain.
+            "compressed" => SP1ProofMode::Compressed,
+            _ => SP1ProofMode::Plonk,
         };
 
     // Optional loop interval
@@ -131,6 +133,13 @@ pub async fn read_proposer_env() -> Result<EnvironmentConfig> {
             "OP_SUCCINCT_CONFIG_NAME",
             Some("opsuccinct_genesis".to_string()),
         )?,
+        grpc_addr: match env::var("GRPC_ADDRESS") {
+            Ok(addr) => Some(
+                addr.parse()
+                    .map_err(|e| anyhow::anyhow!("Failed to parse GRPC_ADDRESS: {:?}", e))?,
+            ),
+            Err(_) => None,
+        },
         use_kms_requester: get_env_var("USE_KMS_REQUESTER", Some(false))?,
         max_price_per_pgu: get_env_var("MAX_PRICE_PER_PGU", Some(300_000_000))?, /* 0.3 PROVE per billion PGU */
         proving_timeout: get_env_var("PROVING_TIMEOUT", Some(14400))?,           // 4 hours

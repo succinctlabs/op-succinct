@@ -8059,6 +8059,7 @@ dependencies = [
  "op-succinct-proof-utils",
  "op-succinct-signer-utils",
  "postgresql_embedded",
+ "prost 0.13.5",
  "reqwest 0.12.28",
  "rustls 0.23.37",
  "serde",
@@ -8071,6 +8072,8 @@ dependencies = [
  "strum_macros",
  "tikv-jemallocator",
  "tokio",
+ "tonic 0.12.3",
+ "tonic-build",
  "tracing",
 ]
 
