@@ -67,6 +67,10 @@ pub struct RequesterConfig {
     /// activated for op-node.
     pub safe_db_fallback: bool,
 
+    /// Address the aggregation gRPC server listens on, from `GRPC_ADDRESS`. Required by builds
+    /// with the `agglayer` feature and ignored by all others.
+    pub grpc_addr: Option<std::net::SocketAddr>,
+
     /// Whether to expect NETWORK_PRIVATE_KEY to be an AWS KMS key ARN instead of a
     /// plaintext private key.
     pub use_kms_requester: bool,

@@ -184,11 +184,11 @@ pub struct Proposer<P, H: OPSuccinctHost>
 where
     P: Provider + 'static,
 {
-    driver_config: DriverConfig,
+    pub(crate) driver_config: DriverConfig,
     contract_config: ContractConfig<P>,
-    program_config: ProgramConfig,
-    requester_config: RequesterConfig,
-    proof_requester: Arc<OPSuccinctProofRequester<H>>,
+    pub(crate) program_config: ProgramConfig,
+    pub(crate) requester_config: RequesterConfig,
+    pub(crate) proof_requester: Arc<OPSuccinctProofRequester<H>>,
     tasks: Arc<Mutex<TaskMap>>,
 }
 
@@ -2103,14 +2103,41 @@ where
         Ok(())
     }
 
+    /// Whether a coordinator drives aggregation over gRPC. The proposer still generates
+    /// aggregation proofs, but on demand in [`crate::grpc`] rather than on this loop's schedule,
+    /// so the loop skips queueing them and relaying them on-chain.
+    fn external_aggregation(&self) -> bool {
+        cfg!(feature = "agglayer")
+    }
+
     #[tracing::instrument(name = "proposer.run", skip(self))]
-    pub async fn run(&self) -> Result<()> {
+    pub async fn run(self: Arc<Self>) -> Result<()> {
         // Handle the case where the proposer is being re-started and the proposer state needs to be
         // updated.
         self.initialize_proposer().await?;
 
         // Initialize the metrics gauges.
         ValidityGauge::init_all();
+
+        #[cfg(feature = "agglayer")]
+        {
+            let addr = self
+                .requester_config
+                .grpc_addr
+                .context("GRPC_ADDRESS is required in builds with the `agglayer` feature")?;
+            info!("Starting aggregation gRPC server on {}", addr);
+            let service = crate::grpc::ProofsService::new(self.clone());
+            tokio::spawn(async move {
+                // Range proofs keep flowing if this dies, but no aggregation can be requested.
+                if let Err(e) = tonic::transport::Server::builder()
+                    .add_service(crate::grpc::proofs::proofs_server::ProofsServer::new(service))
+                    .serve(addr)
+                    .await
+                {
+                    tracing::error!("Aggregation gRPC server stopped: {}", e);
+                }
+            });
+        }
 
         // Loop interval in seconds.
         loop {
@@ -2158,13 +2185,17 @@ where
 
             // Create aggregation proofs based on the completed range proofs. Checkpoints the block
             // hash associated with the aggregation proof in advance.
-            self.create_aggregation_proofs().await?;
+            if !self.external_aggregation() {
+                self.create_aggregation_proofs().await?;
+            }
 
             // Request all unrequested proofs from the prover network.
             self.request_queued_proofs().await?;
 
             // Submit any aggregation proofs that are complete.
-            self.submit_agg_proofs().await?;
+            if !self.external_aggregation() {
+                self.submit_agg_proofs().await?;
+            }
         }
 
         // Update the chain lock.

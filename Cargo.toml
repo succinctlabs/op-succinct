@@ -222,6 +222,11 @@ sp1-cluster-utils = { git = "https://github.com/succinctlabs/sp1-cluster.git", t
 kzg-rs = { version = "0.2.8", features = ["rkyv", "serde"] }
 c-kzg = { version = "2.0.0", default-features = false }
 
+# grpc (used by the validity proposer's optional `agglayer` feature)
+tonic = "0.12.3"
+tonic-build = "0.12.3"
+prost = "0.13.5"
+
 # Cloud dependencies
 # Must match the gcloud-sdk version + TLS feature used by alloy-signer-gcp 2.0.5
 # (0.29, tls-webpki-roots). gcloud-sdk's default `tls-roots` and `tls-webpki-roots`
