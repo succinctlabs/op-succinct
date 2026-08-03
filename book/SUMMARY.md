@@ -36,6 +36,7 @@
     - [How to run the FP Challenger](./fault_proofs/challenger.md)
     - [Running with Docker](./fault_proofs/docker.md)
   - [Resources](./fault_proofs/resources.md)
+    - [Bond Economics and Sizing](./fault_proofs/bond_economics.md)
     - [Gas Costs](./fault_proofs/gas_costs.md)
     - [Testing Guide](./fault_proofs/testing.md)
     - [Pre-Flight Validation](./fault_proofs/preflight.md)
