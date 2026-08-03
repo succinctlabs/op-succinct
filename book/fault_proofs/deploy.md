@@ -75,7 +75,7 @@ The deployment script deploys the contracts with the following parameters:
 
 Use `cast --to-wei <value> eth` to convert the value to wei to avoid mistakes.
 
-See [Bond Economics and Sizing](./bond_economics.md) for the sizing method and liquidity checks for these values.
+See [Bond Economics and Sizing](./bond_economics.md) for bond roles and sizing considerations.
 
 ### Fallback Timeout Mechanism
 
