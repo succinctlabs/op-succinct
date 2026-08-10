@@ -137,6 +137,7 @@ pub async fn new_challenger(
     let config = ChallengerConfig {
         l1_rpc: rpc_config.l1_rpc.clone(),
         l2_rpc: rpc_config.l2_rpc.clone(),
+        l2_node_rpc: rpc_config.l2_node_rpc.clone(),
         anchor_state_registry_address: *anchor_state_registry_address,
         factory_address: *factory_address,
         fetch_interval: 2,

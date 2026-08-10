@@ -7,7 +7,7 @@ The fault proof challenger is a component responsible for monitoring and challen
 Before running the challenger, ensure you have:
 
 1. Rust toolchain installed (latest stable version)
-2. Access to L1 and L2 network nodes
+2. Access to L1, L2 execution, and L2 rollup nodes
 3. The DisputeGameFactory contract deployed (See [Deploy](./deploy.md))
 4. Sufficient ETH balance for:
    - Transaction fees
@@ -37,6 +37,7 @@ Create a `.env.challenger` file in the `fault-proof` directory with all required
 |----------|-------------|
 | `L1_RPC` | L1 RPC endpoint URL |
 | `L2_RPC` | L2 RPC endpoint URL |
+| `L2_NODE_RPC` | RPC endpoint for the single op-node paired with `L2_RPC` |
 | `ANCHOR_STATE_REGISTRY_ADDRESS` | Address of the AnchorStateRegistry contract |
 | `FACTORY_ADDRESS` | Address of the DisputeGameFactory contract |
 | `GAME_TYPE` | Type identifier for the dispute game |
@@ -63,6 +64,7 @@ Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for t
 # Required Configuration
 L1_RPC=                              # L1 RPC endpoint URL
 L2_RPC=                              # L2 RPC endpoint URL
+L2_NODE_RPC=                         # RPC URL of the op-node paired with L2_RPC
 ANCHOR_STATE_REGISTRY_ADDRESS=       # Address of the AnchorStateRegistry contract
 FACTORY_ADDRESS=                     # Address of the DisputeGameFactory contract
 GAME_TYPE=                           # Type identifier for the dispute game
@@ -87,6 +89,23 @@ L1 block at `latest - SYNC_L1_CONFIRMATIONS`. Deadline decisions continue to use
 the cycle's `latest` block. Before submitting a challenge, resolution, or credit claim, the
 challenger rechecks the relevant eligibility at a fresh canonical `latest` block and skips the
 transaction if that preflight is unavailable or stale.
+
+Before entering the main loop, the challenger verifies that the op-node rollup configuration has
+the same L1 and L2 chain IDs as `L1_RPC` and `L2_RPC`, that SafeDB is enabled and populated, and
+that its safe head exists with the same hash on the paired execution node. Startup validation is
+retried until this fixed node pair is healthy.
+
+For every active unchallenged game, the challenger resolves `game.l1Head` to its canonical L1
+block number `X`, then queries `optimism_safeHeadAtL1Block(X)` after confirming that
+`optimism_syncStatus.current_l1` has processed past `X`. A claim above this historical local-safe
+head is invalid even if the execution node now contains the same block as unsafe. Node lag,
+missing SafeDB history, execution history/state pruning, and L1/L2 hash mismatches remain
+`Unavailable`: they are retried and alerted on, never challenged as unknown data.
+
+`L2_NODE_RPC` must point directly to one dedicated op-node, not a node pool. `L2_RPC` must point to
+the execution node paired with it. The op-node must have SafeDB enabled with `--safedb.path`, must
+retain history covering the active challenge window, and must not use FollowSource or
+SuperAuthority because the challenger relies on SafeDB having historical local-safe semantics.
 
 If the confirmed L1 height moves backwards relative to the highest snapshot accepted by the
 challenger, it fails closed and skips that cycle. The high-water mark is recorded before applying
@@ -169,7 +188,8 @@ number when calculating the output root.
 Output-root validation records one of three outcomes for each monitored game:
 
 - `Valid`: the locally computed output root matches the claim.
-- `Invalid`: the output root mismatches, or the claimed L2 block number exceeds `u64::MAX`.
+- `Invalid`: the output root mismatches, the claimed L2 block number exceeds `u64::MAX`, or the
+  claim is above the historical local-safe head at `game.l1Head`.
 - `Unavailable`: validation could not complete because required RPC data could not be read.
 
 Only `Invalid` authorizes an automatic challenge based on output-root validation. An `Unavailable`

@@ -304,6 +304,8 @@ impl ProofProviderConfig {
 pub struct ChallengerConfig {
     pub l1_rpc: Url,
     pub l2_rpc: Url,
+    /// The RPC URL of the single op-node paired with `l2_rpc`.
+    pub l2_node_rpc: Url,
 
     /// The address of the AnchorStateRegistry contract.
     pub anchor_state_registry_address: Address,
@@ -342,6 +344,7 @@ impl ChallengerConfig {
         Ok(Self {
             l1_rpc: env::var("L1_RPC")?.parse().expect("L1_RPC not set"),
             l2_rpc: env::var("L2_RPC")?.parse().expect("L2_RPC not set"),
+            l2_node_rpc: env::var("L2_NODE_RPC")?.parse().expect("L2_NODE_RPC not set"),
             anchor_state_registry_address: env::var("ANCHOR_STATE_REGISTRY_ADDRESS")?
                 .parse()
                 .expect("ANCHOR_STATE_REGISTRY_ADDRESS not set"),
@@ -368,6 +371,7 @@ impl ChallengerConfig {
         tracing::info!(
             l1_rpc = %self.l1_rpc,
             l2_rpc = %self.l2_rpc,
+            l2_node_rpc = %self.l2_node_rpc,
             anchor_state_registry_address = %self.anchor_state_registry_address,
             factory_address = %self.factory_address,
             game_type = self.game_type,
