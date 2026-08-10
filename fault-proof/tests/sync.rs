@@ -1975,6 +1975,29 @@ mod challenger_sync {
         Ok(())
     }
 
+    /// An L2 block number that cannot be represented by execution-layer RPCs is deterministically
+    /// invalid and must not abort challenger synchronization.
+    #[tokio::test]
+    async fn test_l2_block_number_above_u64_max_is_marked_for_challenge() -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+        let oversized = U256::from(u64::MAX) + U256::from(1);
+
+        env.create_game_with_l2_block_number(random_invalid_root(), oversized, M, init_bond)
+            .await?;
+
+        challenger.sync_state().await?;
+
+        let game = cached_game(&challenger, 0).await?;
+        assert_eq!(game.l2_block_number, oversized);
+        assert!(game.is_invalid, "oversized L2 block number must be invalid");
+        assert!(
+            game.should_attempt_to_challenge,
+            "oversized L2 block number must be marked for challenge"
+        );
+
+        Ok(())
+    }
+
     /// Verifies CHALLENGER_WINS cascade: when parent becomes CHALLENGER_WINS,
     /// child games should be marked for challenge.
     ///

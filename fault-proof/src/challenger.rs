@@ -12,6 +12,7 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 use tokio::{sync::Mutex, time};
 
 use crate::{
+    checked_l2_block_number,
     config::ChallengerConfig,
     contract::{
         AnchorStateRegistry::AnchorStateRegistryInstance,
@@ -362,9 +363,24 @@ where
         }
 
         let l2_block_number = contract.l2BlockNumber().call().await?;
-        let computed_output_root =
-            self.l2_provider.compute_output_root_at_block(l2_block_number).await?;
         let output_root = contract.rootClaim().call().await?;
+        let is_invalid = match checked_l2_block_number(l2_block_number) {
+            Ok(_) => {
+                let computed_output_root =
+                    self.l2_provider.compute_output_root_at_block(l2_block_number).await?;
+                output_root != computed_output_root
+            }
+            Err(error) => {
+                tracing::warn!(
+                    game_index = %index,
+                    ?game_address,
+                    %l2_block_number,
+                    %error,
+                    "Treating game with unrepresentable L2 block number as invalid"
+                );
+                true
+            }
+        };
         let claim_data = contract.claimData().call().await?;
 
         let was_respected = contract.wasRespectedGameTypeWhenCreated().call().await?;
@@ -380,7 +396,7 @@ where
                     address: game_address,
                     parent_index: claim_data.parentIndex,
                     l2_block_number,
-                    is_invalid: output_root != computed_output_root,
+                    is_invalid,
                     status,
                     proposal_status: claim_data.status,
                     should_attempt_to_challenge: false,

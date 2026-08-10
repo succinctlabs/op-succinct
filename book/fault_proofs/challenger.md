@@ -136,6 +136,18 @@ The challenger relies on structured `tracing` logs:
 - Filters to the configured OP Succinct fault dispute game type that was respected at creation time
 - Marks games for challenging, resolution, or bond claiming based on proposal status, parent outcomes, and deadlines
 
+### Output Root Validation
+
+The dispute game exposes its claimed L2 block number as a `uint256`, while the execution RPC block
+number is limited to `u64`. Values up to and including `u64::MAX` are accepted. Larger values are
+treated as invalid without issuing an L2 RPC request, rather than being truncated or causing the
+challenger to panic.
+
+For representable block numbers, the challenger requests the L2 header without full transaction
+bodies. Post-Isthmus headers provide the L2-to-L1 message passer storage root through
+`withdrawalsRoot`; for earlier blocks, the challenger falls back to `eth_getProof` at the same block
+number when calculating the output root.
+
 ### Game Challenging
 - Submits challenges for games flagged by the sync step
 - Challenges games that are in progress and either invalid or the parent is challenger wins
