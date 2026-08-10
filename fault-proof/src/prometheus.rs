@@ -176,7 +176,22 @@ pub enum ChallengerGauge {
         message = "Total number of games that bonds were claimed by the challenger"
     )]
     GamesBondsClaimed,
+    #[strum(
+        serialize = "op_succinct_fp_challenger_unverifiable_games",
+        message = "Number of games whose output root is currently unverifiable"
+    )]
+    UnverifiableGames,
+    #[strum(
+        serialize = "op_succinct_fp_challenger_nearest_unverifiable_deadline_seconds",
+        message = "Seconds until the nearest unverifiable game deadline (-1 when none)"
+    )]
+    NearestUnverifiableDeadlineSeconds,
     // Error metrics
+    #[strum(
+        serialize = "op_succinct_fp_challenger_sync_failures_total",
+        message = "Total number of isolated challenger synchronization failures"
+    )]
+    SyncFailures,
     #[strum(
         serialize = "op_succinct_fp_challenger_game_challenging_error",
         message = "Total number of game challenging errors encountered by the challenger"

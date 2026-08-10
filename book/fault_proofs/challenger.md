@@ -148,6 +148,35 @@ bodies. Post-Isthmus headers provide the L2-to-L1 message passer storage root th
 `withdrawalsRoot`; for earlier blocks, the challenger falls back to `eth_getProof` at the same block
 number when calculating the output root.
 
+### Validation Outcomes and Retries
+
+Output-root validation records one of three outcomes for each monitored game:
+
+- `Valid`: the locally computed output root matches the claim.
+- `Invalid`: the output root mismatches, or the claimed L2 block number exceeds `u64::MAX`.
+- `Unavailable`: validation could not complete because required RPC data could not be read.
+
+Only `Invalid` authorizes an automatic challenge based on output-root validation. An `Unavailable`
+game is never treated as invalid: while its challenge window remains open, the challenger retries it
+on every polling cycle. At or after the deadline, it keeps the unavailable reason for observability
+but stops fetching the output root and does not submit a challenge based on an unknown result.
+Challenges inherited from a parent game that resolved in favor of the challenger remain independent
+of this output-root classification.
+
+Game discovery and validation retries are tracked independently from the factory cursor. A failed
+index is retained for retry while the cursor continues to later indices, so one malformed or
+temporarily unavailable game cannot starve subsequent discovery. Individual game refresh failures
+are also isolated so other cached games can still be synchronized and acted on.
+
+The following metrics expose unavailable validation and isolated synchronization failures:
+
+- `op_succinct_fp_challenger_unverifiable_games`: in-progress, unchallenged games whose output root
+  remains unavailable.
+- `op_succinct_fp_challenger_nearest_unverifiable_deadline_seconds`: seconds until the nearest such
+  deadline (`-1` when none and `0` once expired).
+- `op_succinct_fp_challenger_sync_failures_total`: isolated discovery, refresh, and synchronization
+  failures.
+
 ### Game Challenging
 - Submits challenges for games flagged by the sync step
 - Challenges games that are in progress and either invalid or the parent is challenger wins

@@ -21,7 +21,7 @@ mod integration {
         new_proposer, TestEnvironment,
     };
     use fault_proof::{
-        challenger::Game,
+        challenger::{Game, GameValidation},
         contract::{GameStatus, ProposalStatus},
     };
     use op_succinct_bindings::dispute_game_factory::DisputeGameFactory;
@@ -826,7 +826,9 @@ mod integration {
             address: tracked_games[2].address,
             parent_index: 1,
             l2_block_number: tracked_games[2].l2_block_number,
-            is_invalid: false,
+            output_root: B256::ZERO,
+            deadline: 0,
+            validation: GameValidation::Valid,
             status: GameStatus::IN_PROGRESS,
             proposal_status: ProposalStatus::Unchallenged,
             should_attempt_to_challenge: true,

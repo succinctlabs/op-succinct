@@ -1731,7 +1731,9 @@ mod challenger_sync {
     use alloy_sol_types::{SolCall, SolValue};
     use anyhow::{Context, Result};
     use fault_proof::{
-        challenger::{Game, OPSuccinctChallenger},
+        challenger::{
+            Game, GameValidation, InvalidReason, OPSuccinctChallenger, UnavailableReason,
+        },
         contract::{GameStatus, ProposalStatus},
     };
     use op_succinct_bindings::dispute_game_factory::DisputeGameFactory;
@@ -1799,7 +1801,7 @@ mod challenger_sync {
         for i in 0..num_games {
             let game = cached_game(&challenger, i).await?;
             assert_eq!(game.index, U256::from(i));
-            assert!(!game.is_invalid, "Valid output root should not be marked invalid");
+            assert_eq!(game.validation, GameValidation::Valid);
         }
 
         Ok(())
@@ -1943,7 +1945,7 @@ mod challenger_sync {
         challenger.sync_state().await?;
 
         let game = cached_game(&challenger, 0).await?;
-        assert_eq!(game.is_invalid, is_invalid);
+        assert_eq!(matches!(game.validation, GameValidation::Invalid(_)), is_invalid);
         assert_eq!(
             game.should_attempt_to_challenge, expected_should_challenge,
             "should_attempt_to_challenge mismatch for is_invalid={is_invalid}, already_challenged={already_challenged}"
@@ -1968,7 +1970,11 @@ mod challenger_sync {
 
         for i in 0..2u64 {
             let game = cached_game(&challenger, i).await?;
-            assert!(game.is_invalid, "Game {i} should be invalid");
+            assert_eq!(
+                game.validation,
+                GameValidation::Invalid(InvalidReason::OutputRootMismatch),
+                "Game {i} should be invalid"
+            );
             assert!(game.should_attempt_to_challenge, "Game {i} should be marked for challenge");
         }
 
@@ -1989,7 +1995,7 @@ mod challenger_sync {
 
         let game = cached_game(&challenger, 0).await?;
         assert_eq!(game.l2_block_number, oversized);
-        assert!(game.is_invalid, "oversized L2 block number must be invalid");
+        assert_eq!(game.validation, GameValidation::Invalid(InvalidReason::L2BlockNumberOverflow));
         assert!(
             game.should_attempt_to_challenge,
             "oversized L2 block number must be marked for challenge"
@@ -2033,9 +2039,15 @@ mod challenger_sync {
         // Child still has ~59 minutes left on its challenge window
         // Sync: child of CHALLENGER_WINS should be marked for challenge
         challenger.sync_state().await?;
+        let child = cached_game(&challenger, 1).await?;
         assert!(
-            cached_game(&challenger, 1).await?.should_attempt_to_challenge,
+            child.should_attempt_to_challenge,
             "Child of CHALLENGER_WINS should be marked for challenge"
+        );
+        assert_eq!(
+            child.validation,
+            GameValidation::Valid,
+            "Parent status must not overwrite the child's output-root validation"
         );
 
         Ok(())
@@ -2092,7 +2104,10 @@ mod challenger_sync {
         challenger.sync_state().await?;
 
         let game = cached_game(&challenger, 0).await?;
-        assert!(game.is_invalid, "Game should be marked invalid");
+        assert_eq!(
+            game.validation,
+            GameValidation::Unavailable(UnavailableReason::ValidationPending)
+        );
         assert!(!game.should_attempt_to_challenge, "Should not challenge after deadline");
 
         Ok(())
