@@ -324,6 +324,10 @@ pub struct ChallengerConfig {
     /// Set to >0.0 for testing defense mechanisms.
     pub malicious_challenge_percentage: f64,
 
+    /// Number of L1 blocks behind `latest` used for pinned challenger state reads.
+    /// Default: 0 (pin the latest block observed at the start of the cycle).
+    pub sync_l1_confirmations: u64,
+
     /// Maximum time (in seconds) to wait for an L1 transaction submitted by the challenger to
     /// reach the required number of confirmations before the watcher gives up. Setting this
     /// too low risks declaring "confirmation timeout" on transactions that actually land on
@@ -350,6 +354,9 @@ impl ChallengerConfig {
             malicious_challenge_percentage: env::var("MALICIOUS_CHALLENGE_PERCENTAGE")
                 .unwrap_or("0.0".to_string())
                 .parse()?,
+            sync_l1_confirmations: env::var("SYNC_L1_CONFIRMATIONS")
+                .unwrap_or("0".to_string())
+                .parse()?,
             tx_confirmation_timeout: env::var("TX_CONFIRMATION_TIMEOUT")
                 .unwrap_or("60".to_string())
                 .parse()?,
@@ -367,6 +374,7 @@ impl ChallengerConfig {
             fetch_interval = self.fetch_interval,
             metrics_port = self.metrics_port,
             malicious_challenge_percentage = self.malicious_challenge_percentage,
+            sync_l1_confirmations = self.sync_l1_confirmations,
             tx_confirmation_timeout = self.tx_confirmation_timeout,
             "Challenger configuration loaded"
         );

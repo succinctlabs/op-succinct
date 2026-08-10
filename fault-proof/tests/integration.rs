@@ -20,16 +20,11 @@ mod integration {
         monitor::{verify_all_resolved_correctly, TrackedGame},
         new_proposer, TestEnvironment,
     };
-    use fault_proof::{
-        challenger::{Game, GameValidation},
-        contract::{GameStatus, ProposalStatus},
-    };
+    use fault_proof::contract::GameStatus;
     use op_succinct_bindings::dispute_game_factory::DisputeGameFactory;
     use rand::Rng;
     use tokio::time::{sleep, Duration};
     use tracing::info;
-
-    use crate::common::new_challenger;
 
     alloy_sol_types::sol! {
         #[sol(rpc)]
@@ -809,33 +804,7 @@ mod integration {
 
         // === PHASE 2: Challenge Game 3 =================================
         info!("=== Phase 2: Challenge Game 3 ===");
-        let challenger = new_challenger(
-            &env.rpc_config,
-            env.private_keys.challenger,
-            &env.deployed.anchor_state_registry,
-            &env.deployed.factory,
-            env.game_type,
-            Some(100.0),
-        )
-        .await?;
-        challenger.try_init().await?;
-        info!("✓ Challenger initialized");
-
-        let game_to_challenge = Game {
-            index: U256::from(2),
-            address: tracked_games[2].address,
-            parent_index: 1,
-            l2_block_number: tracked_games[2].l2_block_number,
-            output_root: B256::ZERO,
-            deadline: 0,
-            validation: GameValidation::Valid,
-            status: GameStatus::IN_PROGRESS,
-            proposal_status: ProposalStatus::Unchallenged,
-            should_attempt_to_challenge: true,
-            should_attempt_to_resolve: false,
-            should_attempt_to_claim_bond: false,
-        };
-        challenger.submit_challenge_transaction(&game_to_challenge).await?;
+        env.challenge_game(tracked_games[2].address).await?;
         info!("✓ Challenged game 3");
 
         // === PHASE 3: Resolve all 3 games and finalize the first 2 games ===
@@ -854,7 +823,7 @@ mod integration {
 
         // Warp time to allow challenged game 3 to be resolved as CHALLENGER_WINS
         env.warp_time(MAX_PROVE_DURATION).await?;
-        challenger.submit_resolution_transaction(&game_to_challenge).await?;
+        env.resolve_game(tracked_games[2].address).await?;
         info!("✓ Challenger resolved game 3 as CHALLENGER_WINS");
 
         assert!(!proposer_handle.is_finished(), "Proposer should still be running");

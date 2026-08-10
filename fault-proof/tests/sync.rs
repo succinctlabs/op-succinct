@@ -1807,6 +1807,31 @@ mod challenger_sync {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn test_challenger_discovers_game_only_after_l1_confirmation_depth() -> Result<()> {
+        let env = TestEnvironment::setup().await?;
+        let factory = env.factory()?;
+        let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
+        let mut challenger = env.new_challenger().await?;
+        challenger.config.sync_l1_confirmations = 1;
+        challenger.try_init().await?;
+        let block = env.anvil.starting_l2_block_number + 1;
+        let root = env.compute_output_root_at_block(block).await?;
+
+        env.create_game(root, block, M, init_bond).await?;
+        challenger.sync_state().await?;
+        assert!(
+            challenger.get_game(U256::ZERO).await.is_none(),
+            "The game creation block must be excluded from the pinned snapshot"
+        );
+
+        env.warp_time(0).await?;
+        challenger.sync_state().await?;
+        assert_eq!(cached_game(&challenger, 0).await?.validation, GameValidation::Valid);
+
+        Ok(())
+    }
+
     /// Verifies that re-syncing doesn't duplicate games.
     #[tokio::test]
     async fn test_sync_state_idempotent() -> Result<()> {

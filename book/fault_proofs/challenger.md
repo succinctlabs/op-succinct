@@ -56,6 +56,7 @@ Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for t
 | `FETCH_INTERVAL` | Polling interval in seconds | `30` |
 | `CHALLENGER_METRICS_PORT` | The port to expose metrics on. Update prometheus.yml to use this port, if using docker compose. | `9001` |
 | `MALICIOUS_CHALLENGE_PERCENTAGE` | Percentage (0.0-100.0) of valid games to challenge for testing defense mechanisms | `0.0` |
+| `SYNC_L1_CONFIRMATIONS` | Number of L1 blocks behind `latest` used for pinned state reads. The operator must choose a value appropriate for the chain's reorg assumptions; no challenge-window upper bound is enforced. | `0` |
 | `TX_CONFIRMATION_TIMEOUT` | Maximum time (in seconds) to wait for an L1 transaction to reach the required number of confirmations. Setting this too low risks timeout-triggered retries that can lead to redundant operations. | `60` |
 
 ```env
@@ -74,9 +75,24 @@ CHALLENGER_METRICS_PORT=9001          # The port to expose metrics on
 # Testing Configuration (Optional)
 MALICIOUS_CHALLENGE_PERCENTAGE=0.0    # Percentage of valid games to challenge for testing (0.0 = disabled)
 
+# L1 State Snapshot Configuration (Optional)
+SYNC_L1_CONFIRMATIONS=0               # L1 blocks behind latest used for pinned sync reads
+
 # Transaction Configuration (Optional)
 TX_CONFIRMATION_TIMEOUT=60            # L1 tx confirmation timeout in seconds (raise for congested L1s)
 ```
+
+Each synchronization cycle pins factory, game, parent, registry, and credit reads to one canonical
+L1 block at `latest - SYNC_L1_CONFIRMATIONS`. Deadline decisions continue to use the timestamp from
+the cycle's `latest` block. Before submitting a challenge, resolution, or credit claim, the
+challenger rechecks the relevant eligibility at a fresh canonical `latest` block and skips the
+transaction if that preflight is unavailable or stale.
+
+If the confirmed L1 height moves backwards relative to the highest snapshot accepted by the
+challenger, it fails closed and skips that cycle. The high-water mark is recorded before applying
+the snapshot, so a cancelled or partially failed sync cannot later admit an older snapshot. An
+unchanged confirmed height is still processed so unavailable validation and failed actions continue
+to retry.
 
 ## Running
 
@@ -176,6 +192,13 @@ The following metrics expose unavailable validation and isolated synchronization
   deadline (`-1` when none and `0` once expired).
 - `op_succinct_fp_challenger_sync_failures_total`: isolated discovery, refresh, and synchronization
   failures.
+- `op_succinct_fp_challenger_confirmed_l1_head`: L1 block number selected for the latest pinned sync
+  snapshot.
+- `op_succinct_fp_challenger_l1_confirmation_lag_blocks`: block distance between `latest` and that
+  confirmed snapshot.
+- `op_succinct_fp_challenger_preflight_errors_total`: latest-state action preflight RPC errors.
+- `op_succinct_fp_challenger_preflight_skips_total`: stale actions rejected by latest-state
+  preflight.
 
 ### Game Challenging
 - Submits challenges for games flagged by the sync step

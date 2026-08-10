@@ -1,6 +1,9 @@
 use std::{
     collections::{HashMap, HashSet},
-    sync::{Arc, OnceLock},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, OnceLock,
+    },
     time::Duration,
 };
 
@@ -37,6 +40,8 @@ where
     anchor_state_registry: AnchorStateRegistryInstance<P>,
     factory: DisputeGameFactoryInstance<P>,
     challenger_bond: OnceLock<U256>,
+    highest_accepted_l1_block: AtomicU64,
+    sync_lock: Mutex<()>,
     state: Arc<Mutex<ChallengerState>>,
 }
 
@@ -62,6 +67,8 @@ where
             anchor_state_registry,
             factory,
             challenger_bond: OnceLock::new(),
+            highest_accepted_l1_block: AtomicU64::new(0),
+            sync_lock: Mutex::new(()),
             state: Arc::new(Mutex::new(ChallengerState::new())),
         }
     }
@@ -183,6 +190,12 @@ where
     ///    - Games are evicted once finalized with no remaining credit or whenever resolves as
     ///      defender wins.
     pub async fn sync_state(&self) -> Result<()> {
+        let _sync_guard = self.sync_lock.lock().await;
+        let snapshot = self.l1_sync_snapshot().await?;
+        self.highest_accepted_l1_block.store(snapshot.confirmed_number, Ordering::Relaxed);
+        let pinned_block = snapshot.pinned_block;
+        let now_ts = snapshot.latest_timestamp;
+
         // Retry indices whose factory/game metadata could not be read in an earlier cycle.
         let pending_discoveries = {
             let state = self.state.lock().await;
@@ -190,7 +203,7 @@ where
         };
 
         for index in pending_discoveries {
-            match self.fetch_game(index).await {
+            match self.fetch_game(index, pinned_block).await {
                 Ok(()) => {
                     self.state.lock().await.pending_discoveries.remove(&index);
                 }
@@ -207,14 +220,14 @@ where
 
         // Discover every new factory index independently. A failed index is retained for retry,
         // while the discovery cursor continues so later games cannot be starved.
-        if let Some(latest_index) = self.factory.fetch_latest_game_index(BlockId::latest()).await? {
+        if let Some(latest_index) = self.factory.fetch_latest_game_index(pinned_block).await? {
             let mut next_index = {
                 let state = self.state.lock().await;
                 state.cursor.map_or(U256::ZERO, |cursor| cursor + U256::from(1))
             };
 
             while next_index <= latest_index {
-                let failed = match self.fetch_game(next_index).await {
+                let failed = match self.fetch_game(next_index, pinned_block).await {
                     Ok(()) => false,
                     Err(error) => {
                         tracing::warn!(
@@ -240,20 +253,13 @@ where
         };
 
         if !games.is_empty() {
-            let now_ts = self
-                .l1_provider
-                .get_block_by_number(BlockNumberOrTag::Latest)
-                .await?
-                .context("Failed to fetch latest L1 block timestamp")?
-                .header
-                .timestamp;
             let signer_address = self.signer.address();
             let mut actions = Vec::with_capacity(games.len());
 
             for game in games {
                 let game_index = game.index;
                 let game_address = game.address;
-                match self.sync_game(game, now_ts, signer_address).await {
+                match self.sync_game(game, pinned_block, now_ts, signer_address).await {
                     Ok(action) => actions.push(action),
                     Err(error) => {
                         tracing::warn!(
@@ -295,15 +301,61 @@ where
         Ok(())
     }
 
+    async fn l1_sync_snapshot(&self) -> Result<L1SyncSnapshot> {
+        let latest_block = self
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await?
+            .context("Failed to fetch latest L1 block")?;
+        let latest_number = latest_block.header.number;
+        let latest_timestamp = latest_block.header.timestamp;
+        let confirmed_number =
+            confirmed_l1_number(latest_number, self.config.sync_l1_confirmations);
+        let highest_accepted = self.highest_accepted_l1_block.load(Ordering::Relaxed);
+        if confirmed_l1_head_regressed(confirmed_number, highest_accepted) {
+            tracing::warn!(
+                confirmed_number,
+                highest_accepted,
+                "L1 confirmed head moved backwards; skipping challenger sync"
+            );
+            bail!(
+                "L1 confirmed head moved backwards from {highest_accepted} to {confirmed_number}"
+            );
+        }
+        let confirmed_hash = if confirmed_number == latest_number {
+            latest_block.header.hash
+        } else {
+            self.l1_provider
+                .get_block_by_number(BlockNumberOrTag::Number(confirmed_number))
+                .await?
+                .with_context(|| {
+                    format!("Confirmed L1 block {confirmed_number} is unavailable on this backend")
+                })?
+                .header
+                .hash
+        };
+
+        ChallengerGauge::ConfirmedL1Head.set(confirmed_number as f64);
+        ChallengerGauge::L1ConfirmationLagBlocks
+            .set(latest_number.saturating_sub(confirmed_number) as f64);
+
+        Ok(L1SyncSnapshot {
+            confirmed_number,
+            pinned_block: BlockId::hash_canonical(confirmed_hash),
+            latest_timestamp,
+        })
+    }
+
     async fn sync_game(
         &self,
         mut game: Game,
+        pinned_block: BlockId,
         now_ts: u64,
         signer_address: Address,
     ) -> Result<GameSyncAction> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
-        let status = contract.status().call().await?;
-        let claim_data = contract.claimData().call().await?;
+        let status = contract.status().block(pinned_block).call().await?;
+        let claim_data = contract.claimData().block(pinned_block).call().await?;
         game.status = status;
         game.proposal_status = claim_data.status;
         game.deadline = U256::from(claim_data.deadline).to::<u64>();
@@ -337,7 +389,7 @@ where
                                 is_parent_challenger_wins(
                                     game.parent_index,
                                     &self.factory,
-                                    BlockId::latest(),
+                                    pinned_block,
                                 )
                                 .await?
                             };
@@ -349,12 +401,8 @@ where
                         let is_own_game = claim_data.counteredBy == signer_address;
                         game.should_attempt_to_resolve = is_game_over &&
                             is_own_game &&
-                            is_parent_resolved(
-                                game.parent_index,
-                                &self.factory,
-                                BlockId::latest(),
-                            )
-                            .await?;
+                            is_parent_resolved(game.parent_index, &self.factory, pinned_block)
+                                .await?;
                     }
                     _ => {}
                 }
@@ -362,9 +410,13 @@ where
                 Ok(GameSyncAction::Update(game))
             }
             GameStatus::CHALLENGER_WINS => {
-                let is_finalized =
-                    self.anchor_state_registry.isGameFinalized(game.address).call().await?;
-                let credit = contract.credit(signer_address).call().await?;
+                let is_finalized = self
+                    .anchor_state_registry
+                    .isGameFinalized(game.address)
+                    .block(pinned_block)
+                    .call()
+                    .await?;
+                let credit = contract.credit(signer_address).block(pinned_block).call().await?;
 
                 if is_finalized && credit == U256::ZERO {
                     Ok(GameSyncAction::Remove(game.index))
@@ -381,12 +433,12 @@ where
     /// Fetch game from the factory.
     ///
     /// Drop game if the game type is invalid or the game was not respected at the time of creation.
-    async fn fetch_game(&self, index: U256) -> Result<()> {
-        let game = self.factory.gameAtIndex(index).call().await?;
+    async fn fetch_game(&self, index: U256, pinned_block: BlockId) -> Result<()> {
+        let game = self.factory.gameAtIndex(index).block(pinned_block).call().await?;
         let game_address = game.proxy;
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
 
-        let game_type = contract.gameType().call().await?;
+        let game_type = contract.gameType().block(pinned_block).call().await?;
         if game_type != self.config.game_type {
             tracing::debug!(game_index = %index, ?game_address, game_type,
                 expected_game_type = self.config.game_type,
@@ -395,7 +447,8 @@ where
             return Ok(());
         }
 
-        let was_respected = contract.wasRespectedGameTypeWhenCreated().call().await?;
+        let was_respected =
+            contract.wasRespectedGameTypeWhenCreated().block(pinned_block).call().await?;
         if !was_respected {
             tracing::debug!(
                 game_index = %index,
@@ -407,10 +460,10 @@ where
             return Ok(())
         }
 
-        let l2_block_number = contract.l2BlockNumber().call().await?;
-        let output_root = contract.rootClaim().call().await?;
-        let claim_data = contract.claimData().call().await?;
-        let status = contract.status().call().await?;
+        let l2_block_number = contract.l2BlockNumber().block(pinned_block).call().await?;
+        let output_root = contract.rootClaim().block(pinned_block).call().await?;
+        let claim_data = contract.claimData().block(pinned_block).call().await?;
+        let status = contract.status().block(pinned_block).call().await?;
 
         self.state.lock().await.games.insert(
             index,
@@ -449,7 +502,30 @@ where
         };
 
         for game in candidates {
-            if let Err(error) = self.submit_challenge_transaction(&game).await {
+            match self.challenge_preflight(&game).await {
+                Ok(true) => {}
+                Ok(false) => {
+                    tracing::info!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        "Skipping challenge because latest on-chain state is no longer eligible"
+                    );
+                    ChallengerGauge::PreflightSkips.increment(1.0);
+                    continue
+                }
+                Err(error) => {
+                    tracing::warn!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        ?error,
+                        "Skipping challenge because latest-state preflight failed"
+                    );
+                    ChallengerGauge::PreflightErrors.increment(1.0);
+                    continue
+                }
+            }
+
+            if let Err(error) = self.submit_challenge_transaction_unchecked(&game).await {
                 if error.is_revert() {
                     tracing::error!(
                         game_index = %game.index,
@@ -493,6 +569,7 @@ where
                             tracing::warn!(
                                 "Skipping malicious challenge: latest L1 block unavailable"
                             );
+                            ChallengerGauge::PreflightErrors.increment(1.0);
                             return Ok(())
                         }
                         Err(error) => {
@@ -500,6 +577,7 @@ where
                                 ?error,
                                 "Skipping malicious challenge: latest L1 timestamp query failed"
                             );
+                            ChallengerGauge::PreflightErrors.increment(1.0);
                             return Ok(())
                         }
                     };
@@ -526,7 +604,24 @@ where
                         self.config.malicious_challenge_percentage
                     );
 
-                    if let Err(error) = self.submit_challenge_transaction(&game).await {
+                    let preflight_ready = match self.challenge_preflight(&game).await {
+                        Ok(ready) => ready,
+                        Err(error) => {
+                            tracing::warn!(
+                                game_index = %game.index,
+                                game_address = ?game.address,
+                                ?error,
+                                "Skipping malicious challenge because latest-state preflight failed"
+                            );
+                            ChallengerGauge::PreflightErrors.increment(1.0);
+                            return Ok(())
+                        }
+                    };
+                    if !preflight_ready {
+                        ChallengerGauge::PreflightSkips.increment(1.0);
+                    } else if let Err(error) =
+                        self.submit_challenge_transaction_unchecked(&game).await
+                    {
                         tracing::warn!(
                             game_index = %game.index,
                             game_address = ?game.address,
@@ -551,7 +646,44 @@ where
         Ok(())
     }
 
+    async fn latest_l1_view(&self) -> Result<(BlockId, u64)> {
+        let latest_block = self
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await?
+            .context("Failed to fetch latest L1 block for action preflight")?;
+        Ok((BlockId::hash_canonical(latest_block.header.hash), latest_block.header.timestamp))
+    }
+
+    async fn challenge_preflight(&self, game: &Game) -> Result<bool> {
+        let (latest_block, latest_timestamp) = self.latest_l1_view().await?;
+        let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+        let status = contract.status().block(latest_block).call().await?;
+        let claim_data = contract.claimData().block(latest_block).call().await?;
+        let deadline = U256::from(claim_data.deadline).to::<u64>();
+
+        Ok(challenge_preflight_ready(status, claim_data.status, latest_timestamp, deadline))
+    }
+
+    async fn resolution_preflight(&self, game: &Game) -> Result<bool> {
+        let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+        Ok(resolution_preflight_ready(contract.status().call().await?))
+    }
+
+    async fn claim_preflight(&self, game: &Game, recipient: Address) -> Result<bool> {
+        let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+        Ok(claim_preflight_ready(contract.credit(recipient).call().await?))
+    }
+
+    /// Submits a challenge after verifying eligibility against a fresh canonical L1 head.
     pub async fn submit_challenge_transaction(&self, game: &Game) -> Result<()> {
+        if !self.challenge_preflight(game).await? {
+            bail!("Challenge is no longer eligible at the latest L1 head");
+        }
+        self.submit_challenge_transaction_unchecked(game).await
+    }
+
+    async fn submit_challenge_transaction_unchecked(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
         let challenger_bond = *self
             .challenger_bond
@@ -597,33 +729,30 @@ where
         };
 
         for game in candidates {
-            // Pre-flight on-chain status check at `latest`. The cached `should_attempt_to_resolve`
-            // flag is captured at sync time and can be stale by submission — between sync and
-            // this loop, another actor's `resolve()` may have landed (or this loop already
-            // resolved an earlier candidate that affected this one). Re-checking at `latest`
-            // avoids submitting a resolution that would only revert on chain.
-            let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
-            match contract.status().call().await {
-                Ok(status) if status != GameStatus::IN_PROGRESS => {
+            match self.resolution_preflight(&game).await {
+                Ok(true) => {}
+                Ok(false) => {
                     tracing::info!(
                         game_index = %game.index,
                         game_address = ?game.address,
-                        ?status,
                         "Skipping resolve: game already resolved on chain"
                     );
-                    continue;
+                    ChallengerGauge::PreflightSkips.increment(1.0);
+                    continue
                 }
-                Err(e) => {
+                Err(error) => {
                     tracing::warn!(
+                        game_index = %game.index,
                         game_address = ?game.address,
-                        error = ?e,
-                        "Pre-flight status check failed, proceeding with resolve"
+                        ?error,
+                        "Skipping resolve because latest-state preflight failed"
                     );
+                    ChallengerGauge::PreflightErrors.increment(1.0);
+                    continue
                 }
-                _ => {}
             }
 
-            if let Err(error) = self.submit_resolution_transaction(&game).await {
+            if let Err(error) = self.submit_resolution_transaction_unchecked(&game).await {
                 if error.is_revert() {
                     tracing::error!(
                         game_index = %game.index,
@@ -649,7 +778,15 @@ where
         Ok(())
     }
 
+    /// Submits a resolution after verifying eligibility against a fresh canonical L1 head.
     pub async fn submit_resolution_transaction(&self, game: &Game) -> Result<()> {
+        if !self.resolution_preflight(game).await? {
+            bail!("Resolution is no longer eligible at the latest L1 head");
+        }
+        self.submit_resolution_transaction_unchecked(game).await
+    }
+
+    async fn submit_resolution_transaction_unchecked(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
         let transaction_request = contract.resolve().into_transaction_request();
         let receipt = self
@@ -691,29 +828,27 @@ where
 
         let signer_address = self.signer.address();
         for game in candidates {
-            // Pre-flight on-chain credit check at `latest`. The cached
-            // `should_attempt_to_claim_bond` flag is captured at sync time and can be stale by
-            // submission — a recently confirmed `claimCredit()` (e.g., from a prior cycle or
-            // another actor) is already reflected at `latest`. Re-checking avoids submitting a
-            // claim that would only revert on chain.
-            let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
-            match contract.credit(signer_address).call().await {
-                Ok(credit) if credit == U256::ZERO => {
+            match self.claim_preflight(&game, signer_address).await {
+                Ok(true) => {}
+                Ok(false) => {
                     tracing::info!(
                         game_index = %game.index,
                         game_address = ?game.address,
                         "Skipping claim: bond already claimed on chain"
                     );
-                    continue;
+                    ChallengerGauge::PreflightSkips.increment(1.0);
+                    continue
                 }
-                Err(e) => {
+                Err(error) => {
                     tracing::warn!(
+                        game_index = %game.index,
                         game_address = ?game.address,
-                        error = ?e,
-                        "Pre-flight credit check failed, proceeding with claim"
+                        ?error,
+                        "Skipping claim because latest-state preflight failed"
                     );
+                    ChallengerGauge::PreflightErrors.increment(1.0);
+                    continue
                 }
-                _ => {}
             }
 
             if let Err(error) = self.submit_bond_claim_transaction(&game).await {
@@ -896,9 +1031,43 @@ fn nearest_deadline_seconds(deadlines: &[u64], now_ts: u64) -> f64 {
         .map_or(-1.0, |remaining| remaining as f64)
 }
 
+fn confirmed_l1_number(latest_number: u64, confirmations: u64) -> u64 {
+    latest_number.saturating_sub(confirmations)
+}
+
+fn confirmed_l1_head_regressed(confirmed_number: u64, highest_accepted: u64) -> bool {
+    confirmed_number < highest_accepted
+}
+
+fn challenge_preflight_ready(
+    status: GameStatus,
+    proposal_status: ProposalStatus,
+    latest_timestamp: u64,
+    deadline: u64,
+) -> bool {
+    status == GameStatus::IN_PROGRESS &&
+        proposal_status == ProposalStatus::Unchallenged &&
+        latest_timestamp < deadline
+}
+
+fn resolution_preflight_ready(status: GameStatus) -> bool {
+    status == GameStatus::IN_PROGRESS
+}
+
+fn claim_preflight_ready(credit: U256) -> bool {
+    credit > U256::ZERO
+}
+
 enum GameSyncAction {
     Update(Game),
     Remove(U256),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct L1SyncSnapshot {
+    confirmed_number: u64,
+    pinned_block: BlockId,
+    latest_timestamp: u64,
 }
 
 pub struct ChallengerState {
@@ -932,8 +1101,11 @@ mod tests {
     use alloy::{rpc::client::RpcClient, transports::mock::Asserter};
     use alloy_primitives::keccak256;
     use alloy_provider::RootProvider;
-    use alloy_rpc_types_eth::Header;
+    use alloy_rpc_types_eth::{Block, Header};
     use alloy_sol_types::SolValue;
+
+    const TEST_PRIVATE_KEY: &str =
+        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
     fn test_game(validation: GameValidation) -> Game {
         Game {
@@ -950,6 +1122,29 @@ mod tests {
             should_attempt_to_resolve: false,
             should_attempt_to_claim_bond: false,
         }
+    }
+
+    fn test_challenger(l1_asserter: &Asserter) -> OPSuccinctChallenger<L1Provider> {
+        let l1_provider = RootProvider::new(RpcClient::mocked(l1_asserter.clone()));
+        let anchor_state_registry =
+            crate::contract::AnchorStateRegistry::new(Address::ZERO, l1_provider.clone());
+        let factory = crate::contract::DisputeGameFactory::new(Address::ZERO, l1_provider.clone());
+        let signer = SignerLock::new(
+            op_succinct_signer_utils::Signer::new_local_signer(TEST_PRIVATE_KEY).unwrap(),
+        );
+        let config = ChallengerConfig {
+            l1_rpc: "http://127.0.0.1:1".parse().unwrap(),
+            l2_rpc: "http://127.0.0.1:2".parse().unwrap(),
+            anchor_state_registry_address: Address::ZERO,
+            factory_address: Address::ZERO,
+            fetch_interval: 1,
+            game_type: 0,
+            metrics_port: 0,
+            malicious_challenge_percentage: 0.0,
+            sync_l1_confirmations: 0,
+            tx_confirmation_timeout: 60,
+        };
+        OPSuccinctChallenger::new(config, l1_provider, anchor_state_registry, factory, signer)
     }
 
     #[test]
@@ -1042,6 +1237,84 @@ mod tests {
         assert_eq!(nearest_deadline_seconds(&[], 100), -1.0);
         assert_eq!(nearest_deadline_seconds(&[90], 100), 0.0);
         assert_eq!(nearest_deadline_seconds(&[130, 110], 100), 10.0);
+    }
+
+    #[test]
+    fn confirmed_l1_number_saturates_without_config_invariants() {
+        assert_eq!(confirmed_l1_number(100, 0), 100);
+        assert_eq!(confirmed_l1_number(100, 12), 88);
+        assert_eq!(confirmed_l1_number(5, 12), 0);
+    }
+
+    #[test]
+    fn confirmed_l1_head_only_rejects_regressions() {
+        assert!(!confirmed_l1_head_regressed(100, 100));
+        assert!(!confirmed_l1_head_regressed(101, 100));
+        assert!(confirmed_l1_head_regressed(99, 100));
+    }
+
+    #[test]
+    fn action_preflight_decisions_are_fail_closed_at_boundaries() {
+        assert!(challenge_preflight_ready(
+            GameStatus::IN_PROGRESS,
+            ProposalStatus::Unchallenged,
+            99,
+            100
+        ));
+        assert!(!challenge_preflight_ready(
+            GameStatus::IN_PROGRESS,
+            ProposalStatus::Unchallenged,
+            100,
+            100
+        ));
+        assert!(!challenge_preflight_ready(
+            GameStatus::DEFENDER_WINS,
+            ProposalStatus::Unchallenged,
+            99,
+            100
+        ));
+        assert!(!challenge_preflight_ready(
+            GameStatus::IN_PROGRESS,
+            ProposalStatus::Challenged,
+            99,
+            100
+        ));
+        assert!(resolution_preflight_ready(GameStatus::IN_PROGRESS));
+        assert!(!resolution_preflight_ready(GameStatus::DEFENDER_WINS));
+        assert!(!claim_preflight_ready(U256::ZERO));
+        assert!(claim_preflight_ready(U256::from(1)));
+    }
+
+    #[tokio::test]
+    async fn challenge_preflight_error_does_not_block_next_candidate() {
+        let asserter = Asserter::new();
+        let mut challenger = test_challenger(&asserter);
+        let mut first = test_game(GameValidation::Invalid(InvalidReason::OutputRootMismatch));
+        first.should_attempt_to_challenge = true;
+        let mut second = first.clone();
+        second.index = U256::from(1);
+        second.address = Address::from([1u8; 20]);
+        {
+            let mut state = challenger.state.lock().await;
+            state.games.insert(first.index, first);
+            state.games.insert(second.index, second);
+        }
+
+        let mut latest_block: Block = Block::default();
+        latest_block.header.hash = B256::repeat_byte(0x11);
+        latest_block.header.timestamp = 50;
+        asserter.push_failure_msg("first candidate latest block unavailable");
+        asserter.push_success(&Some(latest_block));
+        asserter.push_failure_msg("second candidate status unavailable");
+
+        challenger.handle_game_challenging().await.unwrap();
+
+        assert!(
+            asserter.read_q().is_empty(),
+            "the second candidate should still reach its status preflight"
+        );
+        let state = challenger.state.lock().await;
+        assert!(state.games.values().all(|game| game.should_attempt_to_challenge));
     }
 
     #[test]
