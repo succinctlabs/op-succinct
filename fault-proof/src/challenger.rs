@@ -8,7 +8,7 @@ use std::{
 };
 
 use alloy_eips::{BlockId, BlockNumberOrTag};
-use alloy_primitives::{Address, B256, U256};
+use alloy_primitives::{Address, B256, U256, U64};
 use alloy_provider::{Provider, ProviderBuilder};
 use anyhow::{bail, Context, Result};
 use rand::{rngs::StdRng, Rng, SeedableRng};
@@ -24,9 +24,13 @@ use crate::{
     },
     is_parent_challenger_wins, is_parent_resolved,
     prometheus::ChallengerGauge,
-    FactoryTrait, L1Provider, L2Provider, L2ProviderTrait, TxErrorExt, TX_REVERTED_PREFIX,
+    FactoryTrait, L1Provider, L2NodeProvider, L2Provider, L2ProviderTrait, TxErrorExt,
+    TX_REVERTED_PREFIX,
 };
-use op_succinct_host_utils::metrics::MetricsGauge;
+use op_succinct_host_utils::{
+    metrics::MetricsGauge,
+    rpc_types::{RollupConfig, SafeHeadResponse, SyncStatus},
+};
 use op_succinct_signer_utils::SignerLock;
 
 pub struct OPSuccinctChallenger<P>
@@ -37,6 +41,7 @@ where
     signer: SignerLock,
     l1_provider: L1Provider,
     l2_provider: L2Provider,
+    l2_node_provider: L2NodeProvider,
     anchor_state_registry: AnchorStateRegistryInstance<P>,
     factory: DisputeGameFactoryInstance<P>,
     challenger_bond: OnceLock<U256>,
@@ -58,12 +63,14 @@ where
         signer: SignerLock,
     ) -> Self {
         let l2_rpc = config.l2_rpc.clone();
+        let l2_node_rpc = config.l2_node_rpc.clone();
 
         OPSuccinctChallenger {
             config,
             signer,
             l1_provider: l1_provider.clone(),
             l2_provider: ProviderBuilder::default().connect_http(l2_rpc),
+            l2_node_provider: ProviderBuilder::default().connect_http(l2_node_rpc),
             anchor_state_registry,
             factory,
             challenger_bond: OnceLock::new(),
@@ -128,10 +135,11 @@ where
                 Err(e) => {
                     retry_count += 1;
                     if retry_count == 1 {
-                        tracing::error!(attempt = retry_count, error = %e, "Startup validations failed");
+                        tracing::error!(attempt = retry_count, error = ?e, "Startup validations failed");
                     } else {
                         tracing::warn!(
                             attempt = retry_count,
+                            error = ?e,
                             "Startup validations still pending, retrying..."
                         );
                     }
@@ -169,7 +177,103 @@ where
         // Fetch challenger bond.
         let bond = game_impl.challengerBond().call().await?;
 
+        self.validate_node_pairing().await?;
+
         Ok(bond)
+    }
+
+    async fn validate_node_pairing(&self) -> Result<()> {
+        let rollup_config =
+            self.rollup_config().await.context("Failed to fetch op-node rollup config")?;
+        let l1_chain_id = self.l1_provider.get_chain_id().await?;
+        let l2_chain_id = self.l2_provider.get_chain_id().await?;
+
+        validate_rollup_chain_ids(
+            rollup_config.l1_chain_id,
+            rollup_config.l2_chain_id.id(),
+            l1_chain_id,
+            l2_chain_id,
+        )?;
+
+        let sync_status =
+            self.op_node_sync_status().await.context("Failed to fetch op-node sync status")?;
+        let processed_l1 = sync_status
+            .current_l1
+            .number
+            .checked_sub(1)
+            .context("op-node has not processed an L1 block yet")?;
+        let safe_head = self.safe_head_at_l1(processed_l1).await.with_context(|| {
+            format!("SafeDB is unavailable at processed L1 block {processed_l1}")
+        })?;
+        self.validate_safe_head_response(processed_l1, safe_head)
+            .await
+            .map_err(|reason| anyhow::anyhow!("Invalid SafeDB startup response: {reason:?}"))?;
+
+        tracing::info!(
+            l1_chain_id,
+            l2_chain_id,
+            safe_l2_number = safe_head.safe_head.number,
+            safe_l2_hash = ?safe_head.safe_head.hash,
+            "Validated op-node, L1 RPC, and paired L2 execution RPC"
+        );
+        Ok(())
+    }
+
+    async fn rollup_config(&self) -> Result<RollupConfig> {
+        Ok(self.l2_node_provider.client().request("optimism_rollupConfig", ()).await?)
+    }
+
+    async fn op_node_sync_status(&self) -> Result<SyncStatus> {
+        Ok(self.l2_node_provider.client().request("optimism_syncStatus", ()).await?)
+    }
+
+    async fn safe_head_at_l1(&self, l1_number: u64) -> Result<SafeHeadResponse> {
+        Ok(self
+            .l2_node_provider
+            .client()
+            .request("optimism_safeHeadAtL1Block", (U64::from(l1_number),))
+            .await?)
+    }
+
+    async fn validate_safe_head_response(
+        &self,
+        requested_l1: u64,
+        response: SafeHeadResponse,
+    ) -> std::result::Result<(), UnavailableReason> {
+        if !safe_db_record_is_at_or_before(response.l1_block.number, requested_l1) {
+            return Err(UnavailableReason::L1CanonicalHashMismatch)
+        }
+
+        self.validate_canonical_l1_block(response.l1_block.number, response.l1_block.hash).await?;
+
+        let l2_header = self
+            .l2_provider
+            .get_header_by_number(BlockNumberOrTag::Number(response.safe_head.number))
+            .await
+            .map_err(rpc_unavailable)?
+            .ok_or(UnavailableReason::OpNodeExecutionMismatch)?;
+        if l2_header.hash != response.safe_head.hash {
+            return Err(UnavailableReason::OpNodeExecutionMismatch)
+        }
+
+        Ok(())
+    }
+
+    async fn validate_canonical_l1_block(
+        &self,
+        number: u64,
+        expected_hash: B256,
+    ) -> std::result::Result<(), UnavailableReason> {
+        let header = self
+            .l1_provider
+            .get_header_by_number(BlockNumberOrTag::Number(number))
+            .await
+            .map_err(rpc_unavailable)?
+            .ok_or(UnavailableReason::L1CanonicalHashMismatch)?;
+        if header.hash != expected_hash {
+            return Err(UnavailableReason::L1CanonicalHashMismatch)
+        }
+        Ok(())
     }
 
     /// Initialize challenger state with the validated challenger bond.
@@ -379,8 +483,7 @@ where
                             }
                         } else {
                             if game.validation.is_unavailable() {
-                                game.validation =
-                                    validate_output_root(&self.l2_provider, &game).await;
+                                game.validation = self.validate_game(&game).await;
                             }
                             let invalid = game.validation.is_invalid();
                             let parent_lost = if invalid {
@@ -430,6 +533,112 @@ where
         }
     }
 
+    async fn validate_game(&self, game: &Game) -> GameValidation {
+        let claim_l2_number = match checked_l2_block_number(game.l2_block_number) {
+            Ok(number) => number,
+            Err(_) => return GameValidation::Invalid(InvalidReason::L2BlockNumberOverflow),
+        };
+
+        let safe_l2_number = match self.historical_local_safe_head(game).await {
+            Ok(number) => number,
+            Err(reason) => {
+                record_unavailable_reason(&reason);
+                tracing::warn!(
+                    game_index = %game.index,
+                    game_address = ?game.address,
+                    l1_head = ?game.l1_head,
+                    l2_block_number = claim_l2_number,
+                    ?reason,
+                    "Game validation is temporarily unavailable; will retry"
+                );
+                return GameValidation::Unavailable(reason)
+            }
+        };
+
+        if let Some(validation) = classify_claim_height(claim_l2_number, safe_l2_number) {
+            return validation
+        }
+
+        match self.l2_provider.compute_output_root_at_block(game.l2_block_number).await {
+            Ok(computed) => classify_computed_output_root(game.output_root, computed),
+            Err(error) => {
+                let reason = self.classify_execution_unavailability(claim_l2_number, &error).await;
+                tracing::warn!(
+                    game_index = %game.index,
+                    game_address = ?game.address,
+                    l2_block_number = claim_l2_number,
+                    ?reason,
+                    ?error,
+                    "L2 output root is temporarily unavailable; will retry"
+                );
+                GameValidation::Unavailable(reason)
+            }
+        }
+    }
+
+    async fn historical_local_safe_head(
+        &self,
+        game: &Game,
+    ) -> std::result::Result<u64, UnavailableReason> {
+        let game_l1_header = self
+            .l1_provider
+            .get_header_by_hash(game.l1_head)
+            .await
+            .map_err(rpc_unavailable)?
+            .ok_or(UnavailableReason::L1CanonicalHashMismatch)?;
+        let game_l1_number = game_l1_header.number;
+        self.validate_canonical_l1_block(game_l1_number, game.l1_head).await?;
+
+        let first_status = self.op_node_sync_status().await.map_err(rpc_unavailable)?;
+        record_op_node_l1_lag(&first_status);
+        if first_status.current_l1.number <= game_l1_number {
+            return Err(UnavailableReason::OpNodeBehind)
+        }
+
+        let safe_head = self.safe_head_at_l1(game_l1_number).await.map_err(|error| {
+            ChallengerGauge::SafeDbQueryErrors.increment(1.0);
+            classify_safe_db_error(error)
+        })?;
+        self.validate_safe_head_response(game_l1_number, safe_head).await?;
+
+        let second_status = self.op_node_sync_status().await.map_err(rpc_unavailable)?;
+        record_op_node_l1_lag(&second_status);
+        if !op_node_watermarks_are_usable(
+            first_status.current_l1.number,
+            second_status.current_l1.number,
+            game_l1_number,
+        ) {
+            return Err(UnavailableReason::OpNodeBehind)
+        }
+
+        Ok(safe_head.safe_head.number)
+    }
+
+    async fn classify_execution_unavailability(
+        &self,
+        claim_l2_number: u64,
+        root_error: &anyhow::Error,
+    ) -> UnavailableReason {
+        let latest = match self.l2_provider.get_header_by_number(BlockNumberOrTag::Latest).await {
+            Ok(Some(header)) => header,
+            Ok(None) => return UnavailableReason::ExecutionNodeBehind,
+            Err(error) => return rpc_unavailable(error),
+        };
+        if latest.number < claim_l2_number {
+            return UnavailableReason::ExecutionNodeBehind
+        }
+
+        match self.l2_provider.get_header_by_number(BlockNumberOrTag::Number(claim_l2_number)).await
+        {
+            Ok(None) => UnavailableReason::ExecutionHistoryMissing,
+            Err(error) => rpc_unavailable(error),
+            Ok(Some(_)) if is_state_unavailable_error(root_error) => {
+                UnavailableReason::ExecutionStateUnavailable
+            }
+            Ok(Some(_)) => UnavailableReason::RpcFailure(root_error.to_string()),
+        }
+    }
+
     /// Fetch game from the factory.
     ///
     /// Drop game if the game type is invalid or the game was not respected at the time of creation.
@@ -462,6 +671,7 @@ where
 
         let l2_block_number = contract.l2BlockNumber().block(pinned_block).call().await?;
         let output_root = contract.rootClaim().block(pinned_block).call().await?;
+        let l1_head = contract.l1Head().block(pinned_block).call().await?.0;
         let claim_data = contract.claimData().block(pinned_block).call().await?;
         let status = contract.status().block(pinned_block).call().await?;
 
@@ -473,6 +683,7 @@ where
                 parent_index: claim_data.parentIndex,
                 l2_block_number,
                 output_root,
+                l1_head: l1_head.into(),
                 deadline: U256::from(claim_data.deadline).to::<u64>(),
                 validation: initial_game_validation(l2_block_number),
                 status,
@@ -937,6 +1148,7 @@ pub struct Game {
     pub parent_index: u32,
     pub l2_block_number: U256,
     pub output_root: B256,
+    pub l1_head: B256,
     pub deadline: u64,
     pub validation: GameValidation,
     pub status: GameStatus,
@@ -980,38 +1192,76 @@ impl GameValidation {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum InvalidReason {
     L2BlockNumberOverflow,
+    ClaimAheadOfLocalSafeHead,
     OutputRootMismatch,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum UnavailableReason {
     ValidationPending,
+    OpNodeBehind,
+    ExecutionNodeBehind,
+    ExecutionHistoryMissing,
+    ExecutionStateUnavailable,
+    SafeDBDisabled,
+    SafeDBHistoryMissing,
+    L1CanonicalHashMismatch,
+    OpNodeExecutionMismatch,
     RpcFailure(String),
 }
 
-async fn validate_output_root(l2_provider: &L2Provider, game: &Game) -> GameValidation {
-    if checked_l2_block_number(game.l2_block_number).is_err() {
-        return GameValidation::Invalid(InvalidReason::L2BlockNumberOverflow)
-    }
-
-    let result = l2_provider.compute_output_root_at_block(game.l2_block_number).await;
-    if let Err(error) = &result {
-        tracing::warn!(
-            game_index = %game.index,
-            game_address = ?game.address,
-            l2_block_number = %game.l2_block_number,
-            ?error,
-            "L2 output root is temporarily unavailable; will retry"
-        );
-    }
-    classify_output_root(game.output_root, result)
+fn rpc_unavailable(error: impl std::fmt::Display) -> UnavailableReason {
+    UnavailableReason::RpcFailure(error.to_string())
 }
 
-fn classify_output_root(expected: B256, result: Result<B256>) -> GameValidation {
-    match result {
-        Ok(computed) if computed == expected => GameValidation::Valid,
-        Ok(_) => GameValidation::Invalid(InvalidReason::OutputRootMismatch),
-        Err(error) => GameValidation::Unavailable(UnavailableReason::RpcFailure(error.to_string())),
+fn classify_safe_db_error(error: anyhow::Error) -> UnavailableReason {
+    let message = error.to_string();
+    let lowercase = message.to_ascii_lowercase();
+    if lowercase.contains("method not found") ||
+        lowercase.contains("does not exist") ||
+        lowercase.contains("safe head database not enabled") ||
+        (lowercase.contains("safedb") && lowercase.contains("not enabled"))
+    {
+        UnavailableReason::SafeDBDisabled
+    } else if lowercase.contains("not found") {
+        UnavailableReason::SafeDBHistoryMissing
+    } else {
+        UnavailableReason::RpcFailure(message)
+    }
+}
+
+fn is_state_unavailable_error(error: &anyhow::Error) -> bool {
+    let message = error.to_string().to_ascii_lowercase();
+    message.contains("missing trie node") ||
+        message.contains("state is not available") ||
+        message.contains("historical state")
+}
+
+fn record_op_node_l1_lag(status: &SyncStatus) {
+    ChallengerGauge::OpNodeL1LagBlocks
+        .set(status.head_l1.number.saturating_sub(status.current_l1.number) as f64);
+}
+
+fn record_unavailable_reason(reason: &UnavailableReason) {
+    match reason {
+        UnavailableReason::SafeDBHistoryMissing => {
+            ChallengerGauge::SafeDbHistoryMissing.increment(1.0);
+        }
+        UnavailableReason::L1CanonicalHashMismatch => {
+            ChallengerGauge::L1CanonicalMismatch.increment(1.0);
+        }
+        UnavailableReason::OpNodeExecutionMismatch => {
+            ChallengerGauge::OpNodeExecutionMismatch.increment(1.0);
+        }
+        _ => {}
+    }
+}
+
+fn classify_computed_output_root(expected: B256, computed: B256) -> GameValidation {
+    if computed == expected {
+        GameValidation::Valid
+    } else {
+        GameValidation::Invalid(InvalidReason::OutputRootMismatch)
     }
 }
 
@@ -1037,6 +1287,38 @@ fn confirmed_l1_number(latest_number: u64, confirmations: u64) -> u64 {
 
 fn confirmed_l1_head_regressed(confirmed_number: u64, highest_accepted: u64) -> bool {
     confirmed_number < highest_accepted
+}
+
+fn validate_rollup_chain_ids(
+    rollup_l1_chain_id: u64,
+    rollup_l2_chain_id: u64,
+    l1_rpc_chain_id: u64,
+    l2_rpc_chain_id: u64,
+) -> Result<()> {
+    if rollup_l1_chain_id != l1_rpc_chain_id {
+        bail!(
+            "op-node rollup L1 chain ID {rollup_l1_chain_id} does not match L1_RPC chain ID {l1_rpc_chain_id}"
+        );
+    }
+    if rollup_l2_chain_id != l2_rpc_chain_id {
+        bail!(
+            "op-node rollup L2 chain ID {rollup_l2_chain_id} does not match L2_RPC chain ID {l2_rpc_chain_id}"
+        );
+    }
+    Ok(())
+}
+
+fn safe_db_record_is_at_or_before(record_l1_number: u64, requested_l1_number: u64) -> bool {
+    record_l1_number <= requested_l1_number
+}
+
+fn op_node_watermarks_are_usable(first: u64, second: u64, game_l1_number: u64) -> bool {
+    first > game_l1_number && second >= first
+}
+
+fn classify_claim_height(claim_l2_number: u64, safe_l2_number: u64) -> Option<GameValidation> {
+    (claim_l2_number > safe_l2_number)
+        .then_some(GameValidation::Invalid(InvalidReason::ClaimAheadOfLocalSafeHead))
 }
 
 fn challenge_preflight_ready(
@@ -1099,6 +1381,7 @@ impl ChallengerState {
 mod tests {
     use super::*;
     use alloy::{rpc::client::RpcClient, transports::mock::Asserter};
+    use alloy_eips::BlockNumHash;
     use alloy_primitives::keccak256;
     use alloy_provider::RootProvider;
     use alloy_rpc_types_eth::{Block, Header};
@@ -1114,6 +1397,7 @@ mod tests {
             parent_index: u32::MAX,
             l2_block_number: U256::from(7),
             output_root: B256::ZERO,
+            l1_head: B256::repeat_byte(0x55),
             deadline: 100,
             validation,
             status: GameStatus::IN_PROGRESS,
@@ -1124,7 +1408,56 @@ mod tests {
         }
     }
 
-    fn test_challenger(l1_asserter: &Asserter) -> OPSuccinctChallenger<L1Provider> {
+    fn test_sync_status(current_l1: u64) -> SyncStatus {
+        let mut status = SyncStatus {
+            current_l1: Default::default(),
+            current_l1_finalized: Default::default(),
+            head_l1: Default::default(),
+            safe_l1: Default::default(),
+            finalized_l1: Default::default(),
+            unsafe_l2: Default::default(),
+            safe_l2: Default::default(),
+            finalized_l2: Default::default(),
+            cross_unsafe_l2: Default::default(),
+            local_safe_l2: Default::default(),
+        };
+        status.current_l1.number = current_l1;
+        status.head_l1.number = current_l1;
+        status
+    }
+
+    fn test_header(number: u64, hash: B256) -> Header {
+        Header {
+            hash,
+            inner: alloy::consensus::Header { number, ..Default::default() },
+            ..Default::default()
+        }
+    }
+
+    fn test_output_header(number: u64) -> Header {
+        let mut header = test_header(number, B256::repeat_byte(0x11));
+        header.state_root = B256::repeat_byte(0x22);
+        header.withdrawals_root = Some(B256::repeat_byte(0x33));
+        header
+    }
+
+    fn expected_output_root(header: &Header) -> B256 {
+        keccak256(
+            crate::contract::L2Output {
+                zero: 0,
+                l2_state_root: header.state_root.0.into(),
+                l2_storage_hash: header.withdrawals_root.unwrap().0.into(),
+                l2_claim_hash: header.hash.0.into(),
+            }
+            .abi_encode(),
+        )
+    }
+
+    fn test_challenger(
+        l1_asserter: &Asserter,
+        l2_asserter: &Asserter,
+        op_node_asserter: &Asserter,
+    ) -> OPSuccinctChallenger<L1Provider> {
         let l1_provider = RootProvider::new(RpcClient::mocked(l1_asserter.clone()));
         let anchor_state_registry =
             crate::contract::AnchorStateRegistry::new(Address::ZERO, l1_provider.clone());
@@ -1135,6 +1468,7 @@ mod tests {
         let config = ChallengerConfig {
             l1_rpc: "http://127.0.0.1:1".parse().unwrap(),
             l2_rpc: "http://127.0.0.1:2".parse().unwrap(),
+            l2_node_rpc: "http://127.0.0.1:3".parse().unwrap(),
             anchor_state_registry_address: Address::ZERO,
             factory_address: Address::ZERO,
             fetch_interval: 1,
@@ -1144,22 +1478,90 @@ mod tests {
             sync_l1_confirmations: 0,
             tx_confirmation_timeout: 60,
         };
-        OPSuccinctChallenger::new(config, l1_provider, anchor_state_registry, factory, signer)
+        let mut challenger =
+            OPSuccinctChallenger::new(config, l1_provider, anchor_state_registry, factory, signer);
+        challenger.l2_provider = RootProvider::new(RpcClient::mocked(l2_asserter.clone()));
+        challenger.l2_node_provider =
+            RootProvider::new(RpcClient::mocked(op_node_asserter.clone()));
+        challenger
+    }
+
+    fn push_safe_head_validation(
+        l1_asserter: &Asserter,
+        l2_asserter: &Asserter,
+        op_node_asserter: &Asserter,
+        first_current_l1: u64,
+        second_current_l1: Option<u64>,
+        safe_db_l1_number: u64,
+        execution_safe_hash: B256,
+    ) {
+        let game_l1_hash = B256::repeat_byte(0x55);
+        let safe_db_l1_hash =
+            if safe_db_l1_number == 100 { game_l1_hash } else { B256::repeat_byte(0x44) };
+        let safe_l2_hash = B256::repeat_byte(0x66);
+        let l1_header = test_header(100, game_l1_hash);
+        l1_asserter.push_success(&Some(l1_header.clone()));
+        l1_asserter.push_success(&Some(l1_header.clone()));
+        l1_asserter.push_success(&Some(test_header(safe_db_l1_number, safe_db_l1_hash)));
+
+        op_node_asserter.push_success(&test_sync_status(first_current_l1));
+        let safe_head = SafeHeadResponse {
+            l1_block: BlockNumHash { number: safe_db_l1_number, hash: safe_db_l1_hash },
+            safe_head: BlockNumHash { number: 200, hash: safe_l2_hash },
+        };
+        op_node_asserter.push_success(&safe_head);
+        if let Some(current_l1) = second_current_l1 {
+            op_node_asserter.push_success(&test_sync_status(current_l1));
+        }
+
+        l2_asserter.push_success(&Some(test_header(200, execution_safe_hash)));
+    }
+
+    struct ValidationFixture {
+        challenger: OPSuccinctChallenger<L1Provider>,
+        l1_asserter: Asserter,
+        l2_asserter: Asserter,
+        op_node_asserter: Asserter,
+    }
+
+    impl ValidationFixture {
+        fn assert_consumed(&self) {
+            assert!(self.l1_asserter.read_q().is_empty());
+            assert!(self.l2_asserter.read_q().is_empty());
+            assert!(self.op_node_asserter.read_q().is_empty());
+        }
+    }
+
+    fn validation_fixture(
+        first_current_l1: u64,
+        second_current_l1: Option<u64>,
+        execution_safe_hash: B256,
+    ) -> ValidationFixture {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let op_node_asserter = Asserter::new();
+        push_safe_head_validation(
+            &l1_asserter,
+            &l2_asserter,
+            &op_node_asserter,
+            first_current_l1,
+            second_current_l1,
+            100,
+            execution_safe_hash,
+        );
+        let challenger = test_challenger(&l1_asserter, &l2_asserter, &op_node_asserter);
+        ValidationFixture { challenger, l1_asserter, l2_asserter, op_node_asserter }
     }
 
     #[test]
-    fn output_root_result_has_three_distinct_outcomes() {
+    fn computed_output_root_has_valid_and_invalid_outcomes() {
         let expected = B256::repeat_byte(0x11);
 
-        assert_eq!(classify_output_root(expected, Ok(expected)), GameValidation::Valid);
+        assert_eq!(classify_computed_output_root(expected, expected), GameValidation::Valid);
         assert_eq!(
-            classify_output_root(expected, Ok(B256::repeat_byte(0x22))),
+            classify_computed_output_root(expected, B256::repeat_byte(0x22)),
             GameValidation::Invalid(InvalidReason::OutputRootMismatch)
         );
-        assert!(matches!(
-            classify_output_root(expected, Err(anyhow::anyhow!("temporarily unavailable"))),
-            GameValidation::Unavailable(UnavailableReason::RpcFailure(_))
-        ));
     }
 
     #[test]
@@ -1170,54 +1572,6 @@ mod tests {
             initial_game_validation(oversized),
             GameValidation::Invalid(InvalidReason::L2BlockNumberOverflow)
         );
-    }
-
-    #[tokio::test]
-    async fn unavailable_validation_recovers_without_blocking_other_game() {
-        let asserter = Asserter::new();
-        let provider = RootProvider::new(RpcClient::mocked(asserter.clone()));
-        let storage_root = B256::repeat_byte(0x33);
-        let mut header: Header = Header::default();
-        header.hash = B256::repeat_byte(0x11);
-        header.state_root = B256::repeat_byte(0x22);
-        header.withdrawals_root = Some(storage_root);
-        let expected_root = keccak256(
-            crate::contract::L2Output {
-                zero: 0,
-                l2_state_root: header.state_root.0.into(),
-                l2_storage_hash: storage_root.0.into(),
-                l2_claim_hash: header.hash.0.into(),
-            }
-            .abi_encode(),
-        );
-        let mut retry_game =
-            test_game(GameValidation::Unavailable(UnavailableReason::ValidationPending));
-        retry_game.output_root = expected_root;
-        let mut independent_game = retry_game.clone();
-        independent_game.index = U256::from(1);
-        independent_game.output_root = B256::repeat_byte(0x44);
-        asserter.push_failure_msg("temporary header failure");
-        asserter.push_success(&Some(header.clone()));
-        asserter.push_success(&Some(header));
-
-        retry_game.validation = validate_output_root(&provider, &retry_game).await;
-        assert!(matches!(
-            retry_game.validation,
-            GameValidation::Unavailable(UnavailableReason::RpcFailure(_))
-        ));
-        assert!(retry_game.requires_validation());
-
-        independent_game.validation = validate_output_root(&provider, &independent_game).await;
-        assert_eq!(
-            independent_game.validation,
-            GameValidation::Invalid(InvalidReason::OutputRootMismatch)
-        );
-        assert!(!independent_game.requires_validation());
-
-        retry_game.validation = validate_output_root(&provider, &retry_game).await;
-        assert_eq!(retry_game.validation, GameValidation::Valid);
-        assert!(!retry_game.requires_validation());
-        assert!(asserter.read_q().is_empty());
     }
 
     #[test]
@@ -1254,6 +1608,211 @@ mod tests {
     }
 
     #[test]
+    fn startup_chain_pairing_checks_both_l1_and_l2() {
+        assert!(validate_rollup_chain_ids(1, 10, 1, 10).is_ok());
+        assert!(validate_rollup_chain_ids(1, 10, 2, 10)
+            .unwrap_err()
+            .to_string()
+            .contains("L1 chain ID"));
+        assert!(validate_rollup_chain_ids(1, 10, 1, 11)
+            .unwrap_err()
+            .to_string()
+            .contains("L2 chain ID"));
+    }
+
+    #[test]
+    fn safe_db_floor_and_watermark_boundaries_are_strict() {
+        assert!(safe_db_record_is_at_or_before(99, 100));
+        assert!(safe_db_record_is_at_or_before(100, 100));
+        assert!(!safe_db_record_is_at_or_before(101, 100));
+
+        assert!(!op_node_watermarks_are_usable(100, 101, 100));
+        assert!(op_node_watermarks_are_usable(101, 101, 100));
+        assert!(!op_node_watermarks_are_usable(102, 101, 100));
+    }
+
+    #[tokio::test]
+    async fn unavailable_validation_recovers_via_safe_db_floor_without_blocking_sibling() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let op_node_asserter = Asserter::new();
+        let game_l1_header = test_header(100, B256::repeat_byte(0x55));
+
+        l1_asserter.push_success(&Some(game_l1_header.clone()));
+        l1_asserter.push_success(&Some(game_l1_header));
+        op_node_asserter.push_success(&test_sync_status(102));
+        op_node_asserter.push_failure_msg("SafeDB record not found");
+
+        let output_header = test_output_header(7);
+        push_safe_head_validation(
+            &l1_asserter,
+            &l2_asserter,
+            &op_node_asserter,
+            102,
+            Some(102),
+            99,
+            B256::repeat_byte(0x66),
+        );
+        l2_asserter.push_success(&Some(output_header.clone()));
+        push_safe_head_validation(
+            &l1_asserter,
+            &l2_asserter,
+            &op_node_asserter,
+            102,
+            Some(102),
+            99,
+            B256::repeat_byte(0x66),
+        );
+        l2_asserter.push_success(&Some(output_header.clone()));
+
+        let challenger = test_challenger(&l1_asserter, &l2_asserter, &op_node_asserter);
+        let mut retry_game =
+            test_game(GameValidation::Unavailable(UnavailableReason::ValidationPending));
+        retry_game.output_root = expected_output_root(&output_header);
+        let mut sibling = retry_game.clone();
+        sibling.index = U256::from(1);
+        sibling.output_root = B256::ZERO;
+
+        retry_game.validation = challenger.validate_game(&retry_game).await;
+        assert_eq!(
+            retry_game.validation,
+            GameValidation::Unavailable(UnavailableReason::SafeDBHistoryMissing)
+        );
+        assert!(retry_game.requires_validation());
+
+        sibling.validation = challenger.validate_game(&sibling).await;
+        assert_eq!(sibling.validation, GameValidation::Invalid(InvalidReason::OutputRootMismatch));
+        assert!(!sibling.requires_validation());
+
+        retry_game.validation = challenger.validate_game(&retry_game).await;
+        assert_eq!(retry_game.validation, GameValidation::Valid);
+        assert!(!retry_game.requires_validation());
+        assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_asserter.read_q().is_empty());
+        assert!(op_node_asserter.read_q().is_empty());
+    }
+
+    #[tokio::test]
+    async fn first_op_node_watermark_at_game_head_is_unavailable() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let op_node_asserter = Asserter::new();
+        let game_l1_header = test_header(100, B256::repeat_byte(0x55));
+        l1_asserter.push_success(&Some(game_l1_header.clone()));
+        l1_asserter.push_success(&Some(game_l1_header));
+        op_node_asserter.push_success(&test_sync_status(100));
+        let challenger = test_challenger(&l1_asserter, &l2_asserter, &op_node_asserter);
+        let game = test_game(GameValidation::Unavailable(UnavailableReason::ValidationPending));
+
+        assert_eq!(
+            challenger.historical_local_safe_head(&game).await,
+            Err(UnavailableReason::OpNodeBehind)
+        );
+        assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_asserter.read_q().is_empty());
+        assert!(op_node_asserter.read_q().is_empty());
+    }
+
+    #[tokio::test]
+    async fn safe_db_l1_hash_mismatch_is_unavailable() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let op_node_asserter = Asserter::new();
+        let game_l1_header = test_header(100, B256::repeat_byte(0x55));
+        l1_asserter.push_success(&Some(game_l1_header.clone()));
+        l1_asserter.push_success(&Some(game_l1_header));
+        l1_asserter.push_success(&Some(test_header(99, B256::repeat_byte(0x45))));
+        op_node_asserter.push_success(&test_sync_status(102));
+        op_node_asserter.push_success(&SafeHeadResponse {
+            l1_block: BlockNumHash { number: 99, hash: B256::repeat_byte(0x44) },
+            safe_head: BlockNumHash { number: 200, hash: B256::repeat_byte(0x66) },
+        });
+        let challenger = test_challenger(&l1_asserter, &l2_asserter, &op_node_asserter);
+        let game = test_game(GameValidation::Unavailable(UnavailableReason::ValidationPending));
+
+        assert_eq!(
+            challenger.historical_local_safe_head(&game).await,
+            Err(UnavailableReason::L1CanonicalHashMismatch)
+        );
+        assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_asserter.read_q().is_empty());
+        assert!(op_node_asserter.read_q().is_empty());
+    }
+
+    #[tokio::test]
+    async fn second_op_node_watermark_regression_is_unavailable() {
+        let fixture = validation_fixture(102, Some(101), B256::repeat_byte(0x66));
+        let game = test_game(GameValidation::Unavailable(UnavailableReason::ValidationPending));
+
+        assert_eq!(
+            fixture.challenger.historical_local_safe_head(&game).await,
+            Err(UnavailableReason::OpNodeBehind)
+        );
+        fixture.assert_consumed();
+    }
+
+    #[tokio::test]
+    async fn paired_execution_safe_head_hash_mismatch_is_unavailable() {
+        let fixture = validation_fixture(102, None, B256::repeat_byte(0x77));
+        let game = test_game(GameValidation::Unavailable(UnavailableReason::ValidationPending));
+
+        assert_eq!(
+            fixture.challenger.historical_local_safe_head(&game).await,
+            Err(UnavailableReason::OpNodeExecutionMismatch)
+        );
+        fixture.assert_consumed();
+    }
+
+    #[tokio::test]
+    async fn future_claim_is_invalid_without_reading_claimed_root() {
+        let fixture = validation_fixture(102, Some(102), B256::repeat_byte(0x66));
+        let mut game = test_game(GameValidation::Unavailable(UnavailableReason::ValidationPending));
+        game.l2_block_number = U256::from(201);
+
+        assert_eq!(
+            fixture.challenger.validate_game(&game).await,
+            GameValidation::Invalid(InvalidReason::ClaimAheadOfLocalSafeHead)
+        );
+        fixture.assert_consumed();
+    }
+
+    #[test]
+    fn claim_above_historical_safe_head_is_invalid() {
+        assert_eq!(
+            classify_claim_height(101, 100),
+            Some(GameValidation::Invalid(InvalidReason::ClaimAheadOfLocalSafeHead))
+        );
+        assert_eq!(classify_claim_height(100, 100), None);
+        assert_eq!(classify_claim_height(99, 100), None);
+    }
+
+    #[test]
+    fn safedb_errors_keep_disabled_and_history_gap_distinct() {
+        assert_eq!(
+            classify_safe_db_error(anyhow::anyhow!("safe head database not enabled")),
+            UnavailableReason::SafeDBDisabled
+        );
+        assert_eq!(
+            classify_safe_db_error(anyhow::anyhow!("method not found")),
+            UnavailableReason::SafeDBDisabled
+        );
+        assert_eq!(
+            classify_safe_db_error(anyhow::anyhow!(
+                "the method optimism_safeHeadAtL1Block does not exist"
+            )),
+            UnavailableReason::SafeDBDisabled
+        );
+        assert_eq!(
+            classify_safe_db_error(anyhow::anyhow!("not found")),
+            UnavailableReason::SafeDBHistoryMissing
+        );
+        assert!(matches!(
+            classify_safe_db_error(anyhow::anyhow!("connection reset")),
+            UnavailableReason::RpcFailure(_)
+        ));
+    }
+
+    #[test]
     fn action_preflight_decisions_are_fail_closed_at_boundaries() {
         assert!(challenge_preflight_ready(
             GameStatus::IN_PROGRESS,
@@ -1287,8 +1846,10 @@ mod tests {
 
     #[tokio::test]
     async fn challenge_preflight_error_does_not_block_next_candidate() {
-        let asserter = Asserter::new();
-        let mut challenger = test_challenger(&asserter);
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let op_node_asserter = Asserter::new();
+        let mut challenger = test_challenger(&l1_asserter, &l2_asserter, &op_node_asserter);
         let mut first = test_game(GameValidation::Invalid(InvalidReason::OutputRootMismatch));
         first.should_attempt_to_challenge = true;
         let mut second = first.clone();
@@ -1303,14 +1864,14 @@ mod tests {
         let mut latest_block: Block = Block::default();
         latest_block.header.hash = B256::repeat_byte(0x11);
         latest_block.header.timestamp = 50;
-        asserter.push_failure_msg("first candidate latest block unavailable");
-        asserter.push_success(&Some(latest_block));
-        asserter.push_failure_msg("second candidate status unavailable");
+        l1_asserter.push_failure_msg("first candidate latest block unavailable");
+        l1_asserter.push_success(&Some(latest_block));
+        l1_asserter.push_failure_msg("second candidate status unavailable");
 
         challenger.handle_game_challenging().await.unwrap();
 
         assert!(
-            asserter.read_q().is_empty(),
+            l1_asserter.read_q().is_empty(),
             "the second candidate should still reach its status preflight"
         );
         let state = challenger.state.lock().await;
