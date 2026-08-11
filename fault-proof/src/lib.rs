@@ -8,6 +8,8 @@ pub mod backup;
 pub mod challenger;
 pub mod config;
 pub mod contract;
+pub mod game_validator;
+pub mod op_stack_game_validator;
 pub mod prometheus;
 pub mod proposer;
 pub mod prover;

@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, sync::Arc};
 
 use alloy_primitives::Address;
 use alloy_provider::ProviderBuilder;
@@ -7,8 +7,9 @@ use anyhow::Result;
 use clap::Parser;
 use fault_proof::{
     challenger::OPSuccinctChallenger,
-    config::ChallengerConfig,
+    config::{ChallengerConfig, OPStackGameValidatorConfig},
     contract::{AnchorStateRegistry, DisputeGameFactory},
+    op_stack_game_validator::OPStackGameValidator,
     prometheus::ChallengerGauge,
 };
 use op_succinct_host_utils::{
@@ -36,6 +37,8 @@ async fn main() -> Result<()> {
 
     let challenger_config = ChallengerConfig::from_env()?;
     challenger_config.log();
+    let validator_config = OPStackGameValidatorConfig::from_env()?;
+    validator_config.log();
 
     let challenger_signer = SignerLock::from_env().await?;
 
@@ -58,12 +61,19 @@ async fn main() -> Result<()> {
         l1_provider.clone(),
     );
 
-    let mut challenger = OPSuccinctChallenger::new(
+    let game_validator = Arc::new(OPStackGameValidator::new(
+        l1_provider.clone(),
+        ProviderBuilder::default().connect_http(validator_config.l2_rpc),
+        ProviderBuilder::default().connect_http(validator_config.l2_node_rpc),
+    ));
+
+    let mut challenger = OPSuccinctChallenger::new_with_game_validator(
         challenger_config,
         l1_provider,
         anchor_state_registry,
         factory,
         challenger_signer,
+        game_validator,
     );
 
     // Initialize challenger gauges.
