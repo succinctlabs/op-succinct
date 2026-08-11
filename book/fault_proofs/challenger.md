@@ -27,6 +27,10 @@ The challenger performs several key functions:
 
 The challenger is configured through environment variables.
 
+`L1_RPC` and the contract settings configure the shared challenger lifecycle. `L2_RPC` and
+`L2_NODE_RPC` are consumed by the default OP Stack game-validation backend; challengers that inject
+a different `GameValidator` do not require those two endpoints.
+
 Create a `.env.challenger` file in the `fault-proof` directory with all required variables. This single file is used by:
 - Docker Compose (for both variable substitution and runtime configuration)
 - Direct binary execution (`cargo run --bin challenger` from the `fault-proof` directory; the binary automatically loads `.env.challenger`)
@@ -94,6 +98,11 @@ Before entering the main loop, the challenger verifies that the op-node rollup c
 the same L1 and L2 chain IDs as `L1_RPC` and `L2_RPC`, that SafeDB is enabled and populated, and
 that its safe head exists with the same hash on the paired execution node. Startup validation is
 retried until this fixed node pair is healthy.
+
+The shared challenger lifecycle delegates chain-specific claim checks to a `GameValidator`.
+The standard constructor installs the OP Stack validator, which owns the op-node and paired L2
+execution providers and performs all of the SafeDB checks described below. Custom integrations may
+inject another validator without changing game discovery, retry, deadline, or transaction handling.
 
 For every active unchallenged game, the challenger resolves `game.l1Head` to its canonical L1
 block number `X`, then queries `optimism_safeHeadAtL1Block(X)` after confirming that

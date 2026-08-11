@@ -8,6 +8,7 @@ use fault_proof::{
     challenger::OPSuccinctChallenger,
     config::{ChallengerConfig, ProofProviderConfig, RangeSplitCount},
     contract::{AnchorStateRegistry, DisputeGameFactory},
+    op_stack_game_validator::OPStackGameValidator,
     proposer::OPSuccinctProposer,
 };
 use op_succinct_host_utils::{
@@ -136,8 +137,6 @@ pub async fn new_challenger(
 
     let config = ChallengerConfig {
         l1_rpc: rpc_config.l1_rpc.clone(),
-        l2_rpc: rpc_config.l2_rpc.clone(),
-        l2_node_rpc: rpc_config.l2_node_rpc.clone(),
         anchor_state_registry_address: *anchor_state_registry_address,
         factory_address: *factory_address,
         fetch_interval: 2,
@@ -152,8 +151,20 @@ pub async fn new_challenger(
     let anchor_state_registry =
         AnchorStateRegistry::new(*anchor_state_registry_address, l1_provider.clone());
     let factory = DisputeGameFactory::new(*factory_address, l1_provider.clone());
+    let game_validator = Arc::new(OPStackGameValidator::new(
+        l1_provider.clone(),
+        ProviderBuilder::default().connect_http(rpc_config.l2_rpc.clone()),
+        ProviderBuilder::default().connect_http(rpc_config.l2_node_rpc.clone()),
+    ));
 
-    Ok(OPSuccinctChallenger::new(config, l1_provider, anchor_state_registry, factory, signer))
+    Ok(OPSuccinctChallenger::new_with_game_validator(
+        config,
+        l1_provider,
+        anchor_state_registry,
+        factory,
+        signer,
+        game_validator,
+    ))
 }
 
 /// Start a challenger, and return a handle to the challenger task.
