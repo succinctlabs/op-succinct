@@ -33,8 +33,8 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     bool public wasRespectedGameTypeWhenCreated;
 
     /// @notice Semantic version.
-    /// @custom:semver v4.0.0
-    string public constant version = "v4.0.0";
+    /// @custom:semver v4.1.0
+    string public constant version = "v4.1.0";
 
     constructor(address _l2OutputOracle, IAnchorStateRegistry _anchorStateRegistry) {
         L2_OUTPUT_ORACLE = _l2OutputOracle;
@@ -80,6 +80,13 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     /// @return The root claim of the DisputeGame.
     function rootClaim() public pure returns (Claim) {
         return Claim.wrap(_getArgBytes32(0x14));
+    }
+
+    /// @notice Getter for the root claim for a given L2 chain ID.
+    /// @dev OP Succinct games contain one output root and are not super games.
+    /// @return rootClaim_ The root claim of the DisputeGame.
+    function rootClaimByChainId(uint256) public pure returns (Claim rootClaim_) {
+        rootClaim_ = rootClaim();
     }
 
     /// @notice Getter for the parent hash of the L1 block when the dispute game was created.

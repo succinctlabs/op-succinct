@@ -222,6 +222,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         // Check the child game fields.
         assertEq(game.gameType().raw(), gameType.raw());
+        assertEq(game.version(), "2.1.0");
         assertEq(game.rootClaim().raw(), rootClaim.raw());
         assertEq(game.maxChallengeDuration().raw(), maxChallengeDuration.raw());
         assertEq(game.maxProveDuration().raw(), maxProveDuration.raw());
@@ -265,6 +266,10 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         uint256 currentTime = block.timestamp;
         uint256 expectedDeadline = currentTime + maxChallengeDuration.raw();
         assertEq(deadline_.raw(), expectedDeadline);
+    }
+
+    function testRootClaimByChainId() public view {
+        assertEq(game.rootClaimByChainId(block.chainid).raw(), rootClaim.raw());
     }
 
     // =========================================
