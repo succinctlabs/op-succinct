@@ -78,6 +78,10 @@ contract MockPermissionedDisputeGame is Clone, IDisputeGame {
         rootClaim_ = Claim.wrap(_getArgBytes32(0x14));
     }
 
+    function rootClaimByChainId(uint256) public pure returns (Claim rootClaim_) {
+        rootClaim_ = rootClaim();
+    }
+
     function l1Head() public pure returns (Hash l1Head_) {
         l1Head_ = Hash.wrap(_getArgBytes32(0x34));
     }
