@@ -12,7 +12,7 @@ import {
     GameType,
     Hash,
     LibClock,
-    OutputRoot,
+    Proposal,
     Timestamp
 } from "src/dispute/lib/Types.sol";
 import {
@@ -132,8 +132,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
     AccessManager internal immutable ACCESS_MANAGER;
 
     /// @notice Semantic version.
-    /// @custom:semver 1.0.0
-    string public constant version = "1.0.0";
+    /// @custom:semver 2.1.0
+    string public constant version = "2.1.0";
 
     /// @notice The starting timestamp of the game.
     Timestamp public createdAt;
@@ -158,7 +158,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
 
     /// @notice The starting output root of the game that is proven from in case of a challenge.
     /// @dev This should match the claim root of the parent game.
-    OutputRoot public startingOutputRoot;
+    Proposal public startingOutputRoot;
 
     /// @notice A boolean for whether or not the game type was respected when the game was created.
     bool public wasRespectedGameTypeWhenCreated;
@@ -264,8 +264,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
                 revert InvalidParentGame();
             }
 
-            startingOutputRoot = OutputRoot({
-                l2BlockNumber: OPSuccinctFaultDisputeGame(address(proxy)).l2BlockNumber(),
+            startingOutputRoot = Proposal({
+                l2SequenceNumber: OPSuccinctFaultDisputeGame(address(proxy)).l2SequenceNumber(),
                 root: Hash.wrap(OPSuccinctFaultDisputeGame(address(proxy)).rootClaim().raw())
             });
 
@@ -275,20 +275,20 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
             // INVARIANT: The parent game's L2 block must be ahead of the anchor. This prevents
             // duplicate games (same startingOutputRoot via parent index vs uint32.max) and ensures
             // that after a game type switch, proposals resume from the anchor rather than a stale parent.
-            (, uint256 anchorL2BlockNum) = ANCHOR_STATE_REGISTRY.getAnchorRoot();
-            if (startingOutputRoot.l2BlockNumber <= anchorL2BlockNum) {
+            (, uint256 anchorL2SeqNum) = ANCHOR_STATE_REGISTRY.getAnchorRoot();
+            if (startingOutputRoot.l2SequenceNumber <= anchorL2SeqNum) {
                 revert InvalidParentGame();
             }
         } else {
             // When there is no parent game, start from the current anchor root. This allows
             // resuming from the latest anchor after game type switches (e.g., retirement recovery).
-            (Hash anchorRoot, uint256 anchorL2BlockNum) = ANCHOR_STATE_REGISTRY.getAnchorRoot();
-            startingOutputRoot = OutputRoot({root: anchorRoot, l2BlockNumber: anchorL2BlockNum});
+            (Hash anchorRoot, uint256 anchorL2SeqNum) = ANCHOR_STATE_REGISTRY.getAnchorRoot();
+            startingOutputRoot = Proposal({root: anchorRoot, l2SequenceNumber: anchorL2SeqNum});
         }
 
         // Do not allow the game to be initialized if the root claim corresponds to a block at or before the
         // configured starting block number.
-        if (l2BlockNumber() <= startingOutputRoot.l2BlockNumber) {
+        if (l2SequenceNumber() <= startingOutputRoot.l2SequenceNumber) {
             revert UnexpectedRootClaim(rootClaim());
         }
 
@@ -316,9 +316,15 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
             GameType.unwrap(ANCHOR_STATE_REGISTRY.respectedGameType()) == GameType.unwrap(GAME_TYPE);
     }
 
+    /// @notice The L2 sequence number (block number) for which this game is proposing an output root.
+    function l2SequenceNumber() public pure returns (uint256 l2SequenceNumber_) {
+        l2SequenceNumber_ = _getArgUint256(0x54);
+    }
+
     /// @notice The L2 block number for which this game is proposing an output root.
+    /// @dev Alias for l2SequenceNumber() for backward compatibility.
     function l2BlockNumber() public pure returns (uint256 l2BlockNumber_) {
-        l2BlockNumber_ = _getArgUint256(0x54);
+        l2BlockNumber_ = l2SequenceNumber();
     }
 
     /// @notice The parent index of the game.
@@ -328,7 +334,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
 
     /// @notice Only the starting block number of the game.
     function startingBlockNumber() external view returns (uint256 startingBlockNumber_) {
-        startingBlockNumber_ = startingOutputRoot.l2BlockNumber;
+        startingBlockNumber_ = startingOutputRoot.l2SequenceNumber;
     }
 
     /// @notice Starting output root of the game.
@@ -382,7 +388,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
             l1Head: Hash.unwrap(l1Head()),
             l2PreRoot: Hash.unwrap(startingOutputRoot.root),
             claimRoot: rootClaim().raw(),
-            claimBlockNum: l2BlockNumber(),
+            claimBlockNum: l2SequenceNumber(),
             rollupConfigHash: ROLLUP_CONFIG_HASH,
             rangeVkeyCommitment: RANGE_VKEY_COMMITMENT,
             proverAddress: msg.sender
@@ -584,6 +590,13 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
     /// @return rootClaim_ The root claim of the DisputeGame.
     function rootClaim() public pure returns (Claim rootClaim_) {
         rootClaim_ = Claim.wrap(_getArgBytes32(0x14));
+    }
+
+    /// @notice Getter for the root claim for a given L2 chain ID.
+    /// @dev OP Succinct games contain one output root and are not super games.
+    /// @return rootClaim_ The root claim of the DisputeGame.
+    function rootClaimByChainId(uint256) public pure returns (Claim rootClaim_) {
+        rootClaim_ = rootClaim();
     }
 
     /// @notice Getter for the parent hash of the L1 block when the dispute game was created.
