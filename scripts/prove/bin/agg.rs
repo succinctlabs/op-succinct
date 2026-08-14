@@ -1,5 +1,5 @@
-// Deeply nested async future from the SP1 cluster proof types (sp1-cluster-*
-// v2.4.2) exceeds the default recursion limit of 128 when computing its layout.
+// Deeply nested async future from the SP1 cluster proof types exceeds the
+// default recursion limit of 128 when computing its layout.
 #![recursion_limit = "256"]
 
 use alloy_primitives::{Address, B256};
