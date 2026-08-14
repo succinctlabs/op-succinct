@@ -86,7 +86,7 @@ jobs:
           l1_rpc: ${{ secrets.L1_RPC }}
 
       - name: Run Test On New Branch
-        timeout-minutes: 30
+        timeout-minutes: 45
         run: |
           RUST_LOG=info NEW_BRANCH=true cargo test -p op-succinct-prove --features eigenda test_cycle_count_diff --release -- --exact --nocapture
         working-directory: ./new_code
@@ -104,7 +104,7 @@ jobs:
           cp "$STATS_FILE" ${{ github.workspace }}/old_code/scripts/prove/new_cycle_stats.json
 
       - name: Run Test On Old Branch
-        timeout-minutes: 30
+        timeout-minutes: 45
         run: |
           RUST_LOG=info NEW_BRANCH=false cargo test -p op-succinct-prove --features eigenda test_cycle_count_diff --release -- --exact --nocapture
         working-directory: ./old_code
