@@ -1,5 +1,5 @@
-// The SP1 cluster proof types (sp1-cluster-* v2.4.2) produce a deeply nested
-// async future in `cluster_proof_blocking`, whose layout exceeds the default
+// The SP1 cluster proof types produce a deeply nested async future in
+// `cluster_proof_blocking`, whose layout exceeds the default
 // recursion limit of 128. Raise it so the layout query can complete.
 #![recursion_limit = "256"]
 
