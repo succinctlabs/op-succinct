@@ -27,6 +27,21 @@ jobs:
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
+      - name: Check Docker SP1 version
+        run: |
+          SP1_VERSION=$(grep 'sp1-sdk' Cargo.toml | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+          if [ -z "$SP1_VERSION" ]; then
+            echo "::error::Could not read the SP1 SDK version from Cargo.toml"
+            exit 1
+          fi
+
+          MISMATCHES=$(grep -rn 'sp1up -v' --include='Dockerfile*' | grep -vF "$SP1_VERSION" || true)
+          if [ -n "$MISMATCHES" ]; then
+            echo "::error::Dockerfile SP1 versions must match Cargo.toml ($SP1_VERSION):"
+            echo "$MISMATCHES"
+            exit 1
+          fi
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
