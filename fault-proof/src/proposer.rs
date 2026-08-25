@@ -23,14 +23,12 @@ use op_succinct_host_utils::{
     get_agg_proof_stdin,
     host::OPSuccinctHost,
     metrics::MetricsGauge,
-    network::{determine_network_mode, get_network_signer},
+    network::{build_network_prover, determine_network_mode, get_network_signer},
     witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{cluster_setup_keys, get_range_elf_embedded, is_cluster_mode};
 use op_succinct_signer_utils::SignerLock;
-use sp1_sdk::{
-    Elf, HashableKey, Prover, ProverClient, ProvingKey, SP1ProofWithPublicValues, SP1Stdin,
-};
+use sp1_sdk::{Elf, HashableKey, Prover, ProvingKey, SP1ProofWithPublicValues, SP1Stdin};
 use tokio::{
     sync::{Mutex, RwLock, Semaphore},
     time,
@@ -375,9 +373,7 @@ where
                 config.proof_provider.range_proof_strategy,
                 config.proof_provider.agg_proof_strategy,
             )?;
-            let np = Arc::new(
-                ProverClient::builder().network_for(nm).signer(network_signer).build().await,
-            );
+            let np = Arc::new(build_network_prover(nm, network_signer).await?);
             let range_pk = np.setup(Elf::Static(get_range_elf_embedded())).await?;
             let range_vk = range_pk.verifying_key().clone();
             let agg_pk = np.setup(Elf::Static(AGGREGATION_ELF)).await?;
