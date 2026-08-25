@@ -240,6 +240,7 @@ codegen-units = 1
 lto = "fat"
 
 [patch.crates-io]
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1", rev = "5d206175d17ab5bcdd9bc3909ecd68655cc82e99" }
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.9-sp1-6.0.0" }
 sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.11.0-sp1-6.0.0" }
 substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-sp1-6.0.0-substrate-bn" }
@@ -262,5 +263,18 @@ op-alloy = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-
 # but hokulea/hana pull op-revm from crates.io, producing two op-revm versions and
 # OpSpecId/OpEvm type mismatches. Patching unifies the whole graph on the git op-revm.
 op-revm = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0" }
+
+[patch."https://github.com/succinctlabs/sp1"]
+sp1-build = { version = "=6.4.0" }
+sp1-core-executor = { version = "=6.4.0" }
+sp1-core-executor-runner = { version = "=6.4.0" }
+sp1-core-machine = { version = "=6.4.0" }
+sp1-hypercube = { version = "=6.4.0" }
+sp1-primitives = { version = "=6.4.0" }
+sp1-prover = { version = "=6.4.0" }
+sp1-prover-types = { version = "=6.4.0" }
+sp1-recursion-executor = { version = "=6.4.0" }
+sp1-recursion-gnark-ffi = { version = "=6.4.0" }
+sp1-verifier = { version = "=6.4.0" }
 
 # Patch old kona (op-rs/kona v1.2.7) used by hana to use the new kona (v1.6.0) from the optimism monorepo

@@ -12848,8 +12848,7 @@ dependencies = [
 [[package]]
 name = "sp1-sdk"
 version = "6.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "830a3aeeb1b3f2867171b8c92a3222c80a87531821017d347262163ec3cb2add"
+source = "git+https://github.com/succinctlabs/sp1?rev=5d206175d17ab5bcdd9bc3909ecd68655cc82e99#5d206175d17ab5bcdd9bc3909ecd68655cc82e99"
 dependencies = [
  "alloy-primitives",
  "alloy-signer 1.7.3",
