@@ -110,15 +110,15 @@ hana-host = { git = "https://github.com/celestiaorg/hana", tag = "v1.9.1-mocha" 
 hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "v1.9.1-mocha" }
 
 # hokulea
-hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.2" }
-hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.2" }
-hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.2" }
-hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.2" }
-hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.2" }
-hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.2" }
-canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.2" }
-canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.2" }
-canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.2.2" }
+hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "15f7324b88505f67baecde852d459ca08f52fc7c" }
+hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "15f7324b88505f67baecde852d459ca08f52fc7c" }
+hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "15f7324b88505f67baecde852d459ca08f52fc7c" }
+hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "15f7324b88505f67baecde852d459ca08f52fc7c" }
+hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", rev = "15f7324b88505f67baecde852d459ca08f52fc7c" }
+hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", rev = "15f7324b88505f67baecde852d459ca08f52fc7c" }
+canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", rev = "15f7324b88505f67baecde852d459ca08f52fc7c" }
+canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", rev = "15f7324b88505f67baecde852d459ca08f52fc7c" }
+canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", rev = "15f7324b88505f67baecde852d459ca08f52fc7c" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -204,19 +204,19 @@ revm-precompile = { version = "34.0.0", default-features = false }
 # OpSpecId/OpHaltReason/OpEvm mismatches against the kona executor).
 op-revm = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0", default-features = false }
 
-# SP1 v6.4.0 (Hypercube)
-sp1-sdk = { version = "=6.4.0", features = ["network", "blocking", "profiling"] }
-sp1-lib = { version = "=6.4.0", features = ["verify"] }
-sp1-zkvm = { version = "=6.4.0", features = ["verify"] }
-sp1-build = "=6.4.0"
-sp1-prover = "=6.4.0"
-sp1-prover-types = "=6.4.0"
-sp1-core-executor = "=6.4.0"
-sp1-hypercube = "=6.4.0"
-sp1-primitives = "=6.4.0"
-sp1-cluster-artifact = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.7.2" }
-sp1-cluster-common = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.7.2" }
-sp1-cluster-utils = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.7.2" }
+# SP1 v6.5.0 (Hypercube)
+sp1-sdk = { version = "=6.5.0", features = ["network", "blocking", "profiling"] }
+sp1-lib = { version = "=6.5.0", features = ["verify"] }
+sp1-zkvm = { version = "=6.5.0", features = ["verify"] }
+sp1-build = "=6.5.0"
+sp1-prover = "=6.5.0"
+sp1-prover-types = "=6.5.0"
+sp1-core-executor = "=6.5.0"
+sp1-hypercube = "=6.5.0"
+sp1-primitives = "=6.5.0"
+sp1-cluster-artifact = { git = "https://github.com/succinctlabs/sp1-cluster.git", rev = "025ab624614acb96853a6d2171a4c5bfc67ea536" }
+sp1-cluster-common = { git = "https://github.com/succinctlabs/sp1-cluster.git", rev = "025ab624614acb96853a6d2171a4c5bfc67ea536" }
+sp1-cluster-utils = { git = "https://github.com/succinctlabs/sp1-cluster.git", rev = "025ab624614acb96853a6d2171a4c5bfc67ea536" }
 
 # kzg
 kzg-rs = { version = "0.2.8", features = ["rkyv", "serde"] }
@@ -240,7 +240,6 @@ codegen-units = 1
 lto = "fat"
 
 [patch.crates-io]
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1", rev = "5d206175d17ab5bcdd9bc3909ecd68655cc82e99" }
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.9-sp1-6.0.0" }
 sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.11.0-sp1-6.0.0" }
 substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-sp1-6.0.0-substrate-bn" }
@@ -263,18 +262,5 @@ op-alloy = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-
 # but hokulea/hana pull op-revm from crates.io, producing two op-revm versions and
 # OpSpecId/OpEvm type mismatches. Patching unifies the whole graph on the git op-revm.
 op-revm = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.6.0" }
-
-[patch."https://github.com/succinctlabs/sp1"]
-sp1-build = { version = "=6.4.0" }
-sp1-core-executor = { version = "=6.4.0" }
-sp1-core-executor-runner = { version = "=6.4.0" }
-sp1-core-machine = { version = "=6.4.0" }
-sp1-hypercube = { version = "=6.4.0" }
-sp1-primitives = { version = "=6.4.0" }
-sp1-prover = { version = "=6.4.0" }
-sp1-prover-types = { version = "=6.4.0" }
-sp1-recursion-executor = { version = "=6.4.0" }
-sp1-recursion-gnark-ffi = { version = "=6.4.0" }
-sp1-verifier = { version = "=6.4.0" }
 
 # Patch old kona (op-rs/kona v1.2.7) used by hana to use the new kona (v1.6.0) from the optimism monorepo
