@@ -214,9 +214,9 @@ sp1-prover-types = "=6.5.0"
 sp1-core-executor = "=6.5.0"
 sp1-hypercube = "=6.5.0"
 sp1-primitives = "=6.5.0"
-sp1-cluster-artifact = { git = "https://github.com/succinctlabs/sp1-cluster.git", rev = "025ab624614acb96853a6d2171a4c5bfc67ea536" }
-sp1-cluster-common = { git = "https://github.com/succinctlabs/sp1-cluster.git", rev = "025ab624614acb96853a6d2171a4c5bfc67ea536" }
-sp1-cluster-utils = { git = "https://github.com/succinctlabs/sp1-cluster.git", rev = "025ab624614acb96853a6d2171a4c5bfc67ea536" }
+sp1-cluster-artifact = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.8.0" }
+sp1-cluster-common = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.8.0" }
+sp1-cluster-utils = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.8.0" }
 
 # kzg
 kzg-rs = { version = "0.2.8", features = ["rkyv", "serde"] }
