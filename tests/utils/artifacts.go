@@ -12,6 +12,11 @@ func UseNetworkProver() bool {
 	return os.Getenv("NETWORK_PRIVATE_KEY") != ""
 }
 
+// UseClusterProver returns true if cluster proving is enabled (SP1_PROVER=cluster).
+func UseClusterProver() bool {
+	return os.Getenv("SP1_PROVER") == "cluster"
+}
+
 // RepoRoot returns the op-succinct repo root.
 // Assumes this file is at tests/utils/artifacts.go
 func RepoRoot() string {
