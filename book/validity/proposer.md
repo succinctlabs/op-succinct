@@ -28,7 +28,7 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 | Parameter | Description |
 |-----------|-------------|
 | `L1_RPC` | L1 Archive Node. |
-| `L2_RPC` | L2 Execution Node (`op-geth`). |
+| `L2_RPC` | L2 Execution Node (`op-reth`). |
 | `L2_NODE_RPC` | L2 Rollup Node (`op-node`). |
 | `NETWORK_PRIVATE_KEY` | Private key for the Succinct Prover Network. See the [Succinct Prover Network Quickstart](https://docs.succinct.xyz/docs/sp1/prover-network/quickstart) for setup instructions. |
 | `L2OO_ADDRESS` | Address of the `OPSuccinctL2OutputOracle` contract. |

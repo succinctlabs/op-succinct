@@ -10,20 +10,22 @@ You must have the following installed:
 
 You must have the following RPCs available:
 - L1 Archive Node
-- L1 Consensus (Beacon) Node
-- L2 Execution Node (`op-geth`)
+- L2 Execution Node (`op-reth`)
 - L2 Rollup Node (`op-node`)
+
+An L1 Consensus (Beacon) Node is only required for integrations that access consensus-layer data.
 
 The following RPC endpoints must be accessible:
 
 - L1 Archive Node.
-  - `debug_getRawHeader`, `debug_getRawReceipts`, `debug_getRawBlock`
-- L2 Execution Node (`op-geth`): Archive node with hash state scheme.
-  - `debug_getRawHeader`, `debug_getRawTransaction`, `debug_getRawBlock`, `debug_dbGet`
+  - `debug_getRawHeader`, `debug_getRawReceipts`
+- L2 Execution Node (`op-reth`) with historical state and proof data for the target range.
+  - `debug_getRawHeader`, `debug_getRawBlock`, `eth_getProof`
+  - `debug_executePayload` for complete execution witnesses, or `debug_dbGet` as the fine-grained fallback
 - L2 Optimism Node (`op-node`)
-  - `optimism_outputAtBlock`, `optimism_rollupConfig`, `optimism_syncStatus`, `optimism_safeHeadAtL1Block`.
+  - `optimism_outputAtBlock`, `optimism_rollupConfig`, `optimism_safeHeadAtL1Block`.
 
-If you do not have access to an L2 OP Geth node + rollup node for your OP Stack chain, you can follow the [L2 node setup instructions](../advanced/node-setup.md) to spin them up.
+If you do not have access to compatible L2 execution and rollup nodes for your OP Stack chain, follow the [L2 node setup instructions](../advanced/node-setup.md) to spin them up.
 
 ## OP Stack Chain
 
