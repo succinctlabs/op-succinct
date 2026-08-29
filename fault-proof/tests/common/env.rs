@@ -565,6 +565,18 @@ impl TestEnvironment {
         Ok(receipt)
     }
 
+    pub async fn close_game(&self, game_address: Address) -> Result<TransactionReceipt> {
+        let game = self.fault_dispute_game(game_address).await?;
+        let receipt =
+            game.closeGame().send().await?.with_required_confirmations(1).get_receipt().await?;
+        Ok(receipt)
+    }
+
+    pub async fn get_bond_distribution_mode(&self, game_address: Address) -> Result<u8> {
+        let game = self.fault_dispute_game(game_address).await?;
+        Ok(game.bondDistributionMode().call().await?)
+    }
+
     pub async fn get_credit(&self, game_address: Address, recipient: Address) -> Result<U256> {
         let provider = &self.anvil.provider;
         let game = OPSuccinctFaultDisputeGame::new(game_address, provider);

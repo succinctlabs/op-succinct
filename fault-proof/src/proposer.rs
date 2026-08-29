@@ -42,7 +42,8 @@ use crate::{
     contract::{
         AnchorStateRegistry::AnchorStateRegistryInstance,
         DisputeGameFactory::{DisputeGameCreated, DisputeGameFactoryInstance},
-        GameStatus, OPSuccinctFaultDisputeGame, ProposalStatus,
+        GameStatus, OPSuccinctFaultDisputeGame, ProposalStatus, BOND_DISTRIBUTION_MODE_UNDECIDED,
+        MAX_CLOSE_GAME_FAILURES,
     },
     is_parent_resolved,
     prometheus::ProposerGauge,
@@ -82,6 +83,7 @@ pub enum TaskInfo {
     GameCreation { block_number: U256 },
     GameProving { game_address: Address, is_defense: bool },
     GameResolution,
+    GameClose,
     BondClaim,
 }
 
@@ -157,6 +159,8 @@ pub struct Game {
     pub proposal_status: ProposalStatus,
     pub deadline: u64,
     pub should_attempt_to_resolve: bool,
+    #[serde(skip)]
+    pub should_attempt_to_close_game: bool,
     pub should_attempt_to_claim_bond: bool,
     pub aggregation_vkey: B256,
     pub range_vkey_commitment: B256,
@@ -323,6 +327,7 @@ where
     fetcher: Arc<OPSuccinctDataFetcher>,
     host: Arc<H>,
     tasks: Arc<Mutex<TaskMap>>,
+    close_game_failures: Arc<Mutex<HashMap<Address, u8>>>,
     next_task_id: Arc<AtomicU64>,
     state: Arc<RwLock<ProposerState>>,
     backup_semaphore: Arc<Semaphore>,
@@ -445,6 +450,7 @@ where
             fetcher: fetcher.clone(),
             host,
             tasks: Arc::new(Mutex::new(HashMap::new())),
+            close_game_failures: Arc::new(Mutex::new(HashMap::new())),
             next_task_id: Arc::new(AtomicU64::new(1)),
             state: Arc::new(RwLock::new(initial_state)),
             backup_semaphore: Arc::new(Semaphore::new(1)),
@@ -787,9 +793,11 @@ where
     ///    - Games are removed (along with their subtree) if their parent is not in the cache.
     ///    - Games are marked for resolution if the parent is resolved, the game is over, and it's
     ///      own game.
-    ///    - Games are marked for bond claim if they are finalized and there is credit to claim.
+    ///    - Finalized UNDECIDED defender-won games are marked for close.
+    ///    - Closed defender-won games are marked for bond claim if there is credit to claim.
     /// 3. Evict games from the cache.
-    ///    - Games that are finalized but there is no credit left to claim.
+    ///    - Closed defender-won games with no remaining credit, subject to anchor/canonical
+    ///      retention.
     ///    - The entire subtree of a CHALLENGER_WINS game.
     pub async fn sync_games(&self, pinned_block: BlockId, pinned_timestamp: u64) -> Result<()> {
         // 0. Prune cached games that don't exist at the pinned block. After a backup restore, the
@@ -963,6 +971,7 @@ where
                     proposal_status: ProposalStatus,
                     deadline: u64,
                     should_attempt_to_resolve: bool,
+                    should_attempt_to_close_game: bool,
                     should_attempt_to_claim_bond: bool,
                 },
                 Remove(U256),
@@ -1019,49 +1028,82 @@ where
                             proposal_status: claim_data.status,
                             deadline,
                             should_attempt_to_resolve,
+                            should_attempt_to_close_game: false,
                             should_attempt_to_claim_bond: false,
                         });
                     }
                     GameStatus::DEFENDER_WINS => {
+                        if !is_finalized {
+                            actions.push(GameSyncAction::Update {
+                                index,
+                                status,
+                                proposal_status: claim_data.status,
+                                deadline,
+                                should_attempt_to_resolve: false,
+                                should_attempt_to_close_game: false,
+                                should_attempt_to_claim_bond: false,
+                            });
+                            continue;
+                        }
+
+                        let bond_distribution_mode =
+                            contract.bondDistributionMode().block(pinned_block).call().await?;
+
+                        if bond_distribution_mode == BOND_DISTRIBUTION_MODE_UNDECIDED {
+                            actions.push(GameSyncAction::Update {
+                                index,
+                                status,
+                                proposal_status: claim_data.status,
+                                deadline,
+                                should_attempt_to_resolve: false,
+                                should_attempt_to_close_game: true,
+                                should_attempt_to_claim_bond: false,
+                            });
+                            continue;
+                        }
+
+                        self.close_game_failures.lock().await.remove(&game_address);
+
                         let credit =
                             contract.credit(signer_address).block(pinned_block).call().await?;
 
-                        if is_finalized && credit == U256::ZERO {
-                            // Game removal policy:
-                            // - Canonical head games are retained even with zero credit to maintain
-                            //   chain consistency.
-                            // - Anchor games are retained as they serve as the root of the dispute
-                            //   game tree.
-                            // - All other games with bonds already claimed are removed to free
-                            //   cache memory.
+                        if credit > U256::ZERO {
+                            actions.push(GameSyncAction::Update {
+                                index,
+                                status,
+                                proposal_status: claim_data.status,
+                                deadline,
+                                should_attempt_to_resolve: false,
+                                should_attempt_to_close_game: false,
+                                should_attempt_to_claim_bond: true,
+                            });
+                            continue;
+                        }
 
-                            let canonical_head_index = {
-                                let state = self.state.read().await;
-                                state.canonical_head_index
-                            };
+                        // Game removal policy:
+                        // - Canonical head games are retained even with zero credit to maintain
+                        //   chain consistency.
+                        // - Anchor games are retained as they serve as the root of the dispute game
+                        //   tree.
+                        // - All other closed games with no remaining credit are removed to free
+                        //   cache memory.
+                        let canonical_head_index = {
+                            let state = self.state.read().await;
+                            state.canonical_head_index
+                        };
 
-                            let should_remove = if canonical_head_index == Some(index) {
-                                tracing::debug!(game_index = %index, "Retaining game: canonical head");
-                                false
-                            } else if anchor_address == game_address {
-                                tracing::debug!(game_index = %index, "Retaining game: anchor game");
-                                false
-                            } else {
-                                true
-                            };
+                        let should_remove = if canonical_head_index == Some(index) {
+                            tracing::debug!(game_index = %index, "Retaining game: canonical head");
+                            false
+                        } else if anchor_address == game_address {
+                            tracing::debug!(game_index = %index, "Retaining game: anchor game");
+                            false
+                        } else {
+                            true
+                        };
 
-                            if should_remove {
-                                actions.push(GameSyncAction::Remove(index));
-                            } else {
-                                actions.push(GameSyncAction::Update {
-                                    index,
-                                    status,
-                                    proposal_status: claim_data.status,
-                                    deadline,
-                                    should_attempt_to_resolve: false,
-                                    should_attempt_to_claim_bond: false,
-                                });
-                            }
+                        if should_remove {
+                            actions.push(GameSyncAction::Remove(index));
                         } else {
                             actions.push(GameSyncAction::Update {
                                 index,
@@ -1069,7 +1111,8 @@ where
                                 proposal_status: claim_data.status,
                                 deadline,
                                 should_attempt_to_resolve: false,
-                                should_attempt_to_claim_bond: is_finalized && credit > U256::ZERO,
+                                should_attempt_to_close_game: false,
+                                should_attempt_to_claim_bond: false,
                             });
                         }
                     }
@@ -1089,6 +1132,7 @@ where
                         proposal_status,
                         deadline,
                         should_attempt_to_resolve,
+                        should_attempt_to_close_game,
                         should_attempt_to_claim_bond,
                     } => {
                         if let Some(game) = state.games.get_mut(&index) {
@@ -1096,6 +1140,7 @@ where
                             game.proposal_status = proposal_status;
                             game.deadline = deadline;
                             game.should_attempt_to_resolve = should_attempt_to_resolve;
+                            game.should_attempt_to_close_game = should_attempt_to_close_game;
                             game.should_attempt_to_claim_bond = should_attempt_to_claim_bond;
                         }
                     }
@@ -1565,6 +1610,68 @@ where
         Ok(())
     }
 
+    /// Attempt to close finalized games before any bond-claim or eviction decision.
+    async fn close_games(&self) -> Result<()> {
+        let candidates = {
+            let state = self.state.read().await;
+            state
+                .games
+                .values()
+                // Only close games the proposer owns; challenger-won branches are handled by the
+                // challenger, and foreign games are tracked only for DAG continuity.
+                .filter(|game| game.is_owned(&self.identity))
+                .filter(|game| game.should_attempt_to_close_game)
+                .cloned()
+                .collect::<Vec<_>>()
+        };
+
+        for game in candidates {
+            let failure_count =
+                self.close_game_failures.lock().await.get(&game.address).copied().unwrap_or(0);
+            if failure_count >= MAX_CLOSE_GAME_FAILURES {
+                tracing::error!(
+                    game_index = %game.index,
+                    game_address = ?game.address,
+                    failures = failure_count,
+                    "Skipping game close after repeated failures; restart resets this in-memory guard"
+                );
+                continue;
+            }
+
+            if let Err(error) = self.submit_close_game_transaction(&game).await {
+                let mut failures = self.close_game_failures.lock().await;
+                let count = failures.entry(game.address).or_default();
+                *count = count.saturating_add(1);
+                ProposerGauge::GameCloseError.increment(1.0);
+
+                if error.is_revert() {
+                    tracing::error!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        l2_block_end = %game.l2_block,
+                        failures = *count,
+                        ?error,
+                        "Close game tx included but reverted on-chain"
+                    );
+                } else {
+                    tracing::warn!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        l2_block_end = %game.l2_block,
+                        failures = *count,
+                        ?error,
+                        "Close game tx unconfirmed (may be on-chain), will verify next cycle"
+                    );
+                }
+                continue;
+            }
+
+            self.close_game_failures.lock().await.remove(&game.address);
+        }
+
+        Ok(())
+    }
+
     pub async fn submit_resolution_transaction(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
         let transaction_request = contract.resolve().into_transaction_request();
@@ -1587,6 +1694,35 @@ where
             l2_block_end = %game.l2_block,
             tx_hash = ?receipt.transaction_hash,
             "Game resolved successfully"
+        );
+
+        Ok(())
+    }
+
+    /// Submit the on-chain transaction to close a finalized game.
+    #[tracing::instrument(name = "[[Closing Proposer Game]]", skip(self, game))]
+    pub async fn submit_close_game_transaction(&self, game: &Game) -> Result<()> {
+        let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+        let transaction_request = contract.closeGame().gas(200_000).into_transaction_request();
+        let receipt = self
+            .signer
+            .send_transaction_request_with_timeout(
+                self.config.l1_rpc.clone(),
+                transaction_request,
+                self.config.tx_confirmation_timeout,
+            )
+            .await?;
+
+        if !receipt.status() {
+            bail!("{TX_REVERTED_PREFIX} {receipt:?}");
+        }
+
+        tracing::info!(
+            game_index = %game.index,
+            game_address = ?game.address,
+            l2_block_end = %game.l2_block,
+            tx_hash = ?receipt.transaction_hash,
+            "Game closed successfully"
         );
 
         Ok(())
@@ -1735,6 +1871,7 @@ where
             proposal_status,
             deadline,
             should_attempt_to_resolve: false,
+            should_attempt_to_close_game: false,
             should_attempt_to_claim_bond: false,
             aggregation_vkey,
             range_vkey_commitment,
@@ -1936,6 +2073,9 @@ where
             TaskInfo::GameResolution => {
                 ProposerGauge::GameResolutionError.increment(1.0);
             }
+            TaskInfo::GameClose => {
+                ProposerGauge::GameCloseError.increment(1.0);
+            }
             TaskInfo::BondClaim => {
                 ProposerGauge::BondClaimingError.increment(1.0);
             }
@@ -1973,6 +2113,18 @@ where
             } else {
                 tracing::info!("Successfully spawned game resolution task");
             }
+        }
+
+        // Spawn game close task before bond claiming. The sync logic makes close and claim flags
+        // disjoint by construction: UNDECIDED games close first, closed games may claim later.
+        if !self.has_active_task_of_type(&TaskInfo::GameClose).await {
+            if let Err(e) = self.spawn_game_close_task().await {
+                tracing::warn!("Failed to spawn game close task: {:?}", e);
+            } else {
+                tracing::info!("Successfully spawned game close task");
+            }
+        } else {
+            tracing::info!("Game close task already active");
         }
 
         // Spawn bond claim task (only operates on owned games via is_owned() filter)
@@ -2013,6 +2165,7 @@ where
                         "GameProving"
                     }
                     TaskInfo::GameResolution => "GameResolution",
+                    TaskInfo::GameClose => "GameClose",
                     TaskInfo::BondClaim => "BondClaim",
                 };
                 *task_counts.entry(task_type).or_insert(0) += 1;
@@ -2565,6 +2718,19 @@ where
         let task_info = TaskInfo::GameResolution;
         self.tasks.lock().await.insert(task_id, (handle, task_info));
         tracing::info!("Spawned game resolution task {}", task_id);
+        Ok(())
+    }
+
+    /// Spawn a game close task.
+    async fn spawn_game_close_task(&self) -> Result<()> {
+        let proposer = self.clone();
+        let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
+
+        let handle = tokio::spawn(async move { proposer.close_games().await });
+
+        let task_info = TaskInfo::GameClose;
+        self.tasks.lock().await.insert(task_id, (handle, task_info));
+        tracing::info!("Spawned game close task {}", task_id);
         Ok(())
     }
 

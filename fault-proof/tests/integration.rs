@@ -831,6 +831,7 @@ mod integration {
             proposal_status: ProposalStatus::Unchallenged,
             should_attempt_to_challenge: true,
             should_attempt_to_resolve: false,
+            should_attempt_to_close_game: false,
             should_attempt_to_claim_bond: false,
         };
         challenger.submit_challenge_transaction(&game_to_challenge).await?;
