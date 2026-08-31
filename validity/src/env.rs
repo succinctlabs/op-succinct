@@ -1,6 +1,8 @@
 use std::{env, str::FromStr};
 
 use alloy_primitives::Address;
+#[cfg(feature = "agglayer")]
+use anyhow::Context;
 use anyhow::Result;
 use op_succinct_host_utils::network::parse_fulfillment_strategy;
 use op_succinct_signer_utils::SignerLock;
@@ -27,7 +29,8 @@ pub struct EnvironmentConfig {
     pub mock: bool,
     pub safe_db_fallback: bool,
     pub op_succinct_config_name: String,
-    pub grpc_addr: Option<std::net::SocketAddr>,
+    #[cfg(feature = "agglayer")]
+    pub grpc_addr: std::net::SocketAddr,
     pub use_kms_requester: bool,
     pub max_price_per_pgu: u64,
     pub proving_timeout: u64,
@@ -83,6 +86,14 @@ fn parse_whitelist(whitelist_str: &str) -> Result<Option<Vec<Address>>> {
 // 1 minute default loop interval.
 const DEFAULT_LOOP_INTERVAL: u64 = 60;
 
+#[cfg(feature = "agglayer")]
+fn parse_grpc_addr(value: Option<&str>) -> Result<std::net::SocketAddr> {
+    value
+        .context("GRPC_ADDRESS is required in builds with the `agglayer` feature")?
+        .parse()
+        .context("Failed to parse GRPC_ADDRESS")
+}
+
 /// Read proposer environment variables and return a config.
 ///
 /// Signer address and signer URL take precedence over private key.
@@ -133,13 +144,8 @@ pub async fn read_proposer_env() -> Result<EnvironmentConfig> {
             "OP_SUCCINCT_CONFIG_NAME",
             Some("opsuccinct_genesis".to_string()),
         )?,
-        grpc_addr: match env::var("GRPC_ADDRESS") {
-            Ok(addr) => Some(
-                addr.parse()
-                    .map_err(|e| anyhow::anyhow!("Failed to parse GRPC_ADDRESS: {:?}", e))?,
-            ),
-            Err(_) => None,
-        },
+        #[cfg(feature = "agglayer")]
+        grpc_addr: parse_grpc_addr(env::var("GRPC_ADDRESS").ok().as_deref())?,
         use_kms_requester: get_env_var("USE_KMS_REQUESTER", Some(false))?,
         max_price_per_pgu: get_env_var("MAX_PRICE_PER_PGU", Some(300_000_000))?, /* 0.3 PROVE per billion PGU */
         proving_timeout: get_env_var("PROVING_TIMEOUT", Some(14400))?,           // 4 hours
@@ -156,4 +162,19 @@ pub async fn read_proposer_env() -> Result<EnvironmentConfig> {
     };
 
     Ok(config)
+}
+
+#[cfg(all(test, feature = "agglayer"))]
+mod tests {
+    use super::parse_grpc_addr;
+
+    #[test]
+    fn requires_valid_grpc_address() {
+        assert!(parse_grpc_addr(None).is_err());
+        assert!(parse_grpc_addr(Some("not-an-address")).is_err());
+        assert_eq!(
+            parse_grpc_addr(Some("127.0.0.1:8443")).unwrap(),
+            "127.0.0.1:8443".parse::<std::net::SocketAddr>().unwrap()
+        );
+    }
 }

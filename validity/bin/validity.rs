@@ -88,7 +88,6 @@ async fn main() -> Result<()> {
         mock: env_config.mock,
         safe_db_fallback: env_config.safe_db_fallback,
         op_succinct_config_name_hash,
-        grpc_addr: env_config.grpc_addr,
         use_kms_requester: env_config.use_kms_requester,
         max_price_per_pgu: env_config.max_price_per_pgu,
         proving_timeout: env_config.proving_timeout,
@@ -111,38 +110,33 @@ async fn main() -> Result<()> {
 
     enforce_l1_selection_supported(host.as_ref(), &fetcher, l1_selection).await?;
 
-    let proposer = Proposer::new(
-        l1_provider,
-        db_client.clone(),
-        fetcher.into(),
-        proposer_config,
-        env_config.signer,
-        env_config.loop_interval,
-        host,
-    )
-    .await?;
-
-    // Spawn a thread for the proposer.
-    info!("Starting proposer.");
-    let proposer_handle = tokio::spawn(async move {
-        if let Err(e) = std::sync::Arc::new(proposer).run().await {
-            tracing::error!("Proposer error: {}", e);
-            return Err(e);
-        }
-        Ok(())
-    });
+    let proposer = Arc::new(
+        Proposer::new(
+            l1_provider,
+            db_client.clone(),
+            fetcher.into(),
+            proposer_config,
+            env_config.signer,
+            env_config.loop_interval,
+            host,
+        )
+        .await?,
+    );
+    proposer.initialize().await?;
 
     // Initialize metrics exporter.
     info!("Initializing metrics on port {}", env_config.metrics_port);
     ValidityGauge::register_all();
     init_metrics(&env_config.metrics_port);
 
-    // Wait for all tasks to complete.
-    let proposer_res = proposer_handle.await?;
-    if let Err(e) = proposer_res {
-        tracing::error!("Proposer task failed: {}", e);
-        return Err(e);
-    }
+    info!("Starting proposer.");
 
-    Ok(())
+    #[cfg(feature = "agglayer")]
+    return tokio::select! {
+        result = proposer.clone().run() => result,
+        result = op_succinct_validity::grpc::serve(env_config.grpc_addr, proposer) => result,
+    };
+
+    #[cfg(not(feature = "agglayer"))]
+    proposer.run().await
 }

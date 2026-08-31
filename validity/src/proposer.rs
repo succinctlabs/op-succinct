@@ -2285,8 +2285,8 @@ where
         cfg!(feature = "agglayer")
     }
 
-    #[tracing::instrument(name = "proposer.run", skip(self))]
-    pub async fn run(self: Arc<Self>) -> Result<()> {
+    #[tracing::instrument(name = "proposer.initialize", skip(self))]
+    pub async fn initialize(&self) -> Result<()> {
         // Handle the case where the proposer is being re-started and the proposer state needs to be
         // updated.
         self.initialize_proposer().await?;
@@ -2294,26 +2294,11 @@ where
         // Initialize the metrics gauges.
         ValidityGauge::init_all();
 
-        #[cfg(feature = "agglayer")]
-        {
-            let addr = self
-                .requester_config
-                .grpc_addr
-                .context("GRPC_ADDRESS is required in builds with the `agglayer` feature")?;
-            info!("Starting aggregation gRPC server on {}", addr);
-            let service = crate::grpc::ProofsService::new(self.clone());
-            tokio::spawn(async move {
-                // Range proofs keep flowing if this dies, but no aggregation can be requested.
-                if let Err(e) = tonic::transport::Server::builder()
-                    .add_service(crate::grpc::proofs::proofs_server::ProofsServer::new(service))
-                    .serve(addr)
-                    .await
-                {
-                    tracing::error!("Aggregation gRPC server stopped: {}", e);
-                }
-            });
-        }
+        Ok(())
+    }
 
+    #[tracing::instrument(name = "proposer.run", skip(self))]
+    pub async fn run(self: Arc<Self>) -> Result<()> {
         // Loop interval in seconds.
         loop {
             // Wrap the entire loop body in a match to handle errors

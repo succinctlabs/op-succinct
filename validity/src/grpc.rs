@@ -7,7 +7,7 @@
 //!
 //! See `proto/proofs.proto` for the wire contract.
 
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 
 use alloy_primitives::{hex::FromHex, B256};
 use alloy_provider::Provider;
@@ -42,6 +42,19 @@ where
     pub fn new(proposer: Arc<Proposer<P, H>>) -> Self {
         Self { proposer }
     }
+}
+
+pub async fn serve<P, H>(addr: SocketAddr, proposer: Arc<Proposer<P, H>>) -> anyhow::Result<()>
+where
+    P: Provider + 'static + Clone,
+    H: OPSuccinctHost,
+{
+    info!(%addr, "Starting aggregation gRPC server");
+    tonic::transport::Server::builder()
+        .add_service(proofs::proofs_server::ProofsServer::new(ProofsService::new(proposer)))
+        .serve(addr)
+        .await?;
+    Ok(())
 }
 
 fn grpc_status(error: ExternalAggregationError) -> Status {
