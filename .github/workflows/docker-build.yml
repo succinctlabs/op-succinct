@@ -165,7 +165,8 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: validity/Dockerfile.agglayer.altda
+          file: validity/Dockerfile.agglayer
+          build-args: VALIDITY_FEATURES=agglayer,altda
           push: true
           tags: ${{ steps.meta-succinct-agglayer-altda.outputs.tags }}
           labels: ${{ steps.meta-succinct-agglayer-altda.outputs.labels }}

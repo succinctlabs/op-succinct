@@ -94,7 +94,11 @@ The loop stops queueing and submitting aggregation proofs, but range proof produ
 
 Enabling the feature switches the proposer into this mode, so `GRPC_ADDRESS` is required and startup fails without it. Default builds are unaffected and ignore the variable. Because a proposer in this mode never submits transactions itself, it only needs an address to attribute proof requests to — `SIGNER_URL` plus `SIGNER_ADDRESS` is sufficient, and the signer endpoint is never contacted.
 
-Prebuilt images are published as `op-succinct-agglayer` and `op-succinct-agglayer-altda`, from `validity/Dockerfile.agglayer` and `validity/Dockerfile.agglayer.altda`. Both default `GRPC_ADDRESS` to `[::1]:50051`; set `[::]:50051` to accept connections from outside the pod. Building this feature from source requires `protoc`.
+Prebuilt images are published as `op-succinct-agglayer` and `op-succinct-agglayer-altda` from `validity/Dockerfile.agglayer`.
+The AltDA image sets `VALIDITY_FEATURES=agglayer,altda` at build time.
+Both images default `GRPC_ADDRESS` to `[::1]:50051`.
+Set `[::]:50051` to accept connections from outside the pod.
+Building this feature from source requires `protoc`.
 
 ## Build the Proposer Service
 

@@ -31,10 +31,11 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
 COPY . .
 
 # Build the server
+ARG VALIDITY_FEATURES=agglayer
 RUN --mount=type=ssh \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --bin validity --bin fetch-l2oo-config --release --features agglayer && \
+    cargo build --bin validity --bin fetch-l2oo-config --release --features "${VALIDITY_FEATURES}" && \
     cp target/release/validity /build/validity-proposer && \
     cp target/release/fetch-l2oo-config /build/fetch-l2oo-config
 
