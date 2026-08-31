@@ -17,7 +17,7 @@ use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
     metrics::MetricsGauge,
-    network::{determine_network_mode, get_network_signer},
+    network::{build_network_prover, determine_network_mode, get_network_signer},
     DisputeGameFactory::DisputeGameFactoryInstance as DisputeGameFactoryContract,
     OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
 };
@@ -34,8 +34,7 @@ use sp1_sdk::{
         },
         NetworkMode,
     },
-    Elf, HashableKey, NetworkProver, Prover, ProverClient, ProvingKey, SP1Proof,
-    SP1ProofWithPublicValues,
+    Elf, HashableKey, NetworkProver, Prover, ProvingKey, SP1Proof, SP1ProofWithPublicValues,
 };
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
@@ -246,13 +245,8 @@ where
                 requester_config.range_proof_strategy,
                 requester_config.agg_proof_strategy,
             )?;
-            let network_prover = Arc::new(
-                ProverClient::builder()
-                    .network_for(network_mode)
-                    .signer(network_signer)
-                    .build()
-                    .await,
-            );
+            let network_prover =
+                Arc::new(build_network_prover(network_mode, network_signer).await?);
             let range_pk = network_prover.setup(Elf::Static(get_range_elf_embedded())).await?;
             let range_vk = range_pk.verifying_key().clone();
             let agg_pk = network_prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
