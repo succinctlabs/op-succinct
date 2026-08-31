@@ -58,6 +58,9 @@ const MAX_CONSECUTIVE_POLL_FAILURES: u32 = 3;
 const RANGE_METADATA_HYDRATION_LIMIT: i64 = 100;
 
 /// L1 blocks to look back when resolving the L2 safe head for an external aggregation.
+///
+/// The safe head near the supplied L1 checkpoint can still move during a short reorganization.
+/// The 20-block margin keeps the aggregation range behind that moving boundary.
 #[cfg(feature = "agglayer")]
 const SAFE_HEAD_L1_LOOKBACK: u64 = 20;
 
