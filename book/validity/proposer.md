@@ -40,6 +40,7 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 |-----------|-------------|
 | `L1_BEACON_RPC` | L1 Consensus (Beacon) Node. Could be required for integrations that access consensus-layer data. |
 | `NETWORK_RPC_URL` | Default: `https://rpc.production.succinct.xyz`. RPC URL for the Succinct Prover Network. |
+| `NETWORK_MTLS_CERT_PATH`, `NETWORK_MTLS_KEY_PATH` | Client identity paths for an mTLS endpoint. See [Prover Network Connection](../advanced/prover-network.md#mutual-tls-client-authentication). |
 | `DATABASE_URL` | Default: `postgres://op-succinct@postgres:5432/op-succinct`. The address of a Postgres database for storing the intermediate proposer state. |
 | `L1_CONFIG_DIR` | Default: `<project-root>/configs/L1`. The directory containing the L1 chain configuration files. |
 | `L2_CONFIG_DIR` | Default: `<project-root>/configs/L2`. Directory containing L2 chain configuration files. On first run, the rollup config is fetched from the node RPC and cached here. On subsequent runs, the cached file is used. Delete the cached file and restart to force a refresh (e.g., after a hardfork activates). |

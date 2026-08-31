@@ -25,7 +25,7 @@ jobs:
         with:
           filters: |
             code:
-              - '.github/workflows/lint.yml'
+              - '.github/workflows/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
               - 'justfile'
@@ -59,9 +59,9 @@ jobs:
         run: |
           SP1_VERSION=$(grep 'sp1-sdk' Cargo.toml | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
           echo "Expected SP1 version from Cargo.toml: $SP1_VERSION"
-          MISMATCHES=$(grep -rn 'sp1up -v' --include='Dockerfile*' | grep -v "$SP1_VERSION" || true)
-          MISMATCHES+=$(grep -rn 'sp1up -v' .github/workflows/ --exclude='lint.yml' | grep -v "$SP1_VERSION" || true)
-          MISMATCHES+=$(grep -n -- '--tag v' justfile | grep -v "$SP1_VERSION" || true)
+          MISMATCHES=$(grep -rnE 'sp1up -v[[:space:]]+[0-9]+\.[0-9]+\.[0-9]+' --include='Dockerfile*' | grep -vF "$SP1_VERSION" || true)
+          MISMATCHES+=$(grep -rnE 'sp1up -v[[:space:]]+[0-9]+\.[0-9]+\.[0-9]+' .github/workflows/ | grep -vF "$SP1_VERSION" || true)
+          MISMATCHES+=$(grep -n -- '--tag v' justfile | grep -vF "$SP1_VERSION" || true)
           if [ -n "$MISMATCHES" ]; then
             echo "::error::SP1 version mismatch found. Expected $SP1_VERSION (from Cargo.toml):"
             echo "$MISMATCHES"
@@ -89,14 +89,14 @@ jobs:
       - name: Install SP1 toolchain
         run: |
           curl -L https://sp1.succinct.xyz | bash
-          ~/.sp1/bin/sp1up -v 6.4.0
+          ~/.sp1/bin/sp1up -v 6.5.0
           ~/.sp1/bin/cargo-prove prove --version
           source ~/.bashrc
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly
+          version: nightly-d592b3e0f142d694c3be539702704a4a73238773
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
