@@ -8067,6 +8067,7 @@ dependencies = [
  "op-succinct-host-utils",
  "rustls 0.23.37",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
