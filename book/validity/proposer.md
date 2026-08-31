@@ -86,7 +86,11 @@ By default the proposer runs the whole validity pipeline: it produces range proo
 
 Builds with the optional `agglayer` cargo feature can instead let an external coordinator decide *when* to aggregate. When `GRPC_ADDRESS` is set, the proposer serves the `proofs.Proofs` service defined in `validity/proto/proofs.proto`.
 
-The proposer still does the aggregation work — validating the range, running witness generation, and requesting the proof from the prover network — but on demand, when the coordinator calls `RequestAggProof`, rather than on the loop's own schedule. The coordinator picks the range, supplies the checkpointed L1 block, and takes the returned proof from there — typically as an input to a proof of its own rather than submitting it to L1, which is why this mode is usually paired with `AGG_PROOF_MODE=compressed`. The loop therefore stops queueing aggregations and stops submitting them; range proof production is unaffected.
+The proposer still validates the range, generates the witness, and requests the proof from the prover network.
+It does this when the coordinator calls `RequestAggProof`, not on the loop's schedule.
+In real mode, the response contains the prover network request ID and the actual block range.
+In mock mode, the response contains the database row ID that the coordinator can pass to `GetMockProof`.
+The loop stops queueing and submitting aggregation proofs, but range proof production continues.
 
 Enabling the feature switches the proposer into this mode, so `GRPC_ADDRESS` is required and startup fails without it. Default builds are unaffected and ignore the variable. Because a proposer in this mode never submits transactions itself, it only needs an address to attribute proof requests to — `SIGNER_URL` plus `SIGNER_ADDRESS` is sufficient, and the signer endpoint is never contacted.
 
