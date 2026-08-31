@@ -47,6 +47,7 @@
 - [Migration from Optimistic](./migration.md)
 
 - [Advanced](./advanced/intro.md)
+  - [Prover Network Connection](./advanced/prover-network.md)
   - [Self-Hosted Proving Cluster](./advanced/self-hosted-cluster.md)
   - [Cost Estimation Tools](./advanced/cost-estimation-tools.md)
   - [Prove Scripts](./advanced/prove-scripts.md)
