@@ -2344,13 +2344,6 @@ where
         Ok(())
     }
 
-    /// Whether a coordinator drives aggregation over gRPC. The proposer still generates
-    /// aggregation proofs, but on demand in [`crate::grpc`] rather than on this loop's schedule,
-    /// so the loop skips queueing them and relaying them on-chain.
-    fn external_aggregation(&self) -> bool {
-        cfg!(feature = "agglayer")
-    }
-
     #[tracing::instrument(name = "proposer.initialize", skip(self))]
     pub async fn initialize(&self) -> Result<()> {
         // Handle the case where the proposer is being re-started and the proposer state needs to be
@@ -2411,7 +2404,7 @@ where
 
             // Create aggregation proofs based on the completed range proofs. Checkpoints the block
             // hash associated with the aggregation proof in advance.
-            if !self.external_aggregation() {
+            if !cfg!(feature = "agglayer") {
                 self.create_aggregation_proofs().await?;
             }
 
@@ -2419,7 +2412,7 @@ where
             self.request_queued_proofs().await?;
 
             // Submit any aggregation proofs that are complete.
-            if !self.external_aggregation() {
+            if !cfg!(feature = "agglayer") {
                 self.submit_agg_proofs().await?;
             }
         }
