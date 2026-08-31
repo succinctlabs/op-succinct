@@ -88,6 +88,7 @@ async fn main() -> Result<()> {
         mock: env_config.mock,
         safe_db_fallback: env_config.safe_db_fallback,
         op_succinct_config_name_hash,
+        grpc_addr: env_config.grpc_addr,
         use_kms_requester: env_config.use_kms_requester,
         max_price_per_pgu: env_config.max_price_per_pgu,
         proving_timeout: env_config.proving_timeout,
@@ -124,7 +125,7 @@ async fn main() -> Result<()> {
     // Spawn a thread for the proposer.
     info!("Starting proposer.");
     let proposer_handle = tokio::spawn(async move {
-        if let Err(e) = proposer.run().await {
+        if let Err(e) = std::sync::Arc::new(proposer).run().await {
             tracing::error!("Proposer error: {}", e);
             return Err(e);
         }
