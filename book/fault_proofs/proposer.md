@@ -97,6 +97,7 @@ Depending on the one you choose, you must provide the corresponding environment 
 | `PROPOSER_METRICS_PORT` | The port to expose metrics on. Update prometheus.yml to use this port, if using docker compose. | `9000` |
 | `FAST_FINALITY_PROVING_LIMIT` | Maximum number of concurrent proving tasks allowed in fast finality mode. | `1` |
 | `USE_KMS_REQUESTER` | Whether to expect NETWORK_PRIVATE_KEY to be an AWS KMS key ARN instead of a plaintext private key. | `false` |
+| `NETWORK_MTLS_CERT_PATH`, `NETWORK_MTLS_KEY_PATH` | Client identity paths for an mTLS endpoint. See [Prover Network Connection](../advanced/prover-network.md#mutual-tls-client-authentication). | (disabled) |
 | `MAX_PRICE_PER_PGU` | The maximum price per pgu for proving. | `300,000,000` |
 | `MIN_AUCTION_PERIOD` | The minimum auction period (in seconds). | `1` |
 | `TIMEOUT` | The proving timeout (in seconds). Used as the server-side deadline for proof requests and as the client-side maximum wait time when polling for proof completion. | `14,400` (4 hours) |
