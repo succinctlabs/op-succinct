@@ -86,6 +86,18 @@ fn parse_whitelist(whitelist_str: &str) -> Result<Option<Vec<Address>>> {
 // 1 minute default loop interval.
 const DEFAULT_LOOP_INTERVAL: u64 = 60;
 
+fn parse_agg_proof_mode(value: &str, allow_compressed: bool) -> Result<SP1ProofMode> {
+    match value.to_lowercase().as_str() {
+        "plonk" => Ok(SP1ProofMode::Plonk),
+        "groth16" => Ok(SP1ProofMode::Groth16),
+        "compressed" if allow_compressed => Ok(SP1ProofMode::Compressed),
+        "compressed" => {
+            anyhow::bail!("AGG_PROOF_MODE=compressed requires a build with the `agglayer` feature")
+        }
+        _ => anyhow::bail!("Invalid AGG_PROOF_MODE: {value}"),
+    }
+}
+
 #[cfg(feature = "agglayer")]
 fn parse_grpc_addr(value: Option<&str>) -> Result<std::net::SocketAddr> {
     value
@@ -111,13 +123,10 @@ pub async fn read_proposer_env() -> Result<EnvironmentConfig> {
     )?)?;
 
     // Parse proof mode
-    let agg_proof_mode =
-        match get_env_var("AGG_PROOF_MODE", Some("plonk".to_string()))?.to_lowercase().as_str() {
-            "groth16" => SP1ProofMode::Groth16,
-            // For when the proof is consumed by another proof rather than verified on-chain.
-            "compressed" => SP1ProofMode::Compressed,
-            _ => SP1ProofMode::Plonk,
-        };
+    let agg_proof_mode = parse_agg_proof_mode(
+        &get_env_var("AGG_PROOF_MODE", Some("plonk".to_string()))?,
+        cfg!(feature = "agglayer"),
+    )?;
 
     // Optional loop interval
     let loop_interval = get_env_var("LOOP_INTERVAL", Some(DEFAULT_LOOP_INTERVAL))?;
@@ -166,7 +175,17 @@ pub async fn read_proposer_env() -> Result<EnvironmentConfig> {
 
 #[cfg(all(test, feature = "agglayer"))]
 mod tests {
-    use super::parse_grpc_addr;
+    use super::{parse_agg_proof_mode, parse_grpc_addr};
+    use sp1_sdk::SP1ProofMode;
+
+    #[test]
+    fn validates_aggregation_proof_mode() {
+        assert!(matches!(parse_agg_proof_mode("plonk", false), Ok(SP1ProofMode::Plonk)));
+        assert!(matches!(parse_agg_proof_mode("groth16", false), Ok(SP1ProofMode::Groth16)));
+        assert!(parse_agg_proof_mode("compressed", false).is_err());
+        assert!(matches!(parse_agg_proof_mode("compressed", true), Ok(SP1ProofMode::Compressed)));
+        assert!(parse_agg_proof_mode("unknown", true).is_err());
+    }
 
     #[test]
     fn requires_valid_grpc_address() {
