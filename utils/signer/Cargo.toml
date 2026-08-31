@@ -20,6 +20,7 @@ alloy-transport-http.workspace = true
 
 # general
 anyhow.workspace = true
+tracing.workspace = true
 tokio.workspace = true
 rustls = { version = "0.23", default-features = false, features = [
     "std",
