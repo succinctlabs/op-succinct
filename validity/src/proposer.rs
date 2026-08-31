@@ -2,10 +2,15 @@ use std::{
     collections::HashMap, future::Future, ops::Range, str::FromStr, sync::Arc, time::Duration,
 };
 
+#[cfg(feature = "agglayer")]
+use std::time::Instant;
+
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::{network::ReceiptResponse, Provider};
 use anyhow::{anyhow, Context, Result};
+#[cfg(feature = "agglayer")]
+use bincode::Options;
 use chrono::Utc;
 use futures_util::{stream, StreamExt, TryStreamExt};
 use op_succinct_client_utils::{
@@ -51,6 +56,39 @@ const MAX_CONSECUTIVE_POLL_FAILURES: u32 = 3;
 
 /// Maximum number of legacy completed ranges hydrated in one proposer loop.
 const RANGE_METADATA_HYDRATION_LIMIT: i64 = 100;
+
+/// L1 blocks to look back when resolving the L2 safe head for an external aggregation.
+#[cfg(feature = "agglayer")]
+const SAFE_HEAD_L1_LOOKBACK: u64 = 20;
+
+#[cfg(feature = "agglayer")]
+pub(crate) struct ExternalAggregationRequest {
+    pub last_proven_block: u64,
+    pub requested_end_block: u64,
+    pub l1_block_number: u64,
+    pub l1_block_hash: B256,
+}
+
+#[cfg(feature = "agglayer")]
+pub(crate) struct ExternalAggregationResult {
+    pub last_proven_block: u64,
+    pub end_block: u64,
+    pub proof_request_id: B256,
+}
+
+#[cfg(feature = "agglayer")]
+pub(crate) enum ExternalAggregationError {
+    InvalidArgument(String),
+    NotFound(String),
+    Internal(String),
+}
+
+#[cfg(feature = "agglayer")]
+impl ExternalAggregationError {
+    fn internal(context: &str, error: impl std::fmt::Display) -> Self {
+        Self::Internal(format!("{context}: {error}"))
+    }
+}
 
 /// Select the L1 block number to checkpoint for an aggregation proof.
 ///
@@ -184,11 +222,11 @@ pub struct Proposer<P, H: OPSuccinctHost>
 where
     P: Provider + 'static,
 {
-    pub(crate) driver_config: DriverConfig,
+    driver_config: DriverConfig,
     contract_config: ContractConfig<P>,
-    pub(crate) program_config: ProgramConfig,
-    pub(crate) requester_config: RequesterConfig,
-    pub(crate) proof_requester: Arc<OPSuccinctProofRequester<H>>,
+    program_config: ProgramConfig,
+    requester_config: RequesterConfig,
+    proof_requester: Arc<OPSuccinctProofRequester<H>>,
     tasks: Arc<Mutex<TaskMap>>,
 }
 
@@ -1601,6 +1639,143 @@ where
             range_proofs.len()
         );
         true
+    }
+
+    #[cfg(feature = "agglayer")]
+    pub(crate) async fn request_external_aggregation(
+        &self,
+        request: ExternalAggregationRequest,
+    ) -> std::result::Result<ExternalAggregationResult, ExternalAggregationError> {
+        let safe_head = self
+            .proof_requester
+            .fetcher
+            .get_l2_safe_head_from_l1_block_number(
+                request.l1_block_number.saturating_sub(SAFE_HEAD_L1_LOOKBACK),
+            )
+            .await
+            .map_err(|error| {
+                ExternalAggregationError::internal("Failed to get L2 safe head", error)
+            })?;
+        let end_block = request.requested_end_block.min(safe_head);
+
+        if end_block <= request.last_proven_block {
+            return Err(ExternalAggregationError::InvalidArgument(format!(
+                "Requested end block ({end_block} after clamping to the safe head) must be greater than the last proven block ({})",
+                request.last_proven_block
+            )));
+        }
+
+        let range_proofs = self
+            .proof_requester
+            .db_client
+            .get_consecutive_complete_range_proofs(
+                request.last_proven_block as i64,
+                end_block as i64,
+                &self.program_config.commitments,
+                self.requester_config.l1_chain_id,
+                self.requester_config.l2_chain_id,
+            )
+            .await
+            .map_err(|error| {
+                ExternalAggregationError::internal("Failed to fetch range proofs", error)
+            })?;
+
+        let Some(last_range_proof) = range_proofs.last() else {
+            return Err(ExternalAggregationError::NotFound(
+                "No completed range proofs found for the requested range".to_string(),
+            ));
+        };
+        let end_block = last_range_proof.end_block;
+
+        let op_request = OPSuccinctRequest::new_agg_request(
+            if self.requester_config.mock { RequestMode::Mock } else { RequestMode::Real },
+            request.last_proven_block as i64,
+            end_block,
+            self.program_config.commitments.range_vkey_commitment,
+            self.program_config.commitments.agg_vkey_hash,
+            self.program_config.commitments.rollup_config_hash,
+            self.requester_config.l1_chain_id,
+            self.requester_config.l2_chain_id,
+            request.l1_block_number as i64,
+            request.l1_block_hash,
+            self.driver_config.signer.address(),
+        );
+
+        if !self.validate_aggregation_request(&range_proofs, &op_request).await {
+            warn!(
+                last_proven_block = request.last_proven_block,
+                end_block, "Aggregation request validation failed"
+            );
+            return Err(ExternalAggregationError::InvalidArgument(
+                "Aggregation request validation failed".to_string(),
+            ));
+        }
+        debug!(
+            start_block = op_request.start_block,
+            end_block = op_request.end_block,
+            "Aggregation request validated"
+        );
+
+        info!(
+            start_block = op_request.start_block,
+            end_block = op_request.end_block,
+            l1_block_number = ?op_request.checkpointed_l1_block_number,
+            "Starting witness generation"
+        );
+        let witnessgen_start = Instant::now();
+        let stdin =
+            self.proof_requester.generate_proof_stdin(&op_request).await.map_err(|error| {
+                ValidityGauge::WitnessgenErrorCount.increment(1.0);
+                ExternalAggregationError::internal("Failed to generate proof stdin", error)
+            })?;
+        info!(
+            start_block = op_request.start_block,
+            end_block = op_request.end_block,
+            duration_s = witnessgen_start.elapsed().as_secs(),
+            "Completed witness generation"
+        );
+
+        let proof_request_id = if self.proof_requester.mock {
+            let proof =
+                self.proof_requester.generate_mock_agg_proof(&op_request, stdin).await.map_err(
+                    |error| {
+                        ExternalAggregationError::internal("Failed to generate mock proof", error)
+                    },
+                )?;
+            let proof_bytes = bincode::DefaultOptions::new()
+                .with_big_endian()
+                .with_fixint_encoding()
+                .serialize(&proof)
+                .map_err(|error| {
+                    ExternalAggregationError::internal("Failed to serialize mock proof", error)
+                })?;
+            let stored = OPSuccinctRequest {
+                proof: Some(proof_bytes),
+                status: RequestStatus::Complete,
+                ..op_request
+            };
+            let row_id =
+                self.proof_requester.db_client.insert_request(&stored).await.map_err(|error| {
+                    ExternalAggregationError::internal("Failed to save request to DB", error)
+                })?;
+
+            B256::left_padding_from(&row_id.to_be_bytes())
+        } else {
+            self.proof_requester.request_agg_proof(stdin).await.map_err(|error| {
+                ExternalAggregationError::internal("Failed to request proof", error)
+            })?
+        };
+
+        Ok(ExternalAggregationResult {
+            last_proven_block: request.last_proven_block,
+            end_block: end_block as u64,
+            proof_request_id,
+        })
+    }
+
+    #[cfg(feature = "agglayer")]
+    pub(crate) async fn get_external_mock_proof(&self, proof_id: i64) -> Result<Vec<u8>> {
+        Ok(self.proof_requester.db_client.get_proof_by_request_id(proof_id).await?)
     }
 
     /// Relay all completed aggregation proofs to the contract.
