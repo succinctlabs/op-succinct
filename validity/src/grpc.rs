@@ -113,11 +113,8 @@ where
     ) -> Result<Response<GetMockProofResponse>, Status> {
         let req = request.into_inner();
 
-        let proof = self
-            .proposer
-            .get_external_mock_proof(req.proof_id)
-            .await
-            .map_err(|e| Status::not_found(format!("Mock proof not found: {e}")))?;
+        let proof =
+            self.proposer.get_external_mock_proof(req.proof_id).await.map_err(grpc_status)?;
 
         Ok(Response::new(GetMockProofResponse { proof }))
     }

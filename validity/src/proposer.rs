@@ -1774,8 +1774,31 @@ where
     }
 
     #[cfg(feature = "agglayer")]
-    pub(crate) async fn get_external_mock_proof(&self, proof_id: i64) -> Result<Vec<u8>> {
-        Ok(self.proof_requester.db_client.get_proof_by_request_id(proof_id).await?)
+    pub(crate) async fn get_external_mock_proof(
+        &self,
+        proof_id: i64,
+    ) -> std::result::Result<Vec<u8>, ExternalAggregationError> {
+        if !self.requester_config.mock {
+            return Err(ExternalAggregationError::InvalidArgument(
+                "GetMockProof is only available in mock mode".to_string(),
+            ));
+        }
+
+        self.proof_requester
+            .db_client
+            .get_mock_aggregation_proof_by_request_id(
+                proof_id,
+                &self.program_config.commitments,
+                self.requester_config.l1_chain_id,
+                self.requester_config.l2_chain_id,
+            )
+            .await
+            .map_err(|error| match error {
+                sqlx::Error::RowNotFound => ExternalAggregationError::NotFound(format!(
+                    "Mock aggregation proof {proof_id} was not found"
+                )),
+                error => ExternalAggregationError::internal("Failed to fetch mock proof", error),
+            })
     }
 
     /// Relay all completed aggregation proofs to the contract.
