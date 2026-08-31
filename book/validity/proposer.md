@@ -84,7 +84,7 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 
 By default the proposer runs the whole validity pipeline: it produces range proofs, aggregates them on a schedule, and submits the aggregation proof to L1.
 
-Builds with the optional `agglayer` cargo feature can instead let an external coordinator decide *when* to aggregate. When `GRPC_ADDRESS` is set, the proposer serves the `proofs.Proofs` service defined in [`validity/proto/proofs.proto`](https://github.com/succinctlabs/op-succinct/blob/main/validity/proto/proofs.proto).
+Builds with the optional `agglayer` cargo feature can instead let an external coordinator decide *when* to aggregate. When `GRPC_ADDRESS` is set, the proposer serves the `proofs.Proofs` service defined in [`validity/proto/proofs.proto`](../../validity/proto/proofs.proto).
 
 The proposer still does the aggregation work — validating the range, running witness generation, and requesting the proof from the prover network — but on demand, when the coordinator calls `RequestAggProof`, rather than on the loop's own schedule. The coordinator picks the range, supplies the checkpointed L1 block, and takes the returned proof from there — typically as an input to a proof of its own rather than submitting it to L1, which is why this mode is usually paired with `AGG_PROOF_MODE=compressed`. The loop therefore stops queueing aggregations and stops submitting them; range proof production is unaffected.
 
