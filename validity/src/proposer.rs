@@ -90,6 +90,29 @@ impl ExternalAggregationError {
     }
 }
 
+#[cfg(feature = "agglayer")]
+fn checked_external_block_number(
+    value: u64,
+    field: &str,
+) -> std::result::Result<i64, ExternalAggregationError> {
+    i64::try_from(value).map_err(|_| {
+        ExternalAggregationError::InvalidArgument(format!("{field} exceeds the supported range"))
+    })
+}
+
+#[cfg(feature = "agglayer")]
+fn validate_checkpoint_hash(
+    requested: B256,
+    canonical: B256,
+) -> std::result::Result<(), ExternalAggregationError> {
+    if requested != canonical {
+        return Err(ExternalAggregationError::InvalidArgument(
+            "l1_block_hash does not match l1_block_number".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 /// Select the L1 block number to checkpoint for an aggregation proof.
 ///
 /// The aggregation guest walks L1 headers back from the checkpointed head *by hash* and requires
@@ -1646,6 +1669,22 @@ where
         &self,
         request: ExternalAggregationRequest,
     ) -> std::result::Result<ExternalAggregationResult, ExternalAggregationError> {
+        let last_proven_block =
+            checked_external_block_number(request.last_proven_block, "last_proven_block")?;
+        checked_external_block_number(request.requested_end_block, "requested_end_block")?;
+        let l1_block_number =
+            checked_external_block_number(request.l1_block_number, "l1_block_number")?;
+
+        let checkpoint_header = self
+            .proof_requester
+            .fetcher
+            .get_l1_header(request.l1_block_number.into())
+            .await
+            .map_err(|error| {
+                ExternalAggregationError::internal("Failed to get checkpointed L1 block", error)
+            })?;
+        validate_checkpoint_hash(request.l1_block_hash, checkpoint_header.hash_slow())?;
+
         let safe_head = self
             .proof_requester
             .fetcher
@@ -1657,8 +1696,9 @@ where
                 ExternalAggregationError::internal("Failed to get L2 safe head", error)
             })?;
         let end_block = request.requested_end_block.min(safe_head);
+        let end_block_i64 = checked_external_block_number(end_block, "requested_end_block")?;
 
-        if end_block <= request.last_proven_block {
+        if end_block_i64 <= last_proven_block {
             return Err(ExternalAggregationError::InvalidArgument(format!(
                 "Requested end block ({end_block} after clamping to the safe head) must be greater than the last proven block ({})",
                 request.last_proven_block
@@ -1669,8 +1709,8 @@ where
             .proof_requester
             .db_client
             .get_consecutive_complete_range_proofs(
-                request.last_proven_block as i64,
-                end_block as i64,
+                last_proven_block,
+                end_block_i64,
                 &self.program_config.commitments,
                 self.requester_config.l1_chain_id,
                 self.requester_config.l2_chain_id,
@@ -1689,14 +1729,14 @@ where
 
         let op_request = OPSuccinctRequest::new_agg_request(
             if self.requester_config.mock { RequestMode::Mock } else { RequestMode::Real },
-            request.last_proven_block as i64,
+            last_proven_block,
             end_block,
             self.program_config.commitments.range_vkey_commitment,
             self.program_config.commitments.agg_vkey_hash,
             self.program_config.commitments.rollup_config_hash,
             self.requester_config.l1_chain_id,
             self.requester_config.l2_chain_id,
-            request.l1_block_number as i64,
+            l1_block_number,
             request.l1_block_hash,
             self.driver_config.signer.address(),
         );
@@ -2452,14 +2492,39 @@ where
 mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
+    #[cfg(feature = "agglayer")]
+    use alloy_primitives::B256;
     use sp1_sdk::network::proto::{
         base_types, types::FulfillmentStatus, GetProofRequestStatusResponse,
     };
 
+    #[cfg(feature = "agglayer")]
+    use super::{
+        checked_external_block_number, validate_checkpoint_hash, ExternalAggregationError,
+    };
     use super::{
         handle_terminal_proof_failure_before_request_details, highest_contiguous_end,
         select_checkpoint_block_number, OPSuccinctRequest, RequestStatus, RequestType,
     };
+
+    #[cfg(feature = "agglayer")]
+    #[test]
+    fn external_block_numbers_must_fit_the_database() {
+        assert!(matches!(
+            checked_external_block_number(u64::MAX, "block"),
+            Err(ExternalAggregationError::InvalidArgument(_))
+        ));
+    }
+
+    #[cfg(feature = "agglayer")]
+    #[test]
+    fn external_checkpoint_hash_must_match_the_requested_number() {
+        assert!(validate_checkpoint_hash(B256::ZERO, B256::ZERO).is_ok());
+        assert!(matches!(
+            validate_checkpoint_hash(B256::ZERO, B256::repeat_byte(1)),
+            Err(ExternalAggregationError::InvalidArgument(_))
+        ));
+    }
 
     #[test]
     fn checkpoint_falls_back_to_safe_when_no_batch_max() {
