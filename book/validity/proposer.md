@@ -98,6 +98,8 @@ Prebuilt images are published as `op-succinct-agglayer` and `op-succinct-agglaye
 The AltDA image sets `VALIDITY_FEATURES=agglayer,altda` at build time.
 Both images default `GRPC_ADDRESS` to `[::1]:50051`.
 Set `[::]:50051` to accept connections from outside the pod.
+The gRPC server does not provide authentication or Transport Layer Security.
+Expose it only through a trusted private network or a protected proxy.
 Building this feature from source requires `protoc`.
 
 ## Build the Proposer Service
