@@ -47,7 +47,7 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 | `DGF_ADDRESS` | Address of the `DisputeGameFactory` contract. Note: If set, the proposer will create a dispute game with the DisputeGameFactory, rather than the `OPSuccinctL2OutputOracle`. Compatible with `OptimismPortal2`. |
 | `RANGE_PROOF_STRATEGY` | Default: `reserved`. Set to `hosted` to use hosted proof strategy. |
 | `AGG_PROOF_STRATEGY` | Default: `reserved`. Set to `hosted` to use hosted proof strategy. |
-| `AGG_PROOF_MODE` | Default: `plonk`. Set to `groth16` to use Groth16 proof type. **Note:** Changing the proof mode requires updating the verifier gateway contract address in your L2OutputOracle contract deployment. See [SP1 Contract Addresses](https://docs.succinct.xyz/docs/sp1/verification/contract-addresses) for verifier addresses. |
+| `AGG_PROOF_MODE` | Default: `plonk`. Use `groth16` for Groth16 proofs. Builds with `agglayer` also accept `compressed` for proofs consumed by another proof. For on-chain proof modes, update the verifier gateway address in the L2OutputOracle deployment as needed. See [SP1 Contract Addresses](https://docs.succinct.xyz/docs/sp1/verification/contract-addresses) for verifier addresses. |
 | `SUBMISSION_INTERVAL` | Default: `1800`. The number of L2 blocks that must be proven before a proof is submitted to the L1. Note: The interval used by the validity service is always >= to the `submissionInterval` configured on the L2OO contract. To allow for the validity service to configure this parameter entirely, set the `submissionInterval` in the contract to `1`. |
 | `RANGE_PROOF_INTERVAL` | Default: `1800`. The number of blocks to include in each range proof. For chains with high throughput, you need to decrease this value. |
 | `RANGE_PROOF_EVM_GAS_LIMIT` | Default: `0`. The total amount of ethereum gas allowed to be in each range proof. If 0, uses the `RANGE_PROOF_INTERVAL` instead to do a fixed number of blocks interval. NOTE: if both `RANGE_PROOF_INTERVAL` and `RANGE_PROOF_EVM_GAS_LIMIT` are set, the number of blocks to include in each range proof is determined either when the cumulative gas reaches `RANGE_PROOF_EVM_GAS_LIMIT` or the number of blocks reaches `RANGE_PROOF_INTERVAL`, whichever occurs first. |
@@ -78,6 +78,29 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 | `MIN_AUCTION_PERIOD` | Default: `1`. The minimum auction period (in seconds). |
 | `AUCTION_TIMEOUT` | Default: `60` (1 minute). How long to wait before canceling a proof request that hasn't been assigned (in seconds). |
 | `TX_CONFIRMATION_TIMEOUT` | Default: `60`. Maximum time (in seconds) to wait for an L1 transaction to reach the required number of confirmations. Raise on congested L1s to avoid timeout-triggered retries. |
+| `GRPC_ADDRESS` | Required in builds with the `agglayer` feature, ignored by all others. Address the aggregation gRPC server listens on (e.g. `[::1]:50051`). See [Externally driven aggregation](#externally-driven-aggregation). |
+
+## Externally driven aggregation
+
+By default the proposer runs the whole validity pipeline: it produces range proofs, aggregates them on a schedule, and submits the aggregation proof to L1.
+
+Builds with the optional `agglayer` cargo feature can instead let an external coordinator decide *when* to aggregate. When `GRPC_ADDRESS` is set, the proposer serves the `proofs.Proofs` service defined in `validity/proto/proofs.proto`.
+
+The proposer still validates the range, generates the witness, and requests the proof from the prover network.
+It does this when the coordinator calls `RequestAggProof`, not on the loop's schedule.
+In real mode, the response contains the prover network request ID and the actual block range.
+In mock mode, the response contains the database row ID that the coordinator can pass to `GetMockProof`.
+The loop stops queueing and submitting aggregation proofs, but range proof production continues.
+
+Enabling the feature switches the proposer into this mode, so `GRPC_ADDRESS` is required and startup fails without it. Default builds are unaffected and ignore the variable. Because a proposer in this mode never submits transactions itself, it only needs an address to attribute proof requests to — `SIGNER_URL` plus `SIGNER_ADDRESS` is sufficient, and the signer endpoint is never contacted.
+
+Prebuilt images are published as `op-succinct-agglayer` and `op-succinct-agglayer-altda` from `validity/Dockerfile.agglayer`.
+The AltDA image sets `VALIDITY_FEATURES=agglayer,altda` at build time.
+Both images default `GRPC_ADDRESS` to `[::1]:50051`.
+Set `[::]:50051` to accept connections from outside the pod.
+The gRPC server does not provide authentication or Transport Layer Security.
+Expose it only through a trusted private network or a protected proxy.
+Building this feature from source requires `protoc`.
 
 ## Build the Proposer Service
 

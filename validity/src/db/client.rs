@@ -11,7 +11,7 @@ use tracing::info;
 
 use crate::{
     CommitmentConfig, CompletedRangeMetadata, DriverDBClient, MissingRangeMetadata,
-    OPSuccinctRequest, RequestStatus, RequestType,
+    OPSuccinctRequest, RequestMode, RequestStatus, RequestType,
 };
 
 impl DriverDBClient {
@@ -79,9 +79,9 @@ impl DriverDBClient {
         .await
     }
 
-    /// Inserts a request into the database.
-    pub async fn insert_request(&self, req: &OPSuccinctRequest) -> Result<PgQueryResult, Error> {
-        sqlx::query!(
+    /// Inserts a request into the database, returning the id of the new row.
+    pub async fn insert_request(&self, req: &OPSuccinctRequest) -> Result<i64, Error> {
+        sqlx::query_scalar!(
             r#"
             INSERT INTO requests (
                 status,
@@ -116,6 +116,7 @@ impl DriverDBClient {
             ) VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29
             )
+            RETURNING id
             "#,
             req.status as i16,
             req.req_type as i16,
@@ -148,7 +149,7 @@ impl DriverDBClient {
             req.prover_address.as_ref().map(|arr| &arr[..]),
             req.l1_head_block_number.map(|n| n as i64),
         )
-        .execute(&self.pool)
+        .fetch_one(&self.pool)
         .await
     }
 
@@ -921,6 +922,43 @@ impl DriverDBClient {
         // Create a result with the total rows affected
         Ok(PgQueryResult::default())
     }
+
+    /// Fetch a completed mock aggregation proof for the configured chain and programs.
+    pub async fn get_mock_aggregation_proof_by_request_id(
+        &self,
+        request_id: i64,
+        commitment: &CommitmentConfig,
+        l1_chain_id: i64,
+        l2_chain_id: i64,
+    ) -> Result<Vec<u8>, Error> {
+        sqlx::query_scalar::<_, Option<Vec<u8>>>(
+            r#"
+            SELECT proof
+            FROM requests
+            WHERE id = $1
+              AND mode = $2
+              AND req_type = $3
+              AND status = $4
+              AND range_vkey_commitment = $5
+              AND aggregation_vkey_hash = $6
+              AND rollup_config_hash = $7
+              AND l1_chain_id = $8
+              AND l2_chain_id = $9
+            "#,
+        )
+        .bind(request_id)
+        .bind(RequestMode::Mock as i16)
+        .bind(RequestType::Aggregation as i16)
+        .bind(RequestStatus::Complete as i16)
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.agg_vkey_hash[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(l1_chain_id)
+        .bind(l2_chain_id)
+        .fetch_one(&self.pool)
+        .await?
+        .ok_or(Error::RowNotFound)
+    }
 }
 
 #[cfg(test)]
@@ -1034,6 +1072,11 @@ mod tests {
 
         fn req_type(mut self, req_type: RequestType) -> Self {
             self.req_type = req_type;
+            self
+        }
+
+        fn mode(mut self, mode: RequestMode) -> Self {
+            self.mode = mode;
             self
         }
 
@@ -1365,6 +1408,75 @@ mod tests {
         let agg_count =
             c.fetch_active_agg_proofs_count(100, &default_commitment(), L1ID, L2ID).await.unwrap();
         assert_eq!(agg_count, 1);
+    }
+
+    #[tokio::test]
+    async fn test_mock_aggregation_proof_lookup_is_scoped() {
+        let db = TestDb::new().await;
+        let c = db.client();
+        let proof = vec![1, 2, 3];
+
+        let matching_id = c
+            .insert_request(&OPSuccinctRequest {
+                proof: Some(proof.clone()),
+                ..RequestBuilder::new()
+                    .status(RequestStatus::Complete)
+                    .req_type(RequestType::Aggregation)
+                    .mode(RequestMode::Mock)
+                    .agg_vkey(B256::ZERO)
+                    .build()
+            })
+            .await
+            .unwrap();
+        let real_id = c
+            .insert_request(&OPSuccinctRequest {
+                proof: Some(proof.clone()),
+                ..RequestBuilder::new()
+                    .status(RequestStatus::Complete)
+                    .req_type(RequestType::Aggregation)
+                    .agg_vkey(B256::ZERO)
+                    .build()
+            })
+            .await
+            .unwrap();
+        let foreign_chain_id = c
+            .insert_request(&OPSuccinctRequest {
+                proof: Some(proof.clone()),
+                ..RequestBuilder::new()
+                    .status(RequestStatus::Complete)
+                    .req_type(RequestType::Aggregation)
+                    .mode(RequestMode::Mock)
+                    .agg_vkey(B256::ZERO)
+                    .chains(L1ID, 999)
+                    .build()
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(
+            c.get_mock_aggregation_proof_by_request_id(
+                matching_id,
+                &default_commitment(),
+                L1ID,
+                L2ID,
+            )
+            .await
+            .unwrap(),
+            proof
+        );
+        assert!(c
+            .get_mock_aggregation_proof_by_request_id(real_id, &default_commitment(), L1ID, L2ID,)
+            .await
+            .is_err());
+        assert!(c
+            .get_mock_aggregation_proof_by_request_id(
+                foreign_chain_id,
+                &default_commitment(),
+                L1ID,
+                L2ID,
+            )
+            .await
+            .is_err());
     }
 
     // ==================== Status Transition Tests ====================
