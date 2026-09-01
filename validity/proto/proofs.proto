@@ -24,11 +24,12 @@ message AggProofRequest {
   // Last block already proven on-chain; the aggregation starts just after it.
   uint64 last_proven_block = 1;
   // Desired end of the aggregation range. The proposer may return a shorter
-  // range if fewer contiguous range proofs are available.
+  // range if it reaches the safe head or has fewer contiguous range proofs.
   uint64 requested_end_block = 2;
   // L1 block checkpointed for this aggregation proof.
   uint64 l1_block_number = 3;
   // Hex-encoded hash of `l1_block_number`, with or without a `0x` prefix.
+  // Must match the block returned by the configured L1 RPC.
   string l1_block_hash = 4;
 }
 
