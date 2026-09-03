@@ -678,14 +678,14 @@ where
         Ok(challenge_preflight_ready(status, claim_data.status, latest_timestamp, deadline))
     }
 
-    async fn resolution_preflight(&self, game: &Game) -> Result<bool> {
+    async fn resolution_still_pending(&self, game: &Game) -> Result<bool> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
-        Ok(resolution_preflight_ready(contract.status().call().await?))
+        Ok(contract.status().call().await? == GameStatus::IN_PROGRESS)
     }
 
-    async fn claim_preflight(&self, game: &Game, recipient: Address) -> Result<bool> {
+    async fn claim_credit_available(&self, game: &Game, recipient: Address) -> Result<bool> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
-        Ok(claim_preflight_ready(contract.credit(recipient).call().await?))
+        Ok(contract.credit(recipient).call().await? > U256::ZERO)
     }
 
     /// Submits a challenge after verifying eligibility against a fresh canonical L1 head.
@@ -742,7 +742,7 @@ where
         };
 
         for game in candidates {
-            match self.resolution_preflight(&game).await {
+            match self.resolution_still_pending(&game).await {
                 Ok(true) => {}
                 Ok(false) => {
                     tracing::info!(
@@ -791,10 +791,10 @@ where
         Ok(())
     }
 
-    /// Submits a resolution after verifying eligibility against a fresh canonical L1 head.
+    /// Submits a resolution after confirming the game is still in progress on L1.
     pub async fn submit_resolution_transaction(&self, game: &Game) -> Result<()> {
-        if !self.resolution_preflight(game).await? {
-            bail!("Resolution is no longer eligible at the latest L1 head");
+        if !self.resolution_still_pending(game).await? {
+            bail!("Game is no longer in progress on L1");
         }
         self.submit_resolution_transaction_unchecked(game).await
     }
@@ -841,7 +841,7 @@ where
 
         let signer_address = self.signer.address();
         for game in candidates {
-            match self.claim_preflight(&game, signer_address).await {
+            match self.claim_credit_available(&game, signer_address).await {
                 Ok(true) => {}
                 Ok(false) => {
                     tracing::info!(
@@ -1011,14 +1011,6 @@ fn challenge_preflight_ready(
     status == GameStatus::IN_PROGRESS &&
         proposal_status == ProposalStatus::Unchallenged &&
         latest_timestamp < deadline
-}
-
-fn resolution_preflight_ready(status: GameStatus) -> bool {
-    status == GameStatus::IN_PROGRESS
-}
-
-fn claim_preflight_ready(credit: U256) -> bool {
-    credit > U256::ZERO
 }
 
 enum GameSyncAction {
@@ -1656,7 +1648,7 @@ mod tests {
     }
 
     #[test]
-    fn action_preflight_decisions_are_fail_closed_at_boundaries() {
+    fn challenge_preflight_decisions_are_fail_closed_at_boundaries() {
         assert!(challenge_preflight_ready(
             GameStatus::IN_PROGRESS,
             ProposalStatus::Unchallenged,
@@ -1681,10 +1673,6 @@ mod tests {
             99,
             100
         ));
-        assert!(resolution_preflight_ready(GameStatus::IN_PROGRESS));
-        assert!(!resolution_preflight_ready(GameStatus::DEFENDER_WINS));
-        assert!(!claim_preflight_ready(U256::ZERO));
-        assert!(claim_preflight_ready(U256::from(1)));
     }
 
     #[tokio::test]
