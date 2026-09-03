@@ -1064,20 +1064,119 @@ mod tests {
         collections::VecDeque,
         sync::{
             atomic::{AtomicUsize, Ordering as AtomicOrdering},
-            Mutex as StdMutex,
+            Mutex as StdMutex, RwLock,
         },
     };
 
     use super::*;
     use crate::contract::ClaimData;
-    use alloy::{rpc::client::RpcClient, transports::mock::Asserter};
+    use alloy::{
+        rpc::client::RpcClient,
+        transports::{mock::Asserter, TransportErrorKind, TransportFut},
+    };
+    use alloy_json_rpc as j;
     use alloy_provider::RootProvider;
     use alloy_rpc_types_eth::Block;
     use alloy_sol_types::SolValue;
     use async_trait::async_trait;
+    use tower::Service;
 
     const TEST_PRIVATE_KEY: &str =
         "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+
+    // `sync_state` retries HashSet-backed pending discoveries and synchronizes HashMap-backed
+    // cached games, so request order is not deterministic. A global FIFO mock cannot reliably
+    // associate responses with requests; route responses by RPC method/selector instead.
+    #[derive(Clone, Default)]
+    struct RequestAwareMock {
+        responses: Arc<RwLock<HashMap<String, VecDeque<j::ResponsePayload>>>>,
+    }
+
+    impl RequestAwareMock {
+        fn push_success<T: serde::Serialize>(&self, key: impl Into<String>, value: &T) {
+            let payload = serde_json::to_string(value).unwrap();
+            self.responses.write().unwrap().entry(key.into()).or_default().push_back(
+                j::ResponsePayload::Success(
+                    serde_json::value::RawValue::from_string(payload).unwrap(),
+                ),
+            );
+        }
+
+        fn push_failure(&self, key: impl Into<String>, message: &'static str) {
+            self.responses
+                .write()
+                .unwrap()
+                .entry(key.into())
+                .or_default()
+                .push_back(j::ResponsePayload::internal_error_message(message.into()));
+        }
+
+        fn key(request: &j::SerializedRequest) -> String {
+            if request.method() != "eth_call" {
+                return request.method().to_string();
+            }
+
+            let params: serde_json::Value =
+                serde_json::from_str(request.params().unwrap().get()).unwrap();
+            let target = params[0]["to"].as_str().unwrap();
+            let data = params[0]["input"].as_str().unwrap();
+            format!("eth_call:{target}:{}", &data[..10])
+        }
+
+        fn response(
+            &self,
+            request: j::SerializedRequest,
+        ) -> alloy::transports::TransportResult<j::Response> {
+            let key = Self::key(&request);
+            let payload = self
+                .responses
+                .write()
+                .unwrap()
+                .get_mut(&key)
+                .and_then(VecDeque::pop_front)
+                .ok_or_else(|| {
+                    TransportErrorKind::custom_str(&format!(
+                        "empty request-aware response queue for method key {key}"
+                    ))
+                })?;
+            Ok(j::Response { id: request.id().clone(), payload })
+        }
+    }
+
+    impl Service<j::RequestPacket> for RequestAwareMock {
+        type Response = j::ResponsePacket;
+        type Error = alloy::transports::TransportError;
+        type Future = TransportFut<'static>;
+
+        fn poll_ready(
+            &mut self,
+            _cx: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Result<(), Self::Error>> {
+            std::task::Poll::Ready(Ok(()))
+        }
+
+        fn call(&mut self, request: j::RequestPacket) -> Self::Future {
+            let this = self.clone();
+            Box::pin(async move {
+                match request {
+                    j::RequestPacket::Single(request) => {
+                        Ok(j::ResponsePacket::Single(this.response(request)?))
+                    }
+                    j::RequestPacket::Batch(requests) => Ok(j::ResponsePacket::Batch(
+                        requests
+                            .into_iter()
+                            .map(|request| this.response(request))
+                            .collect::<Result<Vec<_>, _>>()?,
+                    )),
+                }
+            })
+        }
+    }
+
+    fn eth_call_key(address: Address, signature: &str) -> String {
+        let selector = alloy::primitives::keccak256(signature.as_bytes());
+        format!("eth_call:{address}:0x{}", alloy::hex::encode(&selector[..4]))
+    }
 
     struct RecordingValidator {
         startup_calls: AtomicUsize,
@@ -1132,10 +1231,18 @@ mod tests {
     }
 
     fn push_active_unchallenged_game(asserter: &Asserter, deadline: u64) {
+        push_active_unchallenged_game_with_parent(asserter, deadline, u32::MAX);
+    }
+
+    fn push_active_unchallenged_game_with_parent(
+        asserter: &Asserter,
+        deadline: u64,
+        parent_index: u32,
+    ) {
         asserter.push_success(&GameStatus::IN_PROGRESS.abi_encode());
         asserter.push_success(
             &ClaimData {
-                parentIndex: u32::MAX,
+                parentIndex: parent_index,
                 counteredBy: Address::ZERO,
                 prover: Address::ZERO,
                 claim: B256::ZERO.into(),
@@ -1144,6 +1251,38 @@ mod tests {
             }
             .abi_encode(),
         );
+    }
+
+    fn push_discovered_game_request_aware(
+        mock: &RequestAwareMock,
+        address: Address,
+        parent_index: u32,
+    ) {
+        mock.push_success(
+            eth_call_key(Address::ZERO, "gameAtIndex(uint256)"),
+            &(0u32, 0u64, address).abi_encode(),
+        );
+        mock.push_success(eth_call_key(address, "gameType()"), &0u32.abi_encode());
+        mock.push_success(
+            eth_call_key(address, "wasRespectedGameTypeWhenCreated()"),
+            &true.abi_encode(),
+        );
+        mock.push_success(eth_call_key(address, "l2BlockNumber()"), &U256::from(7).abi_encode());
+        mock.push_success(eth_call_key(address, "rootClaim()"), &B256::ZERO.abi_encode());
+        mock.push_success(eth_call_key(address, "l1Head()"), &B256::repeat_byte(0x55).abi_encode());
+        mock.push_success(
+            eth_call_key(address, "claimData()"),
+            &ClaimData {
+                parentIndex: parent_index,
+                counteredBy: Address::ZERO,
+                prover: Address::ZERO,
+                claim: B256::ZERO.into(),
+                status: ProposalStatus::Unchallenged,
+                deadline: 100,
+            }
+            .abi_encode(),
+        );
+        mock.push_success(eth_call_key(address, "status()"), &GameStatus::IN_PROGRESS.abi_encode());
     }
 
     fn test_challenger(l1_asserter: &Asserter) -> OPSuccinctChallenger<L1Provider> {
@@ -1184,6 +1323,40 @@ mod tests {
         let mut challenger = test_challenger(&l1_asserter);
         challenger.game_validator = validator.clone();
         (challenger, validator, l1_asserter)
+    }
+
+    fn challenger_with_request_aware_validator(
+        outcomes: impl IntoIterator<Item = GameValidation>,
+    ) -> (OPSuccinctChallenger<L1Provider>, Arc<RecordingValidator>, RequestAwareMock) {
+        let mock = RequestAwareMock::default();
+        let l1_provider = RootProvider::new(RpcClient::new(mock.clone(), true));
+        let anchor_state_registry =
+            crate::contract::AnchorStateRegistry::new(Address::ZERO, l1_provider.clone());
+        let factory = crate::contract::DisputeGameFactory::new(Address::ZERO, l1_provider.clone());
+        let signer = SignerLock::new(
+            op_succinct_signer_utils::Signer::new_local_signer(TEST_PRIVATE_KEY).unwrap(),
+        );
+        let config = ChallengerConfig {
+            l1_rpc: "http://127.0.0.1:1".parse().unwrap(),
+            anchor_state_registry_address: Address::ZERO,
+            factory_address: Address::ZERO,
+            fetch_interval: 1,
+            game_type: 0,
+            metrics_port: 0,
+            malicious_challenge_percentage: 0.0,
+            sync_l1_confirmations: 0,
+            tx_confirmation_timeout: 60,
+        };
+        let validator = Arc::new(RecordingValidator::new(outcomes));
+        let challenger = OPSuccinctChallenger::new_with_game_validator(
+            config,
+            l1_provider,
+            anchor_state_registry,
+            factory,
+            signer,
+            validator.clone(),
+        );
+        (challenger, validator, mock)
     }
 
     async fn sync_active_game(
@@ -1257,6 +1430,123 @@ mod tests {
         assert!(!game.should_attempt_to_challenge);
         assert_eq!(validator.requests.lock().unwrap().len(), 2);
         assert!(l1_asserter.read_q().is_empty());
+    }
+
+    #[tokio::test]
+    async fn sync_state_retries_parent_discovery_without_starving_later_games() {
+        let (challenger, validator, mock) = challenger_with_request_aware_validator([
+            GameValidation::Valid,
+            GameValidation::Valid,
+            GameValidation::Valid,
+            GameValidation::Valid,
+        ]);
+
+        let mut latest_block: Block = Block::default();
+        latest_block.header.number = 10;
+        latest_block.header.timestamp = 50;
+        latest_block.header.hash = B256::repeat_byte(0x10);
+
+        let block_key = "eth_getBlockByNumber";
+        let game_count_key = eth_call_key(Address::ZERO, "gameCount()");
+        let game_at_index_key = eth_call_key(Address::ZERO, "gameAtIndex(uint256)");
+
+        // The parent fails discovery, but the valid child and later independent game are still
+        // discovered and synchronized. The child then fails closed when its parent lookup fails.
+        mock.push_success(block_key, &Some(latest_block.clone()));
+        mock.push_success(game_count_key.clone(), &U256::from(3).abi_encode());
+        mock.push_failure(game_at_index_key.clone(), "parent discovery temporarily unavailable");
+        push_discovered_game_request_aware(&mock, Address::from([1; 20]), 0);
+        push_discovered_game_request_aware(&mock, Address::from([2; 20]), u32::MAX);
+        for (address, parent_index) in
+            [(Address::from([1; 20]), 0), (Address::from([2; 20]), u32::MAX)]
+        {
+            mock.push_success(
+                eth_call_key(address, "status()"),
+                &GameStatus::IN_PROGRESS.abi_encode(),
+            );
+            mock.push_success(
+                eth_call_key(address, "claimData()"),
+                &ClaimData {
+                    parentIndex: parent_index,
+                    counteredBy: Address::ZERO,
+                    prover: Address::ZERO,
+                    claim: B256::ZERO.into(),
+                    status: ProposalStatus::Unchallenged,
+                    deadline: 100,
+                }
+                .abi_encode(),
+            );
+        }
+        mock.push_failure(game_at_index_key.clone(), "parent lookup temporarily unavailable");
+
+        challenger.sync_state().await.unwrap();
+
+        {
+            let state = challenger.state.lock().await;
+            assert_eq!(state.cursor, Some(U256::from(2)));
+            assert!(state.pending_discoveries.contains(&U256::ZERO));
+            let child = state.games.get(&U256::from(1)).unwrap();
+            assert_eq!(child.parent_index, 0);
+            assert!(matches!(child.validation, GameValidation::Unavailable(_)));
+            assert!(!child.should_attempt_to_challenge);
+            let independent = state.games.get(&U256::from(2)).unwrap();
+            assert_eq!(independent.parent_index, u32::MAX);
+            assert!(matches!(independent.validation, GameValidation::Valid));
+            assert!(!independent.should_attempt_to_challenge);
+        }
+        let requests = validator.requests.lock().unwrap();
+        assert_eq!(requests.len(), 2);
+        assert!(requests.iter().any(|request| request.game_index == U256::from(1)));
+        assert!(requests.iter().any(|request| request.game_index == U256::from(2)));
+        drop(requests);
+
+        // The next cycle retries the parent first, then synchronizes the same cached child and
+        // independent game without relying on HashMap iteration order.
+        mock.push_success(block_key, &Some(latest_block));
+        push_discovered_game_request_aware(&mock, Address::from([0; 20]), u32::MAX);
+        mock.push_success(game_count_key, &U256::from(3).abi_encode());
+        for address in [Address::ZERO, Address::from([1; 20]), Address::from([2; 20])] {
+            mock.push_success(
+                eth_call_key(address, "status()"),
+                &GameStatus::IN_PROGRESS.abi_encode(),
+            );
+            mock.push_success(
+                eth_call_key(address, "claimData()"),
+                &ClaimData {
+                    parentIndex: u32::MAX,
+                    counteredBy: Address::ZERO,
+                    prover: Address::ZERO,
+                    claim: B256::ZERO.into(),
+                    status: ProposalStatus::Unchallenged,
+                    deadline: 100,
+                }
+                .abi_encode(),
+            );
+        }
+        mock.push_success(game_at_index_key, &(0u32, 0u64, Address::from([0; 20])).abi_encode());
+        mock.push_success(
+            eth_call_key(Address::ZERO, "status()"),
+            &GameStatus::IN_PROGRESS.abi_encode(),
+        );
+
+        challenger.sync_state().await.unwrap();
+
+        let state = challenger.state.lock().await;
+        assert!(!state.pending_discoveries.contains(&U256::ZERO));
+        assert!(matches!(state.games.get(&U256::ZERO).unwrap().validation, GameValidation::Valid));
+        assert!(matches!(
+            state.games.get(&U256::from(1)).unwrap().validation,
+            GameValidation::Valid
+        ));
+        assert!(matches!(
+            state.games.get(&U256::from(2)).unwrap().validation,
+            GameValidation::Valid
+        ));
+        assert!(state.games.values().all(|game| !game.should_attempt_to_challenge));
+        let requests = validator.requests.lock().unwrap();
+        assert_eq!(requests.len(), 4);
+        assert!(requests.iter().any(|request| request.game_index == U256::ZERO));
+        assert!(mock.responses.read().unwrap().values().all(|queue| queue.is_empty()));
     }
 
     #[tokio::test]
