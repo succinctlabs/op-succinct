@@ -14,6 +14,14 @@ To run OP Succinct or OP Succinct Lite, you will need the following RPCs in your
 When running the proposer in production, it is recommended that your L2 nodes are in the same region/network to minimize latency. Otherwise, tasks like witness generation can take significantly longer and become a bottleneck.
 </div>
 
+<div class="warning">
+The fault-proof challenger requires `L2_NODE_RPC` to point directly to one dedicated op-node and
+`L2_RPC` to point to that op-node's paired execution node; neither endpoint may use a node pool.
+Enable SafeDB with `--safedb.path` and retain enough history to cover the full active challenge
+window. The challenger deployment must not configure FollowSource or SuperAuthority, because it
+uses `optimism_safeHeadAtL1Block` as a historical local-safe boundary.
+</div>
+
 ## Required Accessible Endpoints
 
 The RPCs must support the following endpoints:
@@ -23,6 +31,11 @@ The RPCs must support the following endpoints:
 | `L1_RPC` | `debug_getRawHeader`, `debug_getRawReceipts`, `debug_getRawBlock` | L1 Execution Archive Node |
 | `L2_RPC` | `debug_getRawHeader`, `debug_getRawTransaction`, `debug_getRawBlock`, `debug_dbGet` | L2 Execution Node (`op-geth`) |
 | `L2_NODE_RPC` | `optimism_outputAtBlock`, `optimism_rollupConfig`, `optimism_syncStatus`, `optimism_safeHeadAtL1Block` | L2 Rollup Node (`op-node`) |
+
+The challenger also needs historical L2 headers and, before Isthmus, historical
+`eth_getProof` state from `L2_RPC`. If the execution head is behind, a header has been pruned, or
+historical state is unavailable, the game remains unavailable and is retried rather than treated
+as invalid.
 
 ## External RPC Provider
 

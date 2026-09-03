@@ -176,7 +176,67 @@ pub enum ChallengerGauge {
         message = "Total number of games that bonds were claimed by the challenger"
     )]
     GamesBondsClaimed,
+    #[strum(
+        serialize = "op_succinct_fp_challenger_unverifiable_games",
+        message = "Number of games whose output root is currently unverifiable"
+    )]
+    UnverifiableGames,
+    #[strum(
+        serialize = "op_succinct_fp_challenger_nearest_unverifiable_deadline_seconds",
+        message = "Seconds until the nearest unverifiable game deadline (-1 when none)"
+    )]
+    NearestUnverifiableDeadlineSeconds,
+    #[strum(
+        serialize = "op_succinct_fp_challenger_confirmed_l1_head",
+        message = "L1 block number used for the latest pinned challenger sync snapshot"
+    )]
+    ConfirmedL1Head,
+    #[strum(
+        serialize = "op_succinct_fp_challenger_l1_confirmation_lag_blocks",
+        message = "L1 block distance between latest and the pinned challenger snapshot"
+    )]
+    L1ConfirmationLagBlocks,
+    #[strum(
+        serialize = "op_succinct_fp_challenger_op_node_l1_lag_blocks",
+        message = "L1 block distance between the op-node head and derivation current_l1"
+    )]
+    OpNodeL1LagBlocks,
     // Error metrics
+    #[strum(
+        serialize = "op_succinct_fp_challenger_sync_failures_total",
+        message = "Total number of isolated challenger synchronization failures"
+    )]
+    SyncFailures,
+    #[strum(
+        serialize = "op_succinct_fp_challenger_safedb_query_errors_total",
+        message = "Total number of unavailable or failed SafeDB queries"
+    )]
+    SafeDbQueryErrors,
+    #[strum(
+        serialize = "op_succinct_fp_challenger_safedb_history_missing_total",
+        message = "Total number of SafeDB history-gap responses"
+    )]
+    SafeDbHistoryMissing,
+    #[strum(
+        serialize = "op_succinct_fp_challenger_l1_canonical_mismatch_total",
+        message = "Total number of SafeDB or game L1 canonical hash mismatches"
+    )]
+    L1CanonicalMismatch,
+    #[strum(
+        serialize = "op_succinct_fp_challenger_op_node_execution_mismatch_total",
+        message = "Total number of SafeDB safe heads inconsistent with the paired execution node"
+    )]
+    OpNodeExecutionMismatch,
+    #[strum(
+        serialize = "op_succinct_fp_challenger_preflight_errors_total",
+        message = "Total number of latest-state action preflight RPC errors"
+    )]
+    PreflightErrors,
+    #[strum(
+        serialize = "op_succinct_fp_challenger_preflight_skips_total",
+        message = "Total number of stale challenger actions skipped by latest-state preflight"
+    )]
+    PreflightSkips,
     #[strum(
         serialize = "op_succinct_fp_challenger_game_challenging_error",
         message = "Total number of game challenging errors encountered by the challenger"
