@@ -2,7 +2,7 @@ use std::{env, sync::Arc, time::Duration};
 
 use alloy_primitives::Address;
 use alloy_provider::ProviderBuilder;
-use alloy_transport_http::reqwest::{Client, Url};
+use alloy_transport_http::reqwest::Client;
 use anyhow::Result;
 use clap::Parser;
 use fault_proof::{
@@ -102,6 +102,7 @@ async fn main() -> Result<()> {
 mod tests {
     use super::*;
     use alloy_provider::{Provider, RootProvider};
+    use alloy_transport_http::reqwest::Url;
     use tokio::{io::AsyncReadExt, net::TcpListener};
 
     #[tokio::test]

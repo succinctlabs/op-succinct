@@ -296,10 +296,15 @@ mod tests {
         let asserter = Asserter::new();
         let provider = mock_l2_provider(asserter.clone());
         let storage_root = B256::repeat_byte(0x33);
-        let mut header: Header = Header::default();
-        header.hash = B256::repeat_byte(0x11);
-        header.state_root = B256::repeat_byte(0x22);
-        header.withdrawals_root = Some(storage_root);
+        let header = Header {
+            hash: B256::repeat_byte(0x11),
+            inner: alloy::consensus::Header {
+                state_root: B256::repeat_byte(0x22),
+                withdrawals_root: Some(storage_root),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         asserter.push_success(&Some(header.clone()));
 
         let actual = provider.compute_output_root_at_block(U256::from(7)).await.unwrap();
@@ -317,10 +322,15 @@ mod tests {
             let asserter = Asserter::new();
             let provider = mock_l2_provider(asserter.clone());
             let storage_root = B256::repeat_byte(0x44);
-            let mut header: Header = Header::default();
-            header.hash = B256::repeat_byte(0x11);
-            header.state_root = B256::repeat_byte(0x22);
-            header.withdrawals_root = withdrawals_root;
+            let header = Header {
+                hash: B256::repeat_byte(0x11),
+                inner: alloy::consensus::Header {
+                    state_root: B256::repeat_byte(0x22),
+                    withdrawals_root,
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
             let proof =
                 EIP1186AccountProofResponse { storage_hash: storage_root, ..Default::default() };
             asserter.push_success(&Some(header.clone()));
