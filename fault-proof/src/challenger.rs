@@ -1245,7 +1245,7 @@ mod tests {
                 parentIndex: parent_index,
                 counteredBy: Address::ZERO,
                 prover: Address::ZERO,
-                claim: B256::ZERO.into(),
+                claim: B256::ZERO,
                 status: ProposalStatus::Unchallenged,
                 deadline,
             }
@@ -1276,7 +1276,7 @@ mod tests {
                 parentIndex: parent_index,
                 counteredBy: Address::ZERO,
                 prover: Address::ZERO,
-                claim: B256::ZERO.into(),
+                claim: B256::ZERO,
                 status: ProposalStatus::Unchallenged,
                 deadline: 100,
             }
@@ -1470,7 +1470,7 @@ mod tests {
                     parentIndex: parent_index,
                     counteredBy: Address::ZERO,
                     prover: Address::ZERO,
-                    claim: B256::ZERO.into(),
+                    claim: B256::ZERO,
                     status: ProposalStatus::Unchallenged,
                     deadline: 100,
                 }
@@ -1494,11 +1494,12 @@ mod tests {
             assert!(matches!(independent.validation, GameValidation::Valid));
             assert!(!independent.should_attempt_to_challenge);
         }
-        let requests = validator.requests.lock().unwrap();
-        assert_eq!(requests.len(), 2);
-        assert!(requests.iter().any(|request| request.game_index == U256::from(1)));
-        assert!(requests.iter().any(|request| request.game_index == U256::from(2)));
-        drop(requests);
+        {
+            let requests = validator.requests.lock().unwrap();
+            assert_eq!(requests.len(), 2);
+            assert!(requests.iter().any(|request| request.game_index == U256::from(1)));
+            assert!(requests.iter().any(|request| request.game_index == U256::from(2)));
+        }
 
         // The next cycle retries the parent first, then synchronizes the same cached child and
         // independent game without relying on HashMap iteration order.
@@ -1516,7 +1517,7 @@ mod tests {
                     parentIndex: u32::MAX,
                     counteredBy: Address::ZERO,
                     prover: Address::ZERO,
-                    claim: B256::ZERO.into(),
+                    claim: B256::ZERO,
                     status: ProposalStatus::Unchallenged,
                     deadline: 100,
                 }
