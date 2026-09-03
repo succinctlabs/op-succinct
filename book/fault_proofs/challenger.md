@@ -81,8 +81,8 @@ CHALLENGER_METRICS_PORT=9001          # The port to expose metrics on
 # Testing Configuration (Optional)
 MALICIOUS_CHALLENGE_PERCENTAGE=0.0    # Percentage of valid games to challenge for testing (0.0 = disabled)
 
-# L1 State Snapshot Configuration (Optional)
-SYNC_L1_CONFIRMATIONS=0               # L1 blocks behind latest used for pinned sync reads
+# L1 State Snapshot Configuration (Optional; required with a non-zero value in production)
+SYNC_L1_CONFIRMATIONS=5               # Example: L1 blocks behind latest used for pinned sync reads
 
 # Transaction Configuration (Optional)
 TX_CONFIRMATION_TIMEOUT=60            # L1 tx confirmation timeout in seconds (raise for congested L1s)
@@ -94,13 +94,18 @@ the cycle's `latest` block. Before submitting a challenge, resolution, or credit
 challenger rechecks the relevant eligibility at a fresh canonical `latest` block and skips the
 transaction if that preflight is unavailable or stale.
 
+For production deployments, configure `SYNC_L1_CONFIRMATIONS` to a non-zero value selected for the
+target L1's expected reorg depth and finality assumptions. This value provides a reorg safety
+margin for the Challenger's synchronization snapshot; it is not a finality guarantee. The default
+value of `0` is intended for local development and testing only.
+
 Before entering the main loop, the challenger verifies that the op-node rollup configuration has
 the same L1 and L2 chain IDs as `L1_RPC` and `L2_RPC`, that SafeDB is enabled and populated, and
 that its safe head exists with the same hash on the paired execution node. Startup validation is
 retried until this fixed node pair is healthy.
 
 The shared challenger lifecycle delegates chain-specific claim checks to a `GameValidator`.
-The standard constructor installs the OP Stack validator, which owns the op-node and paired L2
+The standard Challenger binary wires the OP Stack validator, which owns the op-node and paired L2
 execution providers and performs all of the SafeDB checks described below. Custom integrations may
 inject another validator without changing game discovery, retry, deadline, or transaction handling.
 
