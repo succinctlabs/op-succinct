@@ -43,9 +43,7 @@ cargo run --bin config --release -- --env-file <PATH_TO_ENV_FILE>
 ```
 
 ```admonish note
-If your integration involves alternative DA solutions like Celestia or EigenDA,
-ensure you enable the respective feature flag. For example, add `--features
-celestia` or `--features eigenda` to the command for proper configuration.
+For EigenDA, add `--features eigenda` to generate the correct configuration.
 ```
 
 ### Optional Environment Variables

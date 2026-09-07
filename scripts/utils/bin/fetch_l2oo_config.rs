@@ -55,7 +55,7 @@ async fn update_l2oo_config() -> Result<()> {
     let data_fetcher =
         OPSuccinctDataFetcher::new_with_rollup_config_and_l1_selection(l1_selection).await?;
     let host = initialize_host(Arc::new(data_fetcher.clone()));
-    enforce_l1_selection_supported(host.as_ref(), &data_fetcher, l1_selection).await?;
+    enforce_l1_selection_supported(&data_fetcher, l1_selection).await?;
     let shared_config = get_shared_config_data(data_fetcher.clone()).await?;
 
     let rollup_config = data_fetcher.rollup_config.as_ref().unwrap();

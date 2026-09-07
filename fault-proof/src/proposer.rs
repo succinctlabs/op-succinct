@@ -88,7 +88,7 @@ pub enum TaskInfo {
 /// compatibility checks during hardfork transitions.
 #[derive(Clone, Debug)]
 pub struct ProposerIdentity {
-    /// Full version string with DA layer suffix (e.g., "3.4.1-celestia")
+    /// Full version string with DA layer suffix (e.g., "3.4.1-eigenda")
     pub version: String,
     /// Aggregation verification key hash
     pub aggregation_vkey: B256,
@@ -101,11 +101,9 @@ pub struct ProposerIdentity {
 impl ProposerIdentity {
     /// Returns the DA layer based on compile-time feature flags.
     fn detect_da_layer() -> &'static str {
-        #[cfg(feature = "celestia")]
-        return "celestia";
-        #[cfg(all(feature = "eigenda", not(feature = "celestia")))]
+        #[cfg(feature = "eigenda")]
         return "eigenda";
-        #[cfg(not(any(feature = "celestia", feature = "eigenda")))]
+        #[cfg(not(feature = "eigenda"))]
         return "ethereum";
     }
 
@@ -1825,7 +1823,7 @@ where
 
             // Host-resolved max provable L2 block: matches finalized under default
             // Ethereum/EigenDA, diverges under non-default (L2 safe head at the configured L1
-            // anchor) and under Celestia (Blobstream-resolved).
+            // anchor).
             if let Some(max_provable_l2_block_number) = self
                 .host
                 .get_max_provable_l2_block_number(

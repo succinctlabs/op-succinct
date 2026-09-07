@@ -16,9 +16,7 @@ mod common;
 
 fn elf_label() -> &'static str {
     cfg_if::cfg_if! {
-        if #[cfg(feature = "celestia")] {
-            "celestia-range-elf-embedded"
-        } else if #[cfg(feature = "eigenda")] {
+        if #[cfg(feature = "eigenda")] {
             "eigenda-range-elf-embedded"
         } else {
             "range-elf-embedded"

@@ -26,11 +26,10 @@ pub async fn get_validated_block_range<H: OPSuccinctHost>(
 ) -> Result<(u64, u64)> {
     // When `end` is not provided, ask the host for its current max provable L2 block. Under
     // default `L1_BLOCK_TAG=finalized` this is the L2 finalized block; under non-default
-    // selections (Ethereum/EigenDA) it is the L2 safe head at the configured L1 anchor; under
-    // Celestia it is the highest L2 block included in the latest Blobstream commitment. The
-    // search-start hint is derived from L2 finalized so a non-default selection does not
-    // narrow the lookback window for the host's search. L2 Block Validation Failure may still
-    // occur — see [Troubleshooting](../troubleshooting.md#l2-block-validation-failure).
+    // selections it is the L2 safe head at the configured L1 anchor. The search-start hint is
+    // derived from L2 finalized so a non-default selection does not narrow the lookback window
+    // for the host's search. L2 Block Validation Failure may still occur. See
+    // [Troubleshooting](../troubleshooting.md#l2-block-validation-failure).
     let l2_finalized_block_number = data_fetcher.get_l2_header(BlockId::finalized()).await?.number;
     // `saturating_sub` guards against very low finalized L2 numbers, which can occur on
     // fresh test chains.

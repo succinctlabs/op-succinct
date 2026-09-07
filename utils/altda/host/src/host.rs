@@ -1,8 +1,7 @@
 //! [`OPSuccinctHost`] implementation for AltDA-backed OP Stack chains.
 //!
-//! Follows the same pattern as [`SingleChainOPSuccinctHost`] (Ethereum DA). AltDA does not
-//! require special L1 head calculation (unlike Celestia's Blobstream), so the safe L1 head
-//! logic is identical to Ethereum DA: simple offset from the batch posting block.
+//! Uses the same L1 head calculation as [`SingleChainOPSuccinctHost`] (Ethereum DA):
+//! a simple offset from the batch posting block.
 
 use std::sync::Arc;
 
@@ -81,7 +80,6 @@ impl OPSuccinctHost for AltDAOPSuccinctHost {
         safe_db_fallback: bool,
     ) -> Result<B256> {
         // AltDA uses the same simple offset logic as Ethereum DA.
-        // No special commitment tracking (unlike Celestia's Blobstream).
         let (_, l1_head_number) = fetcher.get_l1_head(l2_end_block, safe_db_fallback).await?;
 
         // Add a buffer to ensure all relevant L1 data is available.

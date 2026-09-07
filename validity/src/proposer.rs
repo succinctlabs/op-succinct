@@ -2075,8 +2075,7 @@ where
         // `L2MaxProvableBlock` is the new gauge: the L2 block the host is actually willing to
         // anchor a proof against under the current backend + L1 selection. The value diverges
         // from `L2FinalizedBlock` under non-default Ethereum/EigenDA (it reports the L2 safe
-        // head at the configured L1 anchor) and reflects the Blobstream-resolved max provable
-        // L2 block under Celestia.
+        // head at the configured L1 anchor).
         let fetcher = &self.proof_requester.fetcher;
         ValidityGauge::L2UnsafeHeadBlock
             .set(fetcher.get_l2_header(BlockId::latest()).await?.number as f64);
