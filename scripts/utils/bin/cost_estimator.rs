@@ -274,7 +274,7 @@ async fn main() -> Result<()> {
     // Get the host CLIs in order, in parallel.
     let host = initialize_host(Arc::new(data_fetcher.clone()));
 
-    enforce_l1_selection_supported(host.as_ref(), &data_fetcher, l1_selection).await?;
+    enforce_l1_selection_supported(&data_fetcher, l1_selection).await?;
 
     let (l2_start_block, l2_end_block) = if args.rolling {
         info!("Using rolling block range");

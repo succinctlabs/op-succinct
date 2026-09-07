@@ -108,7 +108,7 @@ async fn main() -> Result<()> {
 
     let host = initialize_host(fetcher.clone().into());
 
-    enforce_l1_selection_supported(host.as_ref(), &fetcher, l1_selection).await?;
+    enforce_l1_selection_supported(&fetcher, l1_selection).await?;
 
     let proposer = Proposer::new(
         l1_provider,

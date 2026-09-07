@@ -248,13 +248,8 @@ data/{chain_id}/witness-cache/{start_block}-{end_block}-stdin.bin
 
 ### DA Compatibility
 
-| DA Type | Compatible With |
-|---------|-----------------|
-| Ethereum (default) | Celestia |
-| Celestia | Ethereum |
-| EigenDA | EigenDA only |
-
-Cache files are compatible between Ethereum and Celestia, but **not** with EigenDA. Don't mix cache files across incompatible DA types.
+Reuse cache files with the same DA backend that produced them.
+EigenDA uses a different witness format from Ethereum DA.
 
 ### Cache Management
 

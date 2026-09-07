@@ -43,7 +43,7 @@ async fn main() -> Result<()> {
 
     let host = initialize_host(Arc::new(data_fetcher.clone()));
 
-    enforce_l1_selection_supported(host.as_ref(), &data_fetcher, l1_selection).await?;
+    enforce_l1_selection_supported(&data_fetcher, l1_selection).await?;
 
     // If the end block is provided, check that it is less than the latest finalized block. If the
     // end block is not provided, use the latest finalized block.
