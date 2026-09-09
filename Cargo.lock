@@ -5819,8 +5819,10 @@ dependencies = [
  "kona-protocol",
  "op-alloy-consensus",
  "op-alloy-rpc-types-engine",
+ "spin 0.10.0",
  "thiserror 2.0.18",
  "tracing",
+ "tracing-subscriber 0.3.22",
 ]
 
 [[package]]
@@ -7155,6 +7157,7 @@ dependencies = [
  "kona-protocol",
  "op-succinct-client-utils",
  "spin 0.10.0",
+ "tokio",
  "tracing",
 ]
 
