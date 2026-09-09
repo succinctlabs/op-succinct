@@ -15,7 +15,6 @@ use fault_proof::{
 };
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
-    host::enforce_l1_selection_supported,
     l1_selection::L1BlockSelectionConfig,
     metrics::{init_metrics, MetricsGauge},
     setup_logger,
@@ -69,7 +68,7 @@ async fn main() -> Result<()> {
         OPSuccinctDataFetcher::new_with_rollup_config_and_l1_selection(l1_selection).await?;
     let host = initialize_host(Arc::new(fetcher.clone()));
 
-    enforce_l1_selection_supported(host.as_ref(), &fetcher, l1_selection).await?;
+    fetcher.validate_l1_selection().await?;
 
     let proposer = Arc::new(
         OPSuccinctProposer::new(

@@ -3,10 +3,8 @@
 This guide provides the fastest path to try out OP Succinct fault dispute games by deploying contracts and running a proposer to create games.
 
 ```admonish note
-If your integration involves alternative data availability solutions like
-Celestia or EigenDA, you may need to configure additional environment variables.
-Refer to the [`Experimental Features`](./experimental/experimental.md) section
-for the required setup steps.
+For EigenDA, configure the additional environment variables in the
+[EigenDA setup guide](./data-availability/eigenda.md).
 ```
 
 ## Prerequisites

@@ -8,7 +8,8 @@ This feature is under active development. Breaking changes to configuration and 
 
 ## Overview
 
-OP Succinct supports OP Stack chains that use the [alt-DA spec](https://specs.optimism.io/experimental/alt-da.html) with a generic op-alt-da server. Specialized DA backends like Celestia and EigenDA also build on the alt-DA pathway but have their own integrations and pages; this page covers the generic-server case only. The most common deployment pattern is a **validium**: an L2 that posts batch data to an off-chain DA layer and only commitments to L1. The underlying transport does not require that trust model. In this codebase the feature is named `altda`; this page uses "AltDA" to refer to the implementation ("Alt-DA Server" in the page title is the OP Stack spec terminology).
+OP Succinct supports OP Stack chains that use the [alt-DA spec](https://specs.optimism.io/experimental/alt-da.html) with a generic op-alt-da server. EigenDA has a separate integration and setup guide.
+This page covers the generic-server case. The most common deployment pattern is a **validium**: an L2 that posts batch data to an off-chain DA layer and only commitments to L1. The underlying transport does not require that trust model. In this codebase the feature is named `altda`; this page uses "AltDA" to refer to the implementation ("Alt-DA Server" in the page title is the OP Stack spec terminology).
 
 In AltDA mode, chain-layer responsibilities (derivation, validity proving, on-chain settlement) are handled by op-succinct. The data availability layer (the alt-DA server that stores batch data and serves it by commitment) is operated separately and is out of scope for this repository.
 
@@ -127,7 +128,7 @@ The AltDA range ELF (`altda-range-elf-embedded`) is embedded into the proposer b
 just build-range-elfs
 ```
 
-This recipe rebuilds all DA-variant range ELFs (Ethereum, Celestia, EigenDA, AltDA).
+This recipe rebuilds all DA-variant range ELFs (Ethereum, EigenDA, AltDA).
 
 ## Limitations
 
@@ -135,7 +136,7 @@ This recipe rebuilds all DA-variant range ELFs (Ethereum, Celestia, EigenDA, Alt
 - **DA server availability assumption.** Proving stalls if the alt-DA server cannot return data for a referenced commitment.
 - **DA server is outside the op-succinct trust boundary.** Data availability and censorship resistance depend on the alt-DA server operator. op-succinct verifies that retrieved data matches its commitment but cannot force the server to serve data.
 - **Hardcoded HTTP timeout.** Requests to the alt-DA server use a fixed 30s timeout.
-- **Standard L1 head logic.** AltDA uses the same L1 head selection as Ethereum DA. There is no Blobstream-style finality tracking.
+- **Standard L1 head logic.** AltDA uses the same L1 head selection as Ethereum DA.
 
 ## Where to Go Next
 

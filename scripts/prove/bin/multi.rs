@@ -7,7 +7,7 @@ use clap::Parser;
 use op_succinct_host_utils::{
     block_range::get_validated_block_range,
     fetcher::OPSuccinctDataFetcher,
-    host::{enforce_l1_selection_supported, OPSuccinctHost},
+    host::OPSuccinctHost,
     l1_selection::L1BlockSelectionConfig,
     network::{build_network_prover_from_env, parse_fulfillment_strategy},
     proof_cache::save_range_proof,
@@ -43,18 +43,11 @@ async fn main() -> Result<()> {
 
     let host = initialize_host(Arc::new(data_fetcher.clone()));
 
-    enforce_l1_selection_supported(host.as_ref(), &data_fetcher, l1_selection).await?;
+    data_fetcher.validate_l1_selection().await?;
 
-    // If the end block is provided, check that it is less than the latest finalized block. If the
-    // end block is not provided, use the latest finalized block.
-    let (l2_start_block, l2_end_block) = get_validated_block_range(
-        host.as_ref(),
-        &data_fetcher,
-        args.start,
-        args.end,
-        args.default_range,
-    )
-    .await?;
+    // Bound the requested range by the maximum provable L2 block for the L1 selection.
+    let (l2_start_block, l2_end_block) =
+        get_validated_block_range(&data_fetcher, args.start, args.end, args.default_range).await?;
 
     let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
 

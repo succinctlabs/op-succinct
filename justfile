@@ -411,10 +411,6 @@ vkeys:
     ETH_RANGE=$(echo "$ETH_OUTPUT" | grep "Range Verification Key Hash" | awk '{print $NF}')
     AGG_KEY=$(echo "$ETH_OUTPUT" | grep "Aggregation Verification Key Hash" | awk '{print $NF}')
 
-    # Celestia DA
-    CEL_OUTPUT=$(RUST_LOG=error cargo run --release --bin config --features celestia 2>&1)
-    CEL_RANGE=$(echo "$CEL_OUTPUT" | grep "Range Verification Key Hash" | awk '{print $NF}')
-
     # EigenDA
     EIGEN_OUTPUT=$(RUST_LOG=error cargo run --release --bin config --features eigenda 2>&1)
     EIGEN_RANGE=$(echo "$EIGEN_OUTPUT" | grep "Range Verification Key Hash" | awk '{print $NF}')
@@ -424,7 +420,6 @@ vkeys:
     echo "| Program | Verification Key Hash |"
     echo "|--------|------------------------|"
     echo "| Ethereum DA Range Verification Key | **$ETH_RANGE** |"
-    echo "| Celestia DA Range Verification Key | **$CEL_RANGE** |"
     echo "| EigenDA Range Verification Key | **$EIGEN_RANGE** |"
     echo "| Aggregation Verification Key | **$AGG_KEY** |"
 
@@ -437,9 +432,6 @@ build-range-elfs:
 
     cd programs/range/ethereum
     ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-embedded --docker --tag v6.5.0 --output-directory ../../../elf
-
-    cd ../celestia
-    ~/.sp1/bin/cargo-prove prove build --elf-name celestia-range-elf-embedded --docker --tag v6.5.0 --output-directory ../../../elf
 
     cd ../eigenda
     ~/.sp1/bin/cargo-prove prove build --elf-name eigenda-range-elf-embedded --docker --tag v6.5.0 --output-directory ../../../elf
@@ -463,12 +455,12 @@ tests:
 
 # Run fault-proof integration tests
 # target: test file (integration, sync, etc.)
-# da: DA feature (ethereum, eigenda, celestia). DA-agnostic tests like sync work with any.
+# da: DA feature (ethereum, eigenda). DA-agnostic tests like sync work with any.
 fp-integration-tests target="integration" da="ethereum":
   cd fault-proof && cargo t --test {{target}} --release --features integration,{{da}} -- --test-threads=1 --nocapture
 
 # Run DA-specific host utility tests
-# da: ethereum, eigenda, celestia
+# da: ethereum, eigenda
 da-integration-tests da="ethereum":
     #!/usr/bin/env bash
     set -euo pipefail
