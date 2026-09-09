@@ -61,6 +61,7 @@ fn grpc_status(error: ExternalAggregationError) -> Status {
     match error {
         ExternalAggregationError::InvalidArgument(message) => Status::invalid_argument(message),
         ExternalAggregationError::NotFound(message) => Status::not_found(message),
+        ExternalAggregationError::ResourceExhausted(message) => Status::resource_exhausted(message),
         ExternalAggregationError::Internal(message) => Status::internal(message),
     }
 }
@@ -139,6 +140,10 @@ mod tests {
         assert_eq!(
             grpc_status(ExternalAggregationError::Internal("failed".into())).code(),
             Code::Internal
+        );
+        assert_eq!(
+            grpc_status(ExternalAggregationError::ResourceExhausted("busy".into())).code(),
+            Code::ResourceExhausted
         );
     }
 }

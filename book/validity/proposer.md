@@ -92,6 +92,13 @@ In real mode, the response contains the prover network request ID and the actual
 In mock mode, the response contains the database row ID that the coordinator can pass to `GetMockProof`.
 The loop stops queueing and submitting aggregation proofs, but range proof production continues.
 
+External aggregation shares `MAX_CONCURRENT_WITNESS_GEN` and `MAX_CONCURRENT_PROOF_REQUESTS` with scheduled range proofs.
+Active requests consume proof capacity until their status is `Complete`, `Failed`, `Cancelled`, or `Invalidated`.
+When capacity is full, `RequestAggProof` returns `RESOURCE_EXHAUSTED`; the coordinator must retry later.
+Accepted work continues if the coordinator disconnects, and the proposer tracks it through the existing request lifecycle.
+The proposer does not apply `AUCTION_TIMEOUT` to external aggregation requests.
+The external API supports network and mock proving; startup rejects `SP1_PROVER=cluster`, which cannot return network request IDs.
+
 Enabling the feature switches the proposer into this mode, so `GRPC_ADDRESS` is required and startup fails without it. Default builds are unaffected and ignore the variable. Because a proposer in this mode never submits transactions itself, it only needs an address to attribute proof requests to — `SIGNER_URL` plus `SIGNER_ADDRESS` is sufficient, and the signer endpoint is never contacted.
 
 Prebuilt images are published as `op-succinct-agglayer` and `op-succinct-agglayer-altda` from `validity/Dockerfile.agglayer`.

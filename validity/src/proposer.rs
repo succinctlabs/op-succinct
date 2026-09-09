@@ -2,15 +2,10 @@ use std::{
     collections::HashMap, future::Future, ops::Range, str::FromStr, sync::Arc, time::Duration,
 };
 
-#[cfg(feature = "agglayer")]
-use std::time::Instant;
-
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::{network::ReceiptResponse, Provider};
 use anyhow::{anyhow, Context, Result};
-#[cfg(feature = "agglayer")]
-use bincode::Options;
 use chrono::Utc;
 use futures_util::{stream, StreamExt, TryStreamExt};
 use op_succinct_client_utils::{
@@ -57,6 +52,13 @@ const MAX_CONSECUTIVE_POLL_FAILURES: u32 = 3;
 /// Maximum number of legacy completed ranges hydrated in one proposer loop.
 const RANGE_METADATA_HYDRATION_LIMIT: i64 = 100;
 
+fn auction_timed_out(request_type: RequestType, status: i32, now: u64, deadline: u64) -> bool {
+    // The coordinator owns the auction lifecycle of external aggregation requests.
+    !(cfg!(feature = "agglayer") && request_type == RequestType::Aggregation) &&
+        status == FulfillmentStatus::Requested as i32 &&
+        now > deadline
+}
+
 /// L1 blocks to look back when resolving the L2 safe head for an external aggregation.
 ///
 /// The safe head near the supplied L1 checkpoint can still move during a short reorganization.
@@ -83,6 +85,7 @@ pub(crate) struct ExternalAggregationResult {
 pub(crate) enum ExternalAggregationError {
     InvalidArgument(String),
     NotFound(String),
+    ResourceExhausted(String),
     Internal(String),
 }
 
@@ -94,6 +97,33 @@ impl ExternalAggregationError {
 }
 
 #[cfg(feature = "agglayer")]
+pub(crate) async fn external_proof_request_id(
+    db: &DriverDBClient,
+    row_id: i64,
+    mock: bool,
+) -> std::result::Result<B256, ExternalAggregationError> {
+    let stored = db.fetch_request(row_id).await.map_err(|error| {
+        ExternalAggregationError::internal("Failed to read proof request", error)
+    })?;
+    if stored.status == RequestStatus::Unrequested {
+        db.update_request_status(row_id, RequestStatus::Cancelled).await.map_err(|error| {
+            ExternalAggregationError::internal("Failed to cancel request without capacity", error)
+        })?;
+        return Err(ExternalAggregationError::ResourceExhausted(
+            "Proof capacity is full; retry after an active request completes".into(),
+        ));
+    }
+    if mock && stored.status == RequestStatus::Complete {
+        return Ok(B256::left_padding_from(&row_id.to_be_bytes()));
+    }
+    let id = stored.proof_request_id.as_deref().ok_or_else(|| {
+        ExternalAggregationError::Internal("Request ended without a proof ID".into())
+    })?;
+    B256::try_from(id)
+        .map_err(|error| ExternalAggregationError::internal("Invalid stored proof ID", error))
+}
+
+#[cfg(feature = "agglayer")]
 fn checked_external_block_number(
     value: u64,
     field: &str,
@@ -101,6 +131,15 @@ fn checked_external_block_number(
     i64::try_from(value).map_err(|_| {
         ExternalAggregationError::InvalidArgument(format!("{field} exceeds the supported range"))
     })
+}
+
+#[cfg(feature = "agglayer")]
+fn validate_external_prover_mode(is_cluster: bool) -> Result<()> {
+    anyhow::ensure!(
+        !is_cluster,
+        "The agglayer API requires network proof IDs; SP1_PROVER=cluster is not supported"
+    );
+    Ok(())
 }
 
 #[cfg(feature = "agglayer")]
@@ -270,6 +309,8 @@ where
         host: Arc<H>,
     ) -> Result<Self> {
         let is_cluster = is_cluster_mode();
+        #[cfg(feature = "agglayer")]
+        validate_external_prover_mode(is_cluster)?;
         anyhow::ensure!(
             !requester_config.private_stdin || (!requester_config.mock && !is_cluster),
             "PRIVATE_STDIN only applies to SP1 network proof requests; disable mock mode and SP1_PROVER=cluster"
@@ -879,9 +920,12 @@ where
                 if let Some(request_details) = request_details {
                     let auction_deadline =
                         request_details.created_at + self.requester_config.auction_timeout;
-                    if request_details.fulfillment_status == FulfillmentStatus::Requested as i32 &&
-                        current_time > auction_deadline
-                    {
+                    if auction_timed_out(
+                        request.req_type,
+                        request_details.fulfillment_status,
+                        current_time,
+                        auction_deadline,
+                    ) {
                         self.network_call_with_timeout(
                             network_prover.cancel_request(proof_request_id),
                             "cancelling proof request",
@@ -1401,60 +1445,9 @@ where
         Ok(())
     }
 
-    /// Request all unrequested proofs up to MAX_CONCURRENT_PROOF_REQUESTS. If there are already
-    /// MAX_CONCURRENT_PROOF_REQUESTS proofs in WitnessGeneration, Execute, and Prove status,
-    /// return. If there are already MAX_CONCURRENT_WITNESS_GEN proofs in WitnessGeneration or
-    /// Execute status, return.
-    ///
-    /// Note: In the future, submit up to MAX_CONCURRENT_PROOF_REQUESTS at a time. Don't do one per
-    /// loop.
+    /// Try one queued proof per loop. The requester reserves shared capacity before starting.
     #[tracing::instrument(name = "proposer.request_queued_proofs", skip(self))]
     async fn request_queued_proofs(&self) -> Result<()> {
-        let commitments = self.program_config.commitments.clone();
-        let l1_chain_id = self.requester_config.l1_chain_id;
-        let l2_chain_id = self.requester_config.l2_chain_id;
-
-        let witness_gen_count = self
-            .driver_config
-            .driver_db_client
-            .fetch_request_count(
-                RequestStatus::WitnessGeneration,
-                &commitments,
-                l1_chain_id,
-                l2_chain_id,
-            )
-            .await?;
-
-        let execution_count = self
-            .driver_config
-            .driver_db_client
-            .fetch_request_count(RequestStatus::Execution, &commitments, l1_chain_id, l2_chain_id)
-            .await?;
-
-        let prove_count = self
-            .driver_config
-            .driver_db_client
-            .fetch_request_count(RequestStatus::Prove, &commitments, l1_chain_id, l2_chain_id)
-            .await?;
-
-        // If there are already MAX_CONCURRENT_PROOF_REQUESTS proofs in WitnessGeneration, Execute,
-        // and Prove status, return.
-        if witness_gen_count + execution_count + prove_count >=
-            self.requester_config.max_concurrent_proof_requests as i64
-        {
-            debug!("There are already MAX_CONCURRENT_PROOF_REQUESTS proofs in WitnessGeneration, Execute, and Prove status.");
-            return Ok(());
-        }
-
-        // If there are already MAX_CONCURRENT_WITNESS_GEN proofs in WitnessGeneration status,
-        // return.
-        if witness_gen_count >= self.requester_config.max_concurrent_witness_gen as i64 {
-            debug!(
-                "There are already MAX_CONCURRENT_WITNESS_GEN proofs in WitnessGeneration status."
-            );
-            return Ok(());
-        }
-
         if let Some(request) = self.get_next_unrequested_proof().await? {
             info!(
                 request_id = request.id,
@@ -1465,11 +1458,16 @@ where
             );
             let request_clone = request.clone();
             let proof_requester = self.proof_requester.clone();
-            let handle =
-                tokio::spawn(
-                    async move { proof_requester.make_proof_request(request_clone).await },
-                );
-            self.tasks.lock().await.insert(request.id, (handle, request));
+            let max_witnesses = self.requester_config.max_concurrent_witness_gen;
+            let max_proofs = self.requester_config.max_concurrent_proof_requests;
+            let mut tasks = self.tasks.lock().await;
+            if tasks.contains_key(&request.id) {
+                return Ok(());
+            }
+            let handle = tokio::spawn(async move {
+                proof_requester.make_proof_request(request_clone, max_witnesses, max_proofs).await
+            });
+            tasks.insert(request.id, (handle, request));
         }
 
         Ok(())
@@ -1487,48 +1485,51 @@ where
         )
         .await?;
 
-        let unreq_agg_request = self
-            .driver_config
-            .driver_db_client
-            .fetch_unrequested_agg_proof(
-                latest_proposed_block_number as i64,
-                &self.program_config.commitments,
-                self.requester_config.l1_chain_id,
-                self.requester_config.l2_chain_id,
-            )
-            .await?;
-
-        if let Some(unreq_agg_request) = unreq_agg_request {
-            // Fetch consecutive range proofs from the database associated with the aggregation
-            // proof request.
-            let range_proofs = self
-                .proof_requester
-                .db_client
-                .get_consecutive_complete_range_proofs(
-                    unreq_agg_request.start_block,
-                    unreq_agg_request.end_block,
+        // External aggregation requests belong to their RPC task, including queued rows.
+        if !cfg!(feature = "agglayer") {
+            let unreq_agg_request = self
+                .driver_config
+                .driver_db_client
+                .fetch_unrequested_agg_proof(
+                    latest_proposed_block_number as i64,
                     &self.program_config.commitments,
                     self.requester_config.l1_chain_id,
                     self.requester_config.l2_chain_id,
                 )
                 .await?;
 
-            // Validate the aggregation proof request
-            match self.validate_aggregation_request(&range_proofs, &unreq_agg_request).await {
-                true => {
-                    debug!(
+            if let Some(unreq_agg_request) = unreq_agg_request {
+                // Fetch consecutive range proofs from the database associated with the aggregation
+                // proof request.
+                let range_proofs = self
+                    .proof_requester
+                    .db_client
+                    .get_consecutive_complete_range_proofs(
+                        unreq_agg_request.start_block,
+                        unreq_agg_request.end_block,
+                        &self.program_config.commitments,
+                        self.requester_config.l1_chain_id,
+                        self.requester_config.l2_chain_id,
+                    )
+                    .await?;
+
+                // Validate the aggregation proof request
+                match self.validate_aggregation_request(&range_proofs, &unreq_agg_request).await {
+                    true => {
+                        debug!(
                         "Aggregation request validated successfully: start_block={}, end_block={}",
                         unreq_agg_request.start_block, unreq_agg_request.end_block
                     );
-                    return Ok(Some(unreq_agg_request));
-                }
-                false => {
-                    debug!(
+                        return Ok(Some(unreq_agg_request));
+                    }
+                    false => {
+                        debug!(
                         "Aggregation request validation failed, moving to range proofs: start_block={}, end_block={}",
                         unreq_agg_request.start_block, unreq_agg_request.end_block
                     );
-                    ValidityGauge::AggProofValidationErrorCount.increment(1.0);
-                    // Validation failed, continue to try fetching range proofs
+                        ValidityGauge::AggProofValidationErrorCount.increment(1.0);
+                        // Validation failed, continue to try fetching range proofs
+                    }
                 }
             }
         }
@@ -1712,7 +1713,7 @@ where
         };
         let end_block = last_range_proof.end_block;
 
-        let op_request = OPSuccinctRequest::new_agg_request(
+        let mut op_request = OPSuccinctRequest::new_agg_request(
             if self.requester_config.mock { RequestMode::Mock } else { RequestMode::Real },
             last_proven_block,
             end_block,
@@ -1741,55 +1742,44 @@ where
             "Aggregation request validated"
         );
 
-        info!(
-            start_block = op_request.start_block,
-            end_block = op_request.end_block,
-            l1_block_number = ?op_request.checkpointed_l1_block_number,
-            "Starting witness generation"
-        );
-        let witnessgen_start = Instant::now();
-        let stdin =
-            self.proof_requester.generate_proof_stdin(&op_request).await.map_err(|error| {
-                ValidityGauge::WitnessgenErrorCount.increment(1.0);
-                ExternalAggregationError::internal("Failed to generate proof stdin", error)
-            })?;
-        info!(
-            start_block = op_request.start_block,
-            end_block = op_request.end_block,
-            duration_s = witnessgen_start.elapsed().as_secs(),
-            "Completed witness generation"
-        );
-
-        let proof_request_id = if self.proof_requester.mock {
-            let proof =
-                self.proof_requester.generate_mock_agg_proof(&op_request, stdin).await.map_err(
-                    |error| {
-                        ExternalAggregationError::internal("Failed to generate mock proof", error)
-                    },
-                )?;
-            let proof_bytes = bincode::DefaultOptions::new()
-                .with_big_endian()
-                .with_fixint_encoding()
-                .serialize(&proof)
-                .map_err(|error| {
-                    ExternalAggregationError::internal("Failed to serialize mock proof", error)
-                })?;
-            let stored = OPSuccinctRequest {
-                proof: Some(proof_bytes),
-                status: RequestStatus::Complete,
-                ..op_request
+        drop(range_proofs);
+        let db = &self.proof_requester.db_client;
+        // Register before spawning so the loop cannot mistake this work for an abandoned task.
+        let mut tasks = self.tasks.lock().await;
+        op_request.id = db.insert_request(&op_request).await.map_err(|error| {
+            ExternalAggregationError::internal("Failed to save request to DB", error)
+        })?;
+        let row_id = op_request.id;
+        let proof_requester = self.proof_requester.clone();
+        let task_request = op_request.clone();
+        let max_witnesses = self.requester_config.max_concurrent_witness_gen;
+        let max_proofs = self.requester_config.max_concurrent_proof_requests;
+        let (send, receive) = tokio::sync::oneshot::channel();
+        // Keep accepted work tracked if the coordinator disconnects before the response.
+        let handle = tokio::spawn(async move {
+            let result =
+                proof_requester.make_proof_request(task_request, max_witnesses, max_proofs).await;
+            let response = match &result {
+                Ok(()) => {
+                    external_proof_request_id(
+                        &proof_requester.db_client,
+                        row_id,
+                        proof_requester.mock,
+                    )
+                    .await
+                }
+                Err(error) => {
+                    Err(ExternalAggregationError::internal("Failed to request proof", error))
+                }
             };
-            let row_id =
-                self.proof_requester.db_client.insert_request(&stored).await.map_err(|error| {
-                    ExternalAggregationError::internal("Failed to save request to DB", error)
-                })?;
-
-            B256::left_padding_from(&row_id.to_be_bytes())
-        } else {
-            self.proof_requester.request_agg_proof(stdin).await.map_err(|error| {
-                ExternalAggregationError::internal("Failed to request proof", error)
-            })?
-        };
+            let _ = send.send(response);
+            result
+        });
+        tasks.insert(row_id, (handle, op_request));
+        drop(tasks);
+        let proof_request_id = receive.await.map_err(|error| {
+            ExternalAggregationError::internal("Proof task ended without a result", error)
+        })??;
 
         Ok(ExternalAggregationResult {
             last_proven_block: request.last_proven_block,
@@ -2471,12 +2461,39 @@ mod tests {
 
     #[cfg(feature = "agglayer")]
     use super::{
-        checked_external_block_number, validate_checkpoint_hash, ExternalAggregationError,
+        checked_external_block_number, validate_checkpoint_hash, validate_external_prover_mode,
+        ExternalAggregationError,
     };
+
     use super::{
-        handle_terminal_proof_failure_before_request_details, highest_contiguous_end,
-        select_checkpoint_block_number, OPSuccinctRequest, RequestStatus, RequestType,
+        auction_timed_out, handle_terminal_proof_failure_before_request_details,
+        highest_contiguous_end, select_checkpoint_block_number, OPSuccinctRequest, RequestStatus,
+        RequestType,
     };
+
+    #[cfg(feature = "agglayer")]
+    #[test]
+    fn external_aggregation_requires_network_proof_ids() {
+        assert!(validate_external_prover_mode(false).is_ok());
+        assert!(validate_external_prover_mode(true).is_err());
+    }
+
+    #[test]
+    fn auction_timeout_preserves_external_coordinator_ownership() {
+        let requested = FulfillmentStatus::Requested as i32;
+        assert!(auction_timed_out(RequestType::Range, requested, 61, 60));
+        assert_eq!(
+            auction_timed_out(RequestType::Aggregation, requested, 61, 60),
+            !cfg!(feature = "agglayer")
+        );
+        assert!(!auction_timed_out(RequestType::Range, requested, 60, 60));
+        assert!(!auction_timed_out(
+            RequestType::Range,
+            FulfillmentStatus::Fulfilled as i32,
+            61,
+            60
+        ));
+    }
 
     #[cfg(feature = "agglayer")]
     #[test]

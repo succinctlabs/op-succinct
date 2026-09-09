@@ -271,6 +271,10 @@ impl DriverDBClient {
         Ok(requests)
     }
 
+    pub async fn fetch_request(&self, id: i64) -> Result<OPSuccinctRequest, Error> {
+        sqlx::query_as("SELECT * FROM requests WHERE id = $1").bind(id).fetch_one(&self.pool).await
+    }
+
     /// Get the consecutive range proofs for a given start block and end block that are complete
     /// with the same range vkey commitment.
     pub async fn get_consecutive_complete_range_proofs(
@@ -584,16 +588,49 @@ impl DriverDBClient {
         .await
     }
 
-    /// Begin witness generation only for a still-valid queued request.
-    pub async fn try_start_witness_generation(&self, id: i64) -> Result<bool, Error> {
+    /// Reserve capacity and begin witness generation for a still-valid queued request.
+    pub async fn try_start_witness_generation(
+        &self,
+        id: i64,
+        max_witnesses: u64,
+        max_proofs: u64,
+    ) -> Result<bool, Error> {
+        let request = self.fetch_request(id).await?;
+        let mut tx = self.pool.begin().await?;
+        // Serialize admission for this chain until the new active status is committed.
+        // A count followed by an unlocked update can let both callers claim the last slot.
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
+            .bind(format!("proof-admission:{}:{}", request.l1_chain_id, request.l2_chain_id))
+            .execute(&mut *tx)
+            .await?;
+        let (witnesses, active): (i64, i64) = sqlx::query_as(
+            "SELECT COUNT(*) FILTER (WHERE status = $1), COUNT(*) FROM requests
+             WHERE status IN ($1, $2, $3) AND l1_chain_id = $4 AND l2_chain_id = $5
+             AND range_vkey_commitment = $6 AND rollup_config_hash = $7",
+        )
+        .bind(RequestStatus::WitnessGeneration as i16)
+        .bind(RequestStatus::Execution as i16)
+        .bind(RequestStatus::Prove as i16)
+        .bind(request.l1_chain_id)
+        .bind(request.l2_chain_id)
+        .bind(&request.range_vkey_commitment)
+        .bind(&request.rollup_config_hash)
+        .fetch_one(&mut *tx)
+        .await?;
+        if u64::try_from(witnesses).map_err(|e| Error::Decode(Box::new(e)))? >= max_witnesses ||
+            u64::try_from(active).map_err(|e| Error::Decode(Box::new(e)))? >= max_proofs
+        {
+            return Ok(false);
+        }
         let result = sqlx::query(
             "UPDATE requests SET status = $1, updated_at = NOW() WHERE id = $2 AND status = $3 AND invalidated_at IS NULL",
         )
         .bind(RequestStatus::WitnessGeneration as i16)
         .bind(id)
         .bind(RequestStatus::Unrequested as i16)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await?;
+        tx.commit().await?;
         Ok(result.rows_affected() == 1)
     }
 
@@ -2013,7 +2050,7 @@ mod tests {
             .fetch_one(&c.pool)
             .await
             .unwrap();
-        assert!(!c.try_start_witness_generation(queued_id).await.unwrap());
+        assert!(!c.try_start_witness_generation(queued_id, 10, 10).await.unwrap());
 
         let witness_id: i64 = sqlx::query_scalar("SELECT id FROM requests WHERE end_block = 102")
             .fetch_one(&c.pool)
@@ -2028,5 +2065,143 @@ mod tests {
             .unwrap();
         assert!(!c.update_proof_to_complete(prove_id, &[1, 2, 3]).await.unwrap());
         assert!(c.finish_invalidated_request(prove_id).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn proof_capacity_is_shared_by_concurrent_range_and_aggregation_requests() {
+        let db = TestDb::new().await;
+        let c = db.client();
+        let mut ids = Vec::new();
+        for i in 0..8 {
+            let req_type = if i % 2 == 0 { RequestType::Range } else { RequestType::Aggregation };
+            let request =
+                RequestBuilder::new().range(i * 10, (i + 1) * 10).req_type(req_type).build();
+            ids.push(c.insert_request(&request).await.unwrap());
+        }
+
+        let attempts = ids.iter().map(|&id| c.try_start_witness_generation(id, 1, 2));
+        let results = futures_util::future::join_all(attempts).await;
+        let started: Vec<_> = ids
+            .iter()
+            .zip(results)
+            .filter_map(|(&id, result)| result.unwrap().then_some(id))
+            .collect();
+        assert_eq!(started.len(), 1, "Both callers must share the witness limit");
+
+        let first = started[0];
+        c.update_request_to_prove(first, B256::repeat_byte(1)).await.unwrap();
+        let second = *ids.iter().find(|&&id| id != first).unwrap();
+        assert!(c.try_start_witness_generation(second, 1, 2).await.unwrap());
+        c.update_request_to_prove(second, B256::repeat_byte(2)).await.unwrap();
+        let third = *ids.iter().find(|&&id| id != first && id != second).unwrap();
+        assert!(
+            !c.try_start_witness_generation(third, 1, 2).await.unwrap(),
+            "Submitted network proofs still consume capacity"
+        );
+
+        assert!(c.update_proof_to_complete(first, &[1]).await.unwrap());
+        assert!(c.try_start_witness_generation(third, 1, 2).await.unwrap());
+        c.update_request_status(third, RequestStatus::Failed).await.unwrap();
+        let fourth = *ids.iter().find(|&&id| id != first && id != second && id != third).unwrap();
+        assert!(
+            c.try_start_witness_generation(fourth, 1, 2).await.unwrap(),
+            "Failure releases capacity"
+        );
+        assert!(
+            !c.try_start_witness_generation(fourth, 10, 10).await.unwrap(),
+            "A request cannot start twice"
+        );
+    }
+
+    #[tokio::test]
+    async fn proof_capacity_respects_disabled_limits_and_chain_scope() {
+        let db = TestDb::new().await;
+        let c = db.client();
+        let id = c.insert_request(&RequestBuilder::new().build()).await.unwrap();
+        assert!(!c.try_start_witness_generation(id, 0, 1).await.unwrap());
+        assert!(!c.try_start_witness_generation(id, 1, 0).await.unwrap());
+        c.insert_request(
+            &RequestBuilder::new()
+                .chains(L1ID, L2ID + 1)
+                .status(RequestStatus::WitnessGeneration)
+                .build(),
+        )
+        .await
+        .unwrap();
+        c.insert_request(
+            &RequestBuilder::new()
+                .commitment(B256::repeat_byte(9), B256::ZERO)
+                .status(RequestStatus::Prove)
+                .build(),
+        )
+        .await
+        .unwrap();
+        assert!(c.try_start_witness_generation(id, 1, 1).await.unwrap());
+        c.update_request_status(id, RequestStatus::Execution).await.unwrap();
+        let next = c.insert_request(&RequestBuilder::new().range(10, 20).build()).await.unwrap();
+        assert!(
+            !c.try_start_witness_generation(next, 1, 1).await.unwrap(),
+            "Mock execution still consumes proof capacity"
+        );
+    }
+
+    #[cfg(feature = "agglayer")]
+    #[tokio::test]
+    async fn proof_capacity_external_response_preserves_ids_and_cancels_rejected_work() {
+        use crate::proposer::{external_proof_request_id, ExternalAggregationError};
+
+        let db = TestDb::new().await;
+        let c = db.client();
+        let range_id = c.insert_request(&RequestBuilder::new().build()).await.unwrap();
+        assert!(c.try_start_witness_generation(range_id, 1, 1).await.unwrap());
+        let agg_id = c
+            .insert_request(&RequestBuilder::new().req_type(RequestType::Aggregation).build())
+            .await
+            .unwrap();
+        assert!(!c.try_start_witness_generation(agg_id, 1, 1).await.unwrap());
+        assert!(matches!(
+            external_proof_request_id(c, agg_id, false).await,
+            Err(ExternalAggregationError::ResourceExhausted(_))
+        ));
+        assert_eq!(c.fetch_request(agg_id).await.unwrap().status, RequestStatus::Cancelled);
+
+        c.update_request_status(range_id, RequestStatus::Complete).await.unwrap();
+        let next_id = c
+            .insert_request(&RequestBuilder::new().req_type(RequestType::Aggregation).build())
+            .await
+            .unwrap();
+        assert!(c.try_start_witness_generation(next_id, 1, 1).await.unwrap());
+        let network_id = B256::repeat_byte(42);
+        c.update_request_to_prove(next_id, network_id).await.unwrap();
+        assert!(
+            matches!(external_proof_request_id(c, next_id, false).await, Ok(id) if id == network_id)
+        );
+        assert_eq!(count(c, RequestStatus::Prove).await, 1);
+        assert!(c.update_proof_to_complete(next_id, &[1]).await.unwrap());
+        assert!(
+            matches!(external_proof_request_id(c, next_id, false).await, Ok(id) if id == network_id)
+        );
+        let mock_id = c
+            .insert_request(
+                &RequestBuilder::new()
+                    .req_type(RequestType::Aggregation)
+                    .mode(RequestMode::Mock)
+                    .agg_vkey(B256::ZERO)
+                    .build(),
+            )
+            .await
+            .unwrap();
+        assert!(c.try_start_witness_generation(mock_id, 1, 1).await.unwrap());
+        c.update_request_status(mock_id, RequestStatus::Execution).await.unwrap();
+        assert!(c.update_proof_to_complete(mock_id, &[1, 2, 3]).await.unwrap());
+        assert!(
+            matches!(external_proof_request_id(c, mock_id, true).await, Ok(id) if id == B256::left_padding_from(&mock_id.to_be_bytes()))
+        );
+        assert_eq!(
+            c.get_mock_aggregation_proof_by_request_id(mock_id, &default_commitment(), L1ID, L2ID)
+                .await
+                .unwrap(),
+            vec![1, 2, 3]
+        );
     }
 }
