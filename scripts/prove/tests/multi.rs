@@ -24,7 +24,7 @@ async fn execute_batch() -> Result<()> {
 
     // Take the latest blocks
     let (l2_start_block, l2_end_block) =
-        get_rolling_block_range(host.as_ref(), &data_fetcher, DEFAULT_RANGE).await?;
+        get_rolling_block_range(&data_fetcher, DEFAULT_RANGE).await?;
 
     let host_args = host.fetch(l2_start_block, l2_end_block, None, false).await?;
 

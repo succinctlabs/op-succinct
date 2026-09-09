@@ -20,7 +20,6 @@ kona-preimage.workspace = true
 kona-proof.workspace = true
 
 # alloy
-alloy-eips.workspace = true
 alloy-primitives.workspace = true
 
 # general

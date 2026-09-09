@@ -256,6 +256,61 @@ impl OPSuccinctDataFetcher {
         })
     }
 
+    /// Require SafeDB at startup for a non-default L1 selection.
+    ///
+    /// Returns an error if SafeDB is unavailable or its probe fails.
+    /// Call this from entry points that use the configured L1 selection.
+    pub async fn validate_l1_selection(&self) -> Result<()> {
+        if self.l1_selection.is_default() {
+            return Ok(());
+        }
+
+        if !self.is_safe_db_activated().await? {
+            bail!(
+                "L1_BLOCK_TAG={:?} with L1_CONFIRMATIONS={} requires SafeDB to be activated on \
+                 op-node. Either enable SafeDB on the L2 node, or unset L1_BLOCK_TAG and \
+                 L1_CONFIRMATIONS to use the default (finalized).",
+                self.l1_selection.tag,
+                self.l1_selection.confirmations
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Get the highest L2 block that can be proved under the configured L1 selection.
+    ///
+    /// The default selection uses L2 finalized. Other selections use the L2 safe head at
+    /// the selected L1 block and require SafeDB. RPC and SafeDB errors are propagated.
+    pub async fn get_max_provable_l2_block_number(&self) -> Result<u64> {
+        if self.l1_selection.is_default() {
+            return Ok(self.get_l2_header(BlockId::finalized()).await?.number);
+        }
+
+        let resolved_l1 = self.resolve_selected_l1_header().await?;
+        self.get_l2_safe_head_from_l1_block_number(resolved_l1.number).await
+    }
+
+    /// Calculate the L1 head for a proof ending at `l2_end_block`.
+    ///
+    /// Add the existing 20-block buffer to the batch posting block, capped at the selected
+    /// L1 head. Pass `safe_db_fallback` through to [`Self::get_l1_head`]; propagate errors.
+    pub async fn calculate_safe_l1_head(
+        &self,
+        l2_end_block: u64,
+        safe_db_fallback: bool,
+    ) -> Result<B256> {
+        let (_, l1_head_number) = self.get_l1_head(l2_end_block, safe_db_fallback).await?;
+
+        // Preserve the buffer used by all retained DA backends.
+        // FIXME(fakedev9999): Investigate why the L1 head must extend beyond the batch posting
+        // block whose safe head already covers the L2 end block.
+        let l1_head_number = l1_head_number + 20;
+        let selected_l1 = self.resolve_selected_l1_header().await?;
+        let safe_l1_head_number = min(l1_head_number, selected_l1.number);
+        Ok(self.get_l1_header(safe_l1_head_number.into()).await?.hash_slow())
+    }
+
     /// Resolve the L1 [`Header`] selected by the configured tag and confirmations.
     ///
     /// For the default selection (`finalized`, 0) this returns the finalized header directly.
@@ -1042,6 +1097,268 @@ impl OPSuccinctDataFetcher {
 mod tests {
     use super::*;
     use tempfile::TempDir;
+
+    use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
+
+    use tokio::{
+        io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
+        net::TcpListener,
+        task::JoinHandle,
+    };
+
+    use crate::{
+        block_range::{get_rolling_block_range, get_validated_block_range},
+        l1_selection::L1BlockTag,
+    };
+
+    struct TestRpc {
+        fetcher: OPSuccinctDataFetcher,
+        calls: Arc<AtomicUsize>,
+        server: JoinHandle<()>,
+    }
+
+    impl Drop for TestRpc {
+        fn drop(&mut self) {
+            self.server.abort();
+        }
+    }
+
+    impl TestRpc {
+        async fn new(
+            selection: L1BlockSelectionConfig,
+            respond: impl Fn(&str, &Value) -> Value + Send + 'static,
+        ) -> Self {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let base = format!("http://{}", listener.local_addr().unwrap());
+            let rpc_config = RPCConfig {
+                l1_rpc: format!("{base}/l1").parse().unwrap(),
+                l2_rpc: format!("{base}/l2").parse().unwrap(),
+                l2_node_rpc: format!("{base}/node").parse().unwrap(),
+                l1_beacon_rpc: None,
+            };
+            let fetcher = OPSuccinctDataFetcher {
+                l1_provider: Arc::new(
+                    ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone()),
+                ),
+                l2_provider: Arc::new(
+                    ProviderBuilder::default().connect_http(rpc_config.l2_rpc.clone()),
+                ),
+                rpc_config,
+                rollup_config: Some(RollupConfig::default()),
+                rollup_config_path: None,
+                l1_config_path: None,
+                l1_selection: selection,
+            };
+            let calls = Arc::new(AtomicUsize::new(0));
+            let server_calls = calls.clone();
+            let server = tokio::spawn(async move {
+                loop {
+                    let (stream, _) = listener.accept().await.unwrap();
+                    let mut reader = BufReader::new(stream);
+                    let mut request_line = String::new();
+                    assert!(reader.read_line(&mut request_line).await.unwrap() > 0);
+                    let path = request_line.split_whitespace().nth(1).unwrap();
+                    let mut content_length = None;
+                    loop {
+                        let mut line = String::new();
+                        assert!(reader.read_line(&mut line).await.unwrap() > 0);
+                        if line == "\r\n" {
+                            break;
+                        }
+                        if let Some((name, value)) = line.split_once(':') {
+                            if name.eq_ignore_ascii_case("content-length") {
+                                content_length = Some(value.trim().parse::<usize>().unwrap());
+                            }
+                        }
+                    }
+                    let mut body = vec![0; content_length.unwrap()];
+                    reader.read_exact(&mut body).await.unwrap();
+                    let request: Value = serde_json::from_slice(&body).unwrap();
+                    server_calls.fetch_add(1, AtomicOrdering::Relaxed);
+                    let mut response = respond(path, &request);
+                    response["id"] = request["id"].clone();
+                    response["jsonrpc"] = json!("2.0");
+                    let body = response.to_string();
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                        body.len(), body
+                    );
+                    reader.get_mut().write_all(response.as_bytes()).await.unwrap();
+                }
+            });
+            Self { fetcher, calls, server }
+        }
+    }
+
+    fn block_response(number: u64) -> Value {
+        let header = Header { number, ..Default::default() };
+        let mut block = serde_json::to_value(&header).unwrap();
+        block["hash"] = json!(header.hash_slow());
+        block["transactions"] = json!([]);
+        block["uncles"] = json!([]);
+        json!({ "result": block })
+    }
+
+    fn safe_head_response(l1: u64, l2: u64) -> Value {
+        json!({ "result": {
+            "l1Block": { "hash": B256::ZERO, "number": l1 },
+            "safeHead": { "hash": B256::ZERO, "number": l2 },
+        } })
+    }
+
+    #[tokio::test]
+    async fn default_ranges_only_query_l2_finalized() {
+        let rpc = TestRpc::new(L1BlockSelectionConfig::default(), |path, request| {
+            assert_eq!(path, "/l2");
+            assert_eq!(request["method"], "eth_getBlockByNumber");
+            assert_eq!(request["params"], json!(["finalized", false]));
+            block_response(700)
+        })
+        .await;
+
+        rpc.fetcher.validate_l1_selection().await.unwrap();
+        assert_eq!(rpc.calls.load(AtomicOrdering::Relaxed), 0);
+        assert_eq!(
+            get_validated_block_range(&rpc.fetcher, None, None, 10).await.unwrap(),
+            (690, 700)
+        );
+        assert_eq!(rpc.calls.load(AtomicOrdering::Relaxed), 1);
+        assert_eq!(get_rolling_block_range(&rpc.fetcher, 10).await.unwrap(), (690, 700));
+        assert_eq!(rpc.calls.load(AtomicOrdering::Relaxed), 2);
+        assert!(get_validated_block_range(&rpc.fetcher, Some(690), Some(701), 10)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("max provable L2 block (700)"));
+        assert!(get_validated_block_range(&rpc.fetcher, Some(700), Some(700), 10).await.is_err());
+        assert!(get_rolling_block_range(&rpc.fetcher, 701).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn non_default_ranges_use_the_confirmed_l1_safe_head() {
+        for tag in [L1BlockTag::Finalized, L1BlockTag::Safe, L1BlockTag::Latest] {
+            let rpc =
+                TestRpc::new(L1BlockSelectionConfig { tag, confirmations: 10 }, |path, request| {
+                    match path {
+                        "/l1" => {
+                            assert_eq!(request["method"], "eth_getBlockByNumber");
+                            match request["params"][0].as_str().unwrap() {
+                                "finalized" | "safe" | "latest" => block_response(120),
+                                "0x6e" => block_response(110),
+                                other => panic!("Unexpected L1 block: {other}"),
+                            }
+                        }
+                        "/node" => {
+                            assert_eq!(request["method"], "optimism_safeHeadAtL1Block");
+                            assert_eq!(request["params"], json!(["0x6e"]));
+                            safe_head_response(110, 500)
+                        }
+                        other => panic!("Unexpected RPC path: {other}"),
+                    }
+                })
+                .await;
+            assert_eq!(
+                get_validated_block_range(&rpc.fetcher, None, None, 10).await.unwrap(),
+                (490, 500)
+            );
+            assert_eq!(get_rolling_block_range(&rpc.fetcher, 10).await.unwrap(), (490, 500));
+        }
+    }
+
+    #[tokio::test]
+    async fn startup_validation_requires_safedb_and_propagates_rpc_errors() {
+        for (response, expected_error) in [
+            (safe_head_response(100, 50), None),
+            (
+                json!({ "error": { "code": -32601, "message": "method not found" } }),
+                Some("requires SafeDB"),
+            ),
+            (
+                json!({ "error": { "code": -32000, "message": "unauthorized" } }),
+                Some("unauthorized"),
+            ),
+            (json!({ "result": null }), Some("Malformed")),
+        ] {
+            let rpc = TestRpc::new(
+                L1BlockSelectionConfig { tag: L1BlockTag::Safe, confirmations: 0 },
+                move |path, request| match path {
+                    "/l1" => block_response(100),
+                    "/node" => {
+                        assert_eq!(request["method"], "optimism_safeHeadAtL1Block");
+                        response.clone()
+                    }
+                    other => panic!("Unexpected RPC path: {other}"),
+                },
+            )
+            .await;
+            let result = rpc.fetcher.validate_l1_selection().await;
+            match expected_error {
+                Some(message) => assert!(result.unwrap_err().to_string().contains(message)),
+                None => result.unwrap(),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn safe_l1_head_preserves_the_buffer_and_selection_cap() {
+        for (selection, posting_block, expected_head) in [
+            (L1BlockSelectionConfig::default(), 70, 90),
+            (L1BlockSelectionConfig::default(), 90, 100),
+            (L1BlockSelectionConfig { tag: L1BlockTag::Latest, confirmations: 10 }, 125, 130),
+        ] {
+            let rpc = TestRpc::new(selection, move |path, request| {
+                match (path, request["method"].as_str().unwrap()) {
+                    ("/l1", "eth_getBlockByNumber") => {
+                        let block = match request["params"][0].as_str().unwrap() {
+                            "finalized" => 100,
+                            "latest" => 140,
+                            number => {
+                                u64::from_str_radix(number.trim_start_matches("0x"), 16).unwrap()
+                            }
+                        };
+                        block_response(block)
+                    }
+                    ("/node", "optimism_outputAtBlock") => {
+                        let mut block_ref = L2BlockInfo::default();
+                        block_ref.l1_origin.number = 10;
+                        json!({ "result": OutputResponse {
+                            version: B256::ZERO,
+                            output_root: B256::ZERO,
+                            block_ref,
+                            withdrawal_storage_root: B256::ZERO,
+                            state_root: B256::ZERO,
+                            sync_status: kona_protocol::SyncStatus {
+                                current_l1: Default::default(),
+                                current_l1_finalized: Default::default(),
+                                head_l1: Default::default(),
+                                safe_l1: Default::default(),
+                                finalized_l1: Default::default(),
+                                unsafe_l2: Default::default(),
+                                safe_l2: Default::default(),
+                                finalized_l2: Default::default(),
+                                cross_unsafe_l2: Default::default(),
+                                local_safe_l2: Default::default(),
+                            },
+                        } })
+                    }
+                    ("/node", "optimism_safeHeadAtL1Block") => {
+                        let block = u64::from_str_radix(
+                            request["params"][0].as_str().unwrap().trim_start_matches("0x"),
+                            16,
+                        )
+                        .unwrap();
+                        safe_head_response(block, if block >= posting_block { 50 } else { 49 })
+                    }
+                    other => panic!("Unexpected RPC request: {other:?}"),
+                }
+            })
+            .await;
+            assert_eq!(
+                rpc.fetcher.calculate_safe_l1_head(50, false).await.unwrap(),
+                Header { number: expected_head, ..Default::default() }.hash_slow()
+            );
+        }
+    }
 
     fn test_rollup_config(chain_id: u64) -> RollupConfig {
         RollupConfig { l2_chain_id: chain_id.into(), ..Default::default() }

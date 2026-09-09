@@ -17,8 +17,7 @@ pub enum ProposerGauge {
         message = "Maximum L2 block the host is willing to anchor a proof against under the \
                    current backend + L1 selection. Matches L2 finalized under default \
                    Ethereum/EigenDA; reflects the L2 safe head at the configured L1 anchor under \
-                   non-default Ethereum/EigenDA; reflects the Blobstream-resolved max provable L2 \
-                   block under Celestia."
+                   non-default Ethereum/EigenDA."
     )]
     MaxProvableL2BlockNumber,
     #[strum(

@@ -2,7 +2,7 @@
 //!
 //! Contains the [`AltDAChainHost`] configuration struct, [`AltDAExtendedHintType`] hint type
 //! wrapper, and [`AltDAChainProviders`] provider set. Follows the pattern established by
-//! `CelestiaChainHost` (hana-host) and `SingleChainHostWithEigenDA` (hokulea-host).
+//! `SingleChainHostWithEigenDA` (hokulea-host).
 
 use std::{sync::Arc, time::Duration};
 
