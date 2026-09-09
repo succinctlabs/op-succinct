@@ -6,7 +6,9 @@ mod host {
     use alloy_primitives::B256;
     use anyhow::Result;
     use op_succinct_eigenda_host_utils::host::EigenDAOPSuccinctHost;
-    use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost};
+    use op_succinct_host_utils::{
+        fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost, L1BlockSelectionConfig, L1BlockTag,
+    };
 
     /// Test context with pre-initialized host and block range.
     struct TestContext {
@@ -52,7 +54,11 @@ mod host {
 
     #[tokio::test]
     async fn test_fetch_uses_explicit_l1_head() -> Result<()> {
-        let ctx = TestContext::new().await?;
+        let mut ctx = TestContext::new().await?;
+        let fetcher = Arc::make_mut(&mut ctx.host.fetcher);
+        fetcher.l1_selection = L1BlockSelectionConfig { tag: L1BlockTag::Latest, confirmations: 5 };
+        // An explicit L1 head must work without a SafeDB endpoint, including non-default selection.
+        fetcher.rpc_config.l2_node_rpc = "http://127.0.0.1:1".parse()?;
         let args = ctx
             .host
             .fetch(ctx.l2_start_block, ctx.l2_end_block, Some(ctx.finalized_l1_hash), false)
@@ -65,8 +71,7 @@ mod host {
     #[tokio::test]
     async fn test_calculate_safe_l1_head_respects_finalized_boundary() -> Result<()> {
         let ctx = TestContext::new().await?;
-        let safe_l1_head =
-            ctx.host.calculate_safe_l1_head(&ctx.host.fetcher, ctx.l2_end_block, false).await?;
+        let safe_l1_head = ctx.host.fetcher.calculate_safe_l1_head(ctx.l2_end_block, false).await?;
 
         assert_ne!(safe_l1_head, B256::ZERO);
 

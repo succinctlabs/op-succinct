@@ -5,7 +5,7 @@ use log::info;
 use op_succinct_host_utils::{
     block_range::{get_validated_block_range, split_range_basic},
     fetcher::OPSuccinctDataFetcher,
-    host::{enforce_l1_selection_supported, OPSuccinctHost},
+    host::OPSuccinctHost,
     l1_selection::L1BlockSelectionConfig,
     witness_generation::WitnessGenerator,
 };
@@ -32,16 +32,10 @@ async fn main() -> Result<()> {
 
     let host = initialize_host(Arc::new(data_fetcher.clone()));
 
-    enforce_l1_selection_supported(&data_fetcher, l1_selection).await?;
+    data_fetcher.validate_l1_selection().await?;
 
-    let (l2_start_block, l2_end_block) = get_validated_block_range(
-        host.as_ref(),
-        &data_fetcher,
-        args.start,
-        args.end,
-        args.default_range,
-    )
-    .await?;
+    let (l2_start_block, l2_end_block) =
+        get_validated_block_range(&data_fetcher, args.start, args.end, args.default_range).await?;
 
     let split_ranges = split_range_basic(l2_start_block, l2_end_block, args.effective_batch_size());
 

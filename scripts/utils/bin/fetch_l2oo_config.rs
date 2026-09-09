@@ -2,17 +2,15 @@ use alloy_eips::BlockId;
 use anyhow::{bail, Result};
 use op_succinct_host_utils::{
     fetcher::{OPSuccinctDataFetcher, RPCMode},
-    host::{enforce_l1_selection_supported, OPSuccinctHost},
     l1_selection::L1BlockSelectionConfig,
     setup_logger, OP_SUCCINCT_L2_OUTPUT_ORACLE_CONFIG_PATH,
 };
-use op_succinct_proof_utils::initialize_host;
 use op_succinct_scripts::config_common::{
     find_project_root, get_address, get_shared_config_data, write_config_file, TWO_WEEKS_IN_SECONDS,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{env, sync::Arc};
+use std::env;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,8 +52,7 @@ async fn update_l2oo_config() -> Result<()> {
     let l1_selection = L1BlockSelectionConfig::from_env()?;
     let data_fetcher =
         OPSuccinctDataFetcher::new_with_rollup_config_and_l1_selection(l1_selection).await?;
-    let host = initialize_host(Arc::new(data_fetcher.clone()));
-    enforce_l1_selection_supported(&data_fetcher, l1_selection).await?;
+    data_fetcher.validate_l1_selection().await?;
     let shared_config = get_shared_config_data(data_fetcher.clone()).await?;
 
     let rollup_config = data_fetcher.rollup_config.as_ref().unwrap();
@@ -92,26 +89,9 @@ async fn update_l2oo_config() -> Result<()> {
     let starting_block_number = match env::var("STARTING_BLOCK_NUMBER") {
         Ok(n) => n.parse().unwrap(),
         Err(_) => {
-            // Use finalized block minus the finalization period as a starting point.
-            let finalized_l2_header = data_fetcher.get_l2_header(BlockId::finalized()).await?;
-            let finalized_l2_block = finalized_l2_header.number;
-
+            let finalized_l2_block_number =
+                data_fetcher.get_l2_header(BlockId::finalized()).await?.number;
             let num_blocks_for_finality = finalization_period / l2_block_time;
-            let search_start = finalized_l2_block.saturating_sub(num_blocks_for_finality);
-
-            // Build a finalized-only view of the fetcher just for this search. Overrides only
-            // `l1_selection`; the underlying RPC providers and rollup config are reused.
-            let mut bootstrap_fetcher = data_fetcher.clone();
-            bootstrap_fetcher.l1_selection = L1BlockSelectionConfig::default();
-
-            // Now search for the highest finalized block with available data.
-            let finalized_l2_block_number = match host
-                .get_max_provable_l2_block_number(&bootstrap_fetcher, search_start)
-                .await?
-            {
-                Some(block_num) => block_num,
-                None => search_start,
-            };
 
             // NOTE: Starting from block 0 (genesis) is intentionally disallowed because in
             // op-stack chains genesis state is provided as part of the `RollupConfig`, which is

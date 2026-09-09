@@ -1,11 +1,9 @@
 //! [`OPSuccinctHost`] implementation for AltDA-backed OP Stack chains.
 //!
-//! Uses the same L1 head calculation as [`SingleChainOPSuccinctHost`] (Ethereum DA):
-//! a simple offset from the batch posting block.
+//! Uses the shared [`OPSuccinctDataFetcher`] to select the L1 head.
 
 use std::sync::Arc;
 
-use alloy_eips::BlockId;
 use alloy_primitives::B256;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -38,9 +36,7 @@ impl OPSuccinctHost for AltDAOPSuccinctHost {
     ) -> Result<AltDAChainHost> {
         let l1_head_hash = match l1_head_hash {
             Some(hash) => hash,
-            None => {
-                self.calculate_safe_l1_head(&self.fetcher, l2_end_block, safe_db_fallback).await?
-            }
+            None => self.fetcher.calculate_safe_l1_head(l2_end_block, safe_db_fallback).await?,
         };
 
         // Get the standard kona SingleChainHost args.
@@ -56,44 +52,6 @@ impl OPSuccinctHost for AltDAOPSuccinctHost {
 
     fn get_l1_head_hash(&self, args: &Self::Args) -> Option<B256> {
         Some(args.single_host.l1_head)
-    }
-
-    async fn get_max_provable_l2_block_number(
-        &self,
-        fetcher: &OPSuccinctDataFetcher,
-        _: u64,
-    ) -> Result<Option<u64>> {
-        if fetcher.l1_selection.is_default() {
-            let finalized_l2_block_number = fetcher.get_l2_header(BlockId::finalized()).await?;
-            Ok(Some(finalized_l2_block_number.number))
-        } else {
-            let resolved_l1 = fetcher.resolve_selected_l1_header().await?;
-            let l2_safe = fetcher.get_l2_safe_head_from_l1_block_number(resolved_l1.number).await?;
-            Ok(Some(l2_safe))
-        }
-    }
-
-    async fn calculate_safe_l1_head(
-        &self,
-        fetcher: &OPSuccinctDataFetcher,
-        l2_end_block: u64,
-        safe_db_fallback: bool,
-    ) -> Result<B256> {
-        // AltDA uses the same simple offset logic as Ethereum DA.
-        let (_, l1_head_number) = fetcher.get_l1_head(l2_end_block, safe_db_fallback).await?;
-
-        // Add a buffer to ensure all relevant L1 data is available.
-        let l1_head_number = l1_head_number + 20;
-
-        if fetcher.l1_selection.is_default() {
-            let finalized_l1_header = fetcher.get_l1_header(BlockId::finalized()).await?;
-            let safe_l1_head_number = std::cmp::min(l1_head_number, finalized_l1_header.number);
-            return Ok(fetcher.get_l1_header(safe_l1_head_number.into()).await?.hash_slow());
-        }
-
-        let resolved_l1 = fetcher.resolve_selected_l1_header().await?;
-        let safe_l1_head_number = std::cmp::min(l1_head_number, resolved_l1.number);
-        Ok(fetcher.get_l1_header(safe_l1_head_number.into()).await?.hash_slow())
     }
 }
 
