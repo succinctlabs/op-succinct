@@ -567,13 +567,7 @@ where
 
         // Fetch and validate anchor L2 block number.
         let anchor_l2_block = self.anchor_state_registry.getAnchorRoot().call().await?._1;
-        Self::validate_anchor_l2_block(
-            anchor_l2_block,
-            &self.config,
-            self.host.as_ref(),
-            self.fetcher.as_ref(),
-        )
-        .await?;
+        Self::validate_anchor_l2_block(anchor_l2_block, self.fetcher.as_ref()).await?;
 
         // Fetch init bond.
         let init_bond = self.factory.fetch_init_bond(self.config.game_type).await?;
@@ -642,25 +636,14 @@ where
 
     async fn validate_anchor_l2_block(
         anchor_l2_block: U256,
-        config: &ProposerConfig,
-        host: &H,
         fetcher: &OPSuccinctDataFetcher,
     ) -> Result<()> {
-        let max_provable_l2_block = host
-            .get_max_provable_l2_block_number(fetcher, anchor_l2_block.to::<u64>())
-            .await?
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Cannot fetch host-resolved max provable L2 block number from L2 RPC: {}\n\
-                     Please check that your L2 node is running and accessible.",
-                    config.l2_rpc
-                )
-            })?;
+        let max_provable_l2_block = fetcher.get_max_provable_l2_block_number().await?;
 
         if anchor_l2_block > U256::from(max_provable_l2_block) {
             return Err(anyhow::anyhow!(
                 "Contract misconfiguration detected: Contract's anchor L2 block ({}) is ahead of \
-                 the host-resolved max provable L2 block ({}). This indicates:\n\
+                 the max provable L2 block ({}). This indicates:\n\
                  1. The contract's startingL2BlockNumber is misconfigured to a future value, OR\n\
                  2. Your L2 node is not fully synced, OR\n\
                  3. Your L2 RPC endpoint is incorrect.\n\n\
@@ -1821,21 +1804,11 @@ where
             ProposerGauge::FinalizedL2BlockNumber
                 .set(self.fetcher.get_l2_header(BlockId::finalized()).await?.number as f64);
 
-            // Host-resolved max provable L2 block: matches finalized under default
-            // Ethereum/EigenDA, diverges under non-default (L2 safe head at the configured L1
-            // anchor).
-            if let Some(max_provable_l2_block_number) = self
-                .host
-                .get_max_provable_l2_block_number(
-                    &self.fetcher,
-                    canonical_head_l2_block.to::<u64>(),
-                )
-                .await?
-            {
-                ProposerGauge::MaxProvableL2BlockNumber.set(max_provable_l2_block_number as f64);
-            } else {
-                ProposerGauge::MaxProvableL2BlockNumber.set(0.0);
-            }
+            // The configured L1 selection determines the provable L2 bound independently of
+            // the literal finalized metric above.
+            let max_provable_l2_block_number =
+                self.fetcher.get_max_provable_l2_block_number().await?;
+            ProposerGauge::MaxProvableL2BlockNumber.set(max_provable_l2_block_number as f64);
 
             if let Some(anchor_game) = anchor_game {
                 ProposerGauge::AnchorGameL2BlockNumber.set(anchor_game.l2_block.to::<u64>() as f64);
@@ -2251,17 +2224,10 @@ where
             return Ok((false, U256::ZERO, u32::MAX));
         }
 
-        let max_provable_l2_block_number = self
-            .host
-            .get_max_provable_l2_block_number(&self.fetcher, canonical_head_l2_block.to::<u64>())
-            .await?;
+        let max_provable_l2_block_number = self.fetcher.get_max_provable_l2_block_number().await?;
 
         Ok((
-            max_provable_l2_block_number
-                .map(|max_provable_block| {
-                    U256::from(max_provable_block) >= next_l2_block_number_for_proposal
-                })
-                .unwrap_or(false),
+            U256::from(max_provable_l2_block_number) >= next_l2_block_number_for_proposal,
             next_l2_block_number_for_proposal,
             parent_game_index,
         ))

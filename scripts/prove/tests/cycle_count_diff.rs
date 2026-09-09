@@ -132,7 +132,7 @@ async fn test_cycle_count_diff() -> Result<()> {
         .parse::<bool>()
         .unwrap_or_default()
     {
-        true => get_rolling_block_range(host.as_ref(), &data_fetcher, DEFAULT_RANGE).await?,
+        true => get_rolling_block_range(&data_fetcher, DEFAULT_RANGE).await?,
         false => {
             let base_stats =
                 serde_json::from_reader::<_, ExecutionStats>(File::open("new_cycle_stats.json")?)?;

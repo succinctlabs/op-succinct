@@ -4,47 +4,27 @@ use std::{
 };
 
 use crate::rpc_types::{OutputResponse, SafeHeadResponse};
-use alloy_eips::BlockId;
 use anyhow::{bail, Result};
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    fetcher::{OPSuccinctDataFetcher, RPCMode},
-    host::OPSuccinctHost,
-};
-
-const TWO_HOURS_IN_BLOCKS: u64 = 3600;
+use crate::fetcher::{OPSuccinctDataFetcher, RPCMode};
 
 /// Get the start and end block numbers for a range, with validation.
-pub async fn get_validated_block_range<H: OPSuccinctHost>(
-    host: &H,
+pub async fn get_validated_block_range(
     data_fetcher: &OPSuccinctDataFetcher,
     start: Option<u64>,
     end: Option<u64>,
     default_range: u64,
 ) -> Result<(u64, u64)> {
-    // When `end` is not provided, ask the host for its current max provable L2 block. Under
-    // default `L1_BLOCK_TAG=finalized` this is the L2 finalized block; under non-default
-    // selections it is the L2 safe head at the configured L1 anchor. The search-start hint is
-    // derived from L2 finalized so a non-default selection does not narrow the lookback window
-    // for the host's search. L2 Block Validation Failure may still occur. See
-    // [Troubleshooting](../troubleshooting.md#l2-block-validation-failure).
-    let l2_finalized_block_number = data_fetcher.get_l2_header(BlockId::finalized()).await?.number;
-    // `saturating_sub` guards against very low finalized L2 numbers, which can occur on
-    // fresh test chains.
-    let host_search_start = l2_finalized_block_number.saturating_sub(TWO_HOURS_IN_BLOCKS);
-    let end_number = host
-        .get_max_provable_l2_block_number(data_fetcher, host_search_start)
-        .await?
-        .expect("Failed to get host-resolved max provable L2 block number");
+    let end_number = data_fetcher.get_max_provable_l2_block_number().await?;
 
-    // If end block not provided, use the host-resolved end.
+    // If end block not provided, use the resolved end.
     let l2_end_block = match end {
         Some(end) => {
             if end > end_number {
                 bail!(
-                    "The end block ({}) is greater than the latest finalized block ({})",
+                    "The end block ({}) is greater than the max provable L2 block ({})",
                     end,
                     end_number
                 );
@@ -67,28 +47,14 @@ pub async fn get_validated_block_range<H: OPSuccinctHost>(
     Ok((l2_start_block, l2_end_block))
 }
 
-/// Get a rolling block range whose end aligns with the host's current max provable L2 block.
+/// Get a rolling range ending at the maximum provable L2 block for the L1 selection.
 ///
-/// The returned tuple represents the last `range` blocks that the host is willing to anchor a
-/// proof against (DA- and L1-selection-specific — see
-/// [`OPSuccinctHost::get_max_provable_l2_block_number`]), making the range safe to use for
-/// proof generation.
-///
-/// Returns an error if the requested `range` exceeds the current host-resolved end; this is
-/// preferred over silently returning a smaller range, since callers typically expect to
-/// receive exactly `range` blocks and downstream logic may misbehave otherwise.
-pub async fn get_rolling_block_range<H: OPSuccinctHost>(
-    host: &H,
+/// Returns an error if `range` exceeds the resolved end, rather than returning a shorter range.
+pub async fn get_rolling_block_range(
     data_fetcher: &OPSuccinctDataFetcher,
     range: u64,
 ) -> Result<(u64, u64)> {
-    let header = data_fetcher.get_l2_header(BlockId::finalized()).await?;
-    // `saturating_sub` guards against very low finalized L2 numbers.
-    let host_search_start = header.number.saturating_sub(TWO_HOURS_IN_BLOCKS);
-    let l2_end_block = host
-        .get_max_provable_l2_block_number(data_fetcher, host_search_start)
-        .await?
-        .expect("Failed to get host-resolved max provable L2 block number");
+    let l2_end_block = data_fetcher.get_max_provable_l2_block_number().await?;
 
     let l2_start_block = l2_end_block.checked_sub(range).ok_or_else(|| {
         anyhow::anyhow!(

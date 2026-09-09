@@ -8,7 +8,7 @@ use op_succinct_host_utils::{
         split_range_basic, SpanBatchRange,
     },
     fetcher::OPSuccinctDataFetcher,
-    host::{enforce_l1_selection_supported, OPSuccinctHost},
+    host::OPSuccinctHost,
     l1_selection::L1BlockSelectionConfig,
     stats::ExecutionStats,
     witness_cache::{load_stdin_from_cache, save_stdin_to_cache},
@@ -258,21 +258,14 @@ async fn main() -> Result<()> {
     // Get the host CLIs in order, in parallel.
     let host = initialize_host(Arc::new(data_fetcher.clone()));
 
-    enforce_l1_selection_supported(&data_fetcher, l1_selection).await?;
+    data_fetcher.validate_l1_selection().await?;
 
     let (l2_start_block, l2_end_block) = if args.rolling {
         info!("Using rolling block range");
-        get_rolling_block_range(host.as_ref(), &data_fetcher, args.default_range).await?
+        get_rolling_block_range(&data_fetcher, args.default_range).await?
     } else {
         info!("Using validated block range");
-        get_validated_block_range(
-            host.as_ref(),
-            &data_fetcher,
-            args.start,
-            args.end,
-            args.default_range,
-        )
-        .await?
+        get_validated_block_range(&data_fetcher, args.start, args.end, args.default_range).await?
     };
 
     // Check if the safeDB is activated on the L2 node. If it is, we use the safeHead based range

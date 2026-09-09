@@ -4,7 +4,6 @@ use alloy_provider::{Provider, ProviderBuilder};
 use anyhow::Result;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
-    host::enforce_l1_selection_supported,
     l1_selection::L1BlockSelectionConfig,
     metrics::{init_metrics, MetricsGauge},
     setup_logger,
@@ -108,7 +107,7 @@ async fn main() -> Result<()> {
 
     let host = initialize_host(fetcher.clone().into());
 
-    enforce_l1_selection_supported(&fetcher, l1_selection).await?;
+    fetcher.validate_l1_selection().await?;
 
     let proposer = Proposer::new(
         l1_provider,
