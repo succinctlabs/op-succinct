@@ -3,12 +3,15 @@
 use super::OpZkvmPrecompiles;
 use alloy_evm::{Database, EvmEnv, EvmFactory};
 use alloy_op_evm::{
-    post_exec::{PostExecEvmFactoryHooks, PostExecExecutedTx, PostExecTxContext, WarmingState},
+    post_exec::{
+        NullRefundPolicy, PostExecEvmFactoryHooks, PostExecExecutedTx, PostExecRefundInspector,
+        PostExecTxContext,
+    },
     OpEvm, OpEvmContext, OpTx, OpTxError,
 };
 use op_revm::{L1BlockInfo, OpBuilder, OpHaltReason, OpSpecId, OpTransaction};
 use revm::{
-    context::{result::EVMError, BlockEnv, CfgEnv},
+    context::{result::EVMError, BlockEnv, CfgEnv, DBErrorMarker},
     inspector::NoOpInspector,
     Context, Inspector, MainContext,
 };
@@ -34,7 +37,7 @@ impl EvmFactory for ZkvmOpEvmFactory {
     type Evm<DB: Database, I: Inspector<OpEvmContext<DB>>> = OpEvm<DB, I, OpZkvmPrecompiles, OpTx>;
     type Context<DB: Database> = OpEvmContext<DB>;
     type Tx = OpTx;
-    type Error<DBError: core::error::Error + Send + Sync + 'static> = EVMError<DBError, OpTxError>;
+    type Error<DBError: DBErrorMarker> = EVMError<DBError, OpTxError>;
     type HaltReason = OpHaltReason;
     type Spec = OpSpecId;
     type BlockEnv = BlockEnv;
@@ -88,6 +91,8 @@ impl EvmFactory for ZkvmOpEvmFactory {
 // `F: PostExecEvmFactoryHooks`. The hooks delegate to the inherent post-exec
 // methods on the produced [`OpEvm`].
 impl PostExecEvmFactoryHooks for ZkvmOpEvmFactory {
+    type Snapshot = <NullRefundPolicy as PostExecRefundInspector>::Snapshot;
+
     fn begin_post_exec_tx<DB, I>(evm: &mut Self::Evm<DB, I>, ctx: PostExecTxContext)
     where
         DB: Database,
@@ -104,19 +109,19 @@ impl PostExecEvmFactoryHooks for ZkvmOpEvmFactory {
         evm.take_last_post_exec_tx_result()
     }
 
-    fn warming_state<DB, I>(evm: &Self::Evm<DB, I>) -> WarmingState
+    fn refund_snapshot<DB, I>(evm: &Self::Evm<DB, I>) -> Self::Snapshot
     where
         DB: Database,
         I: Inspector<Self::Context<DB>>,
     {
-        evm.warming_state()
+        evm.refund_snapshot()
     }
 
-    fn seed_warming_state<DB, I>(evm: &mut Self::Evm<DB, I>, state: WarmingState)
+    fn seed_refund_snapshot<DB, I>(evm: &mut Self::Evm<DB, I>, state: Self::Snapshot)
     where
         DB: Database,
         I: Inspector<Self::Context<DB>>,
     {
-        evm.seed_warming_state(state);
+        evm.seed_refund_snapshot(state);
     }
 }
