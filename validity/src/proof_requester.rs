@@ -192,10 +192,10 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         l2_chain_id: i64,
         prover_address: Address,
     ) -> Result<SP1Stdin> {
-        // Fetch consecutive range proofs from the database.
+        // Recheck coverage because ranges can be invalidated after request selection.
         let range_proofs = self
             .db_client
-            .get_consecutive_complete_range_proofs(
+            .get_complete_aggregation_range_proofs(
                 start_block,
                 end_block,
                 &self.program_config.commitments,

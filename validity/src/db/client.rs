@@ -297,6 +297,43 @@ impl DriverDBClient {
         Ok(requests)
     }
 
+    /// Load range proofs that cover the entire aggregation witness range without gaps or overlaps.
+    pub(crate) async fn get_complete_aggregation_range_proofs(
+        &self,
+        start_block: i64,
+        end_block: i64,
+        commitment: &CommitmentConfig,
+        l1_chain_id: i64,
+        l2_chain_id: i64,
+    ) -> Result<Vec<OPSuccinctRequest>> {
+        anyhow::ensure!(start_block < end_block, "Aggregation range must be nonempty");
+        let proofs = self
+            .get_consecutive_complete_range_proofs(
+                start_block,
+                end_block,
+                commitment,
+                l1_chain_id,
+                l2_chain_id,
+            )
+            .await?;
+
+        let mut next_block = start_block;
+        for proof in &proofs {
+            anyhow::ensure!(
+                proof.start_block == next_block && proof.end_block > proof.start_block,
+                "Aggregation range proofs are not contiguous: expected a range starting at {next_block}, got {}-{}",
+                proof.start_block,
+                proof.end_block,
+            );
+            next_block = proof.end_block;
+        }
+        anyhow::ensure!(
+            next_block == end_block,
+            "Aggregation range proofs do not cover {start_block}-{end_block}: reached {next_block}"
+        );
+        Ok(proofs)
+    }
+
     /// Fetch the maximum `l1_head_block_number` across the consecutive complete range proofs that
     /// will be aggregated over `[start_block, end_block]`.
     ///
@@ -1318,6 +1355,84 @@ mod tests {
         assert_eq!(result[0].start_block, 100);
         assert_eq!(result[1].start_block, 200);
         assert_eq!(result[2].start_block, 300);
+    }
+
+    #[tokio::test]
+    async fn aggregation_witness_rejects_ranges_invalidated_after_selection() {
+        let db = TestDb::new().await;
+        let c = db.client();
+        let commitment = default_commitment();
+        c.insert_request(&completed_range(100, 200)).await.unwrap();
+        let trailing_id = c.insert_request(&completed_range(200, 300)).await.unwrap();
+
+        let selected = c
+            .get_consecutive_complete_range_proofs(100, 300, &commitment, L1ID, L2ID)
+            .await
+            .unwrap();
+        let selected_end = selected.last().unwrap().end_block;
+        assert_eq!(selected_end, 300);
+
+        // Reproduce invalidation between external range selection and witness generation.
+        c.invalidate_noncanonical_ranges(&[trailing_id], &commitment, L1ID, L2ID).await.unwrap();
+        let result = c
+            .get_complete_aggregation_range_proofs(100, selected_end, &commitment, L1ID, L2ID)
+            .await;
+        let error = result.err().expect("a shortened witness range must be rejected");
+        assert!(error.to_string().contains("do not cover"), "{error}");
+
+        // A new external request can select the remaining prefix without misreporting its end.
+        let retry = c
+            .get_consecutive_complete_range_proofs(100, 300, &commitment, L1ID, L2ID)
+            .await
+            .unwrap();
+        let retry_end = retry.last().unwrap().end_block;
+        assert_eq!(retry_end, 200);
+        let witness = c
+            .get_complete_aggregation_range_proofs(100, retry_end, &commitment, L1ID, L2ID)
+            .await
+            .unwrap();
+        assert_eq!(witness.len(), 1);
+        assert_eq!(witness[0].end_block, retry_end);
+
+        c.insert_request(&completed_range(200, 300)).await.unwrap();
+        let recovered = c
+            .get_complete_aggregation_range_proofs(100, 300, &commitment, L1ID, L2ID)
+            .await
+            .unwrap();
+        assert_eq!(recovered.len(), 2);
+        assert_eq!(recovered[1].end_block, 300);
+    }
+
+    #[tokio::test]
+    async fn aggregation_witness_requires_exact_contiguous_ranges() {
+        for ranges in [
+            vec![],
+            vec![(150, 300)],
+            vec![(100, 200)],
+            vec![(100, 150), (200, 300)],
+            vec![(100, 200), (150, 300)],
+            vec![(100, 100), (100, 300)],
+            vec![(100, 200), (200, 150), (150, 300)],
+        ] {
+            let db = TestDb::new().await;
+            let requests: Vec<_> =
+                ranges.iter().map(|&(start, end)| completed_range(start, end)).collect();
+            insert_requests(db.client(), &requests).await;
+
+            assert!(
+                db.client()
+                    .get_complete_aggregation_range_proofs(
+                        100,
+                        300,
+                        &default_commitment(),
+                        L1ID,
+                        L2ID
+                    )
+                    .await
+                    .is_err(),
+                "invalid aggregation witness ranges accepted: {ranges:?}"
+            );
+        }
     }
 
     #[tokio::test]
