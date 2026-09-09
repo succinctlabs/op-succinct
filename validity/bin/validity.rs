@@ -121,12 +121,12 @@ async fn main() -> Result<()> {
         )
         .await?,
     );
-    proposer.initialize().await?;
-
     // Initialize metrics exporter.
     info!("Initializing metrics on port {}", env_config.metrics_port);
-    ValidityGauge::register_all();
     init_metrics(&env_config.metrics_port);
+    ValidityGauge::register_all();
+
+    proposer.initialize().await?;
 
     info!("Starting proposer.");
 
