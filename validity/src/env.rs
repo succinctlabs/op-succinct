@@ -1,6 +1,8 @@
 use std::{env, str::FromStr};
 
 use alloy_primitives::Address;
+#[cfg(feature = "agglayer")]
+use anyhow::Context;
 use anyhow::Result;
 use op_succinct_host_utils::network::parse_fulfillment_strategy;
 use op_succinct_signer_utils::SignerLock;
@@ -27,6 +29,8 @@ pub struct EnvironmentConfig {
     pub mock: bool,
     pub safe_db_fallback: bool,
     pub op_succinct_config_name: String,
+    #[cfg(feature = "agglayer")]
+    pub grpc_addr: std::net::SocketAddr,
     pub use_kms_requester: bool,
     pub max_price_per_pgu: u64,
     pub proving_timeout: u64,
@@ -82,6 +86,26 @@ fn parse_whitelist(whitelist_str: &str) -> Result<Option<Vec<Address>>> {
 // 1 minute default loop interval.
 const DEFAULT_LOOP_INTERVAL: u64 = 60;
 
+fn parse_agg_proof_mode(value: &str, allow_compressed: bool) -> Result<SP1ProofMode> {
+    match value.to_lowercase().as_str() {
+        "plonk" => Ok(SP1ProofMode::Plonk),
+        "groth16" => Ok(SP1ProofMode::Groth16),
+        "compressed" if allow_compressed => Ok(SP1ProofMode::Compressed),
+        "compressed" => {
+            anyhow::bail!("AGG_PROOF_MODE=compressed requires a build with the `agglayer` feature")
+        }
+        _ => anyhow::bail!("Invalid AGG_PROOF_MODE: {value}"),
+    }
+}
+
+#[cfg(feature = "agglayer")]
+fn parse_grpc_addr(value: Option<&str>) -> Result<std::net::SocketAddr> {
+    value
+        .context("GRPC_ADDRESS is required in builds with the `agglayer` feature")?
+        .parse()
+        .context("Failed to parse GRPC_ADDRESS")
+}
+
 /// Read proposer environment variables and return a config.
 ///
 /// Signer address and signer URL take precedence over private key.
@@ -99,12 +123,10 @@ pub async fn read_proposer_env() -> Result<EnvironmentConfig> {
     )?)?;
 
     // Parse proof mode
-    let agg_proof_mode =
-        if get_env_var("AGG_PROOF_MODE", Some("plonk".to_string()))?.to_lowercase() == "groth16" {
-            SP1ProofMode::Groth16
-        } else {
-            SP1ProofMode::Plonk
-        };
+    let agg_proof_mode = parse_agg_proof_mode(
+        &get_env_var("AGG_PROOF_MODE", Some("plonk".to_string()))?,
+        cfg!(feature = "agglayer"),
+    )?;
 
     // Optional loop interval
     let loop_interval = get_env_var("LOOP_INTERVAL", Some(DEFAULT_LOOP_INTERVAL))?;
@@ -131,6 +153,8 @@ pub async fn read_proposer_env() -> Result<EnvironmentConfig> {
             "OP_SUCCINCT_CONFIG_NAME",
             Some("opsuccinct_genesis".to_string()),
         )?,
+        #[cfg(feature = "agglayer")]
+        grpc_addr: parse_grpc_addr(env::var("GRPC_ADDRESS").ok().as_deref())?,
         use_kms_requester: get_env_var("USE_KMS_REQUESTER", Some(false))?,
         max_price_per_pgu: get_env_var("MAX_PRICE_PER_PGU", Some(300_000_000))?, /* 0.3 PROVE per billion PGU */
         proving_timeout: get_env_var("PROVING_TIMEOUT", Some(14400))?,           // 4 hours
@@ -147,4 +171,29 @@ pub async fn read_proposer_env() -> Result<EnvironmentConfig> {
     };
 
     Ok(config)
+}
+
+#[cfg(all(test, feature = "agglayer"))]
+mod tests {
+    use super::{parse_agg_proof_mode, parse_grpc_addr};
+    use sp1_sdk::SP1ProofMode;
+
+    #[test]
+    fn validates_aggregation_proof_mode() {
+        assert!(matches!(parse_agg_proof_mode("plonk", false), Ok(SP1ProofMode::Plonk)));
+        assert!(matches!(parse_agg_proof_mode("groth16", false), Ok(SP1ProofMode::Groth16)));
+        assert!(parse_agg_proof_mode("compressed", false).is_err());
+        assert!(matches!(parse_agg_proof_mode("compressed", true), Ok(SP1ProofMode::Compressed)));
+        assert!(parse_agg_proof_mode("unknown", true).is_err());
+    }
+
+    #[test]
+    fn requires_valid_grpc_address() {
+        assert!(parse_grpc_addr(None).is_err());
+        assert!(parse_grpc_addr(Some("not-an-address")).is_err());
+        assert_eq!(
+            parse_grpc_addr(Some("127.0.0.1:8443")).unwrap(),
+            "127.0.0.1:8443".parse::<std::net::SocketAddr>().unwrap()
+        );
+    }
 }
