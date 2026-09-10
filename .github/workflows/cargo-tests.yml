@@ -80,3 +80,6 @@ jobs:
         PR_NUMBER: ${{ github.event.pull_request.number }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         POST_TO_GITHUB: ${{ github.event_name == 'pull_request' }}
+
+    - name: Test AggLayer validity
+      run: cargo test -p op-succinct-validity --release --features agglayer --lib
