@@ -98,6 +98,9 @@ jobs:
         run: |
           echo "Running tests..."
           just test-e2e-sysgo "${{ matrix.target }}"
+          if [ "${{ matrix.target }}" = "./e2e/validity/bootstrap/..." ]; then
+            just test-e2e-sysgo "./e2e/validity/agglayer/..."
+          fi
 
   # Reports required check names for long-running tests on PRs.
   # Real execution happens in the merge queue via e2e-sysgo-long-running.
@@ -186,6 +189,9 @@ jobs:
         run: |
           echo "Running tests..."
           just test-e2e-sysgo "${{ matrix.target }}"
+          if [ "${{ matrix.target }}" = "./e2e/validity/bootstrap/..." ]; then
+            just test-e2e-sysgo "./e2e/validity/agglayer/..."
+          fi
 
   # Long-running tests — merge queue, main push, and /sysgo only
   e2e-sysgo-long-running:
