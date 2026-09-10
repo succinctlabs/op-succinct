@@ -7,6 +7,8 @@ mod config;
 mod contract;
 mod db;
 mod env;
+#[cfg(feature = "agglayer")]
+pub mod grpc;
 mod prom;
 mod proof_requester;
 mod proposer;

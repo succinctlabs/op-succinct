@@ -63,8 +63,13 @@ rustls = "0.23.23"
 strum = { workspace = true, features = ["derive"] }
 strum_macros.workspace = true
 
+# grpc
+tonic = { workspace = true, optional = true }
+prost = { workspace = true, optional = true }
+
 [build-dependencies]
 op-succinct-build-utils.workspace = true
+tonic-build = { workspace = true, optional = true }
 
 [dev-dependencies]
 postgresql_embedded = { version = "0.20", features = ["bundled"] }
@@ -74,3 +79,6 @@ default = ["ethereum"]
 altda = ["op-succinct-proof-utils/altda"]
 eigenda = ["op-succinct-proof-utils/eigenda"]
 ethereum = ["op-succinct-proof-utils/ethereum"]
+# Serves `proto/proofs.proto` when `GRPC_ADDRESS` is set, letting an external
+# coordinator drive aggregation. Needs `protoc` at build time.
+agglayer = ["dep:tonic", "dep:prost", "dep:tonic-build"]

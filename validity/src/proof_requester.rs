@@ -7,6 +7,8 @@ use std::{
 use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
 use anyhow::{Context, Result};
+#[cfg(feature = "agglayer")]
+use bincode::Options;
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, host::OPSuccinctHost,
@@ -192,10 +194,10 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         l2_chain_id: i64,
         prover_address: Address,
     ) -> Result<SP1Stdin> {
-        // Fetch consecutive range proofs from the database.
+        // Recheck coverage because ranges can be invalidated after request selection.
         let range_proofs = self
             .db_client
-            .get_consecutive_complete_range_proofs(
+            .get_complete_aggregation_range_proofs(
                 start_block,
                 end_block,
                 &self.program_config.commitments,
@@ -532,7 +534,10 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
     }
 
     /// Generates the stdin needed for a proof.
-    async fn generate_proof_stdin(&self, request: &OPSuccinctRequest) -> Result<SP1Stdin> {
+    pub(crate) async fn generate_proof_stdin(
+        &self,
+        request: &OPSuccinctRequest,
+    ) -> Result<SP1Stdin> {
         let stdin = match request.req_type {
             RequestType::Range => self.range_proof_witnessgen(request).await?,
             RequestType::Aggregation => {
@@ -570,11 +575,23 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
     /// Makes a proof request by updating statuses, generating witnesses, and then either requesting
     /// or mocking the proof depending on configuration.
     ///
-    /// Note: Any error from this function will cause the proof to be retried.
+    /// The caller tracks failures. Requests without capacity remain queued.
     #[tracing::instrument(name = "proof_requester.make_proof_request", skip(self, request))]
-    pub async fn make_proof_request(&self, request: OPSuccinctRequest) -> Result<()> {
-        if !self.db_client.try_start_witness_generation(request.id).await? {
-            info!(request_id = request.id, "Skipped request that is no longer queued");
+    pub async fn make_proof_request(
+        &self,
+        request: OPSuccinctRequest,
+        max_witnesses: u64,
+        max_proofs: u64,
+    ) -> Result<()> {
+        if !self
+            .db_client
+            .try_start_witness_generation(request.id, max_witnesses, max_proofs)
+            .await?
+        {
+            info!(
+                request_id = request.id,
+                "Skipped request without capacity or valid queued state"
+            );
             return Ok(());
         }
 
@@ -662,7 +679,14 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             RequestType::Aggregation => {
                 if self.mock {
                     let proof = self.generate_mock_agg_proof(&request, stdin).await?;
-                    self.store_completed_proof(request.id, &proof.bytes()).await?;
+                    #[cfg(feature = "agglayer")]
+                    let proof_bytes = bincode::DefaultOptions::new()
+                        .with_big_endian()
+                        .with_fixint_encoding()
+                        .serialize(&proof)?;
+                    #[cfg(not(feature = "agglayer"))]
+                    let proof_bytes = proof.bytes();
+                    self.store_completed_proof(request.id, &proof_bytes).await?;
                 } else if self.cluster {
                     let cluster_config = self
                         .cluster_config

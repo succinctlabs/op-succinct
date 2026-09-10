@@ -50,6 +50,9 @@ jobs:
         run: |
           echo "Running tests..."
           just test-e2e-sysgo "${{ matrix.target }}"
+          if [ "${{ matrix.target }}" = "./e2e/validity/bootstrap/..." ]; then
+            just test-e2e-sysgo "./e2e/validity/agglayer/..."
+          fi
 
   # Long-running tests with mock proving (runs on every PR and push)
   e2e-sysgo-long-running:
