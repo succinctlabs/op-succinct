@@ -1,7 +1,7 @@
 use std::env;
 
 use alloy_eips::BlockId;
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use fault_proof::config::FaultDisputeGameConfig;
 use op_succinct_host_utils::{
     fetcher::{OPSuccinctDataFetcher, RPCMode},
@@ -9,8 +9,8 @@ use op_succinct_host_utils::{
     setup_logger, OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH,
 };
 use op_succinct_scripts::config_common::{
-    find_project_root, get_shared_config_data, parse_addresses, write_config_file,
-    TWO_WEEKS_IN_SECONDS,
+    find_project_root, get_shared_config_data, parse_addresses, parse_env_or, parse_required_env,
+    write_config_file, TWO_WEEKS_IN_SECONDS,
 };
 use serde_json::Value;
 
@@ -81,42 +81,25 @@ async fn update_fdg_config() -> Result<()> {
     let shared_config = get_shared_config_data(data_fetcher.clone()).await?;
 
     // Game configuration.
-    let game_type = env::var("GAME_TYPE").unwrap_or("42".to_string()).parse().unwrap();
+    let game_type = parse_env_or("GAME_TYPE", 42u32)?;
 
     // Timing configuration.
-    let dispute_game_finality_delay_seconds = env::var("DISPUTE_GAME_FINALITY_DELAY_SECONDS")
-        .unwrap_or("604800".to_string()) // 7 days default
-        .parse()
-        .unwrap();
+    let dispute_game_finality_delay_seconds =
+        parse_env_or("DISPUTE_GAME_FINALITY_DELAY_SECONDS", 604800u64)?; // 7 days default
 
-    let max_challenge_duration = env::var("MAX_CHALLENGE_DURATION")
-        .unwrap_or("604800".to_string()) // 7 days default
-        .parse()
-        .unwrap();
+    let max_challenge_duration = parse_env_or("MAX_CHALLENGE_DURATION", 604800u64)?; // 7 days default
 
-    let max_prove_duration = env::var("MAX_PROVE_DURATION")
-        .unwrap_or("86400".to_string()) // 1 day default
-        .parse()
-        .unwrap();
+    let max_prove_duration = parse_env_or("MAX_PROVE_DURATION", 86400u64)?; // 1 day default
 
-    let fallback_timeout_fp_secs = env::var("FALLBACK_TIMEOUT_FP_SECS")
-        .map(|p| p.parse().unwrap())
-        .unwrap_or(TWO_WEEKS_IN_SECONDS);
+    let fallback_timeout_fp_secs = parse_env_or("FALLBACK_TIMEOUT_FP_SECS", TWO_WEEKS_IN_SECONDS)?;
 
     // Bond configuration.
-    let initial_bond_wei = env::var("INITIAL_BOND_WEI")
-        .unwrap_or("1000000000000000".to_string()) // 0.001 ETH default
-        .parse()
-        .unwrap();
+    let initial_bond_wei = parse_env_or("INITIAL_BOND_WEI", 1000000000000000u64)?; // 0.001 ETH default
 
-    let challenger_bond_wei = env::var("CHALLENGER_BOND_WEI")
-        .unwrap_or("1000000000000000".to_string()) // 0.001 ETH default
-        .parse()
-        .unwrap();
+    let challenger_bond_wei = parse_env_or("CHALLENGER_BOND_WEI", 1000000000000000u64)?; // 0.001 ETH default
 
     // Access control configuration.
-    let permissionless_mode =
-        env::var("PERMISSIONLESS_MODE").unwrap_or("false".to_string()).parse().unwrap();
+    let permissionless_mode = parse_env_or("PERMISSIONLESS_MODE", false)?;
 
     let proposer_addresses =
         if permissionless_mode { vec![] } else { parse_addresses("PROPOSER_ADDRESSES") };
@@ -166,8 +149,9 @@ async fn update_fdg_config() -> Result<()> {
     // deployed dispute game) must not silently shift to a less-final anchor just because the
     // operator turned `safe`/`latest` on for proposer latency. Explicit env override still wins.
     let starting_l2_block_number = match env::var("STARTING_L2_BLOCK_NUMBER") {
-        Ok(n) => n.parse().unwrap(),
-        Err(_) => {
+        Ok(value) => parse_required_env("STARTING_L2_BLOCK_NUMBER")
+            .with_context(|| format!("failed to parse STARTING_L2_BLOCK_NUMBER='{value}'"))?,
+        Err(env::VarError::NotPresent) => {
             let finalized_l2_block_number =
                 data_fetcher.get_l2_header(BlockId::finalized()).await?.number;
             let num_blocks_for_finality =
@@ -186,6 +170,7 @@ async fn update_fdg_config() -> Result<()> {
 
             finalized_l2_block_number.saturating_sub(num_blocks_for_finality)
         }
+        Err(err) => return Err(err).context("failed to read STARTING_L2_BLOCK_NUMBER"),
     };
 
     if starting_l2_block_number == 0 {
@@ -203,7 +188,10 @@ async fn update_fdg_config() -> Result<()> {
         )
         .await?;
 
-    let starting_output_root = optimism_output_data["outputRoot"].as_str().unwrap().to_string();
+    let starting_output_root = optimism_output_data["outputRoot"]
+        .as_str()
+        .context("optimism_outputAtBlock response missing string outputRoot")?
+        .to_string();
 
     let fdg_config = FaultDisputeGameConfig {
         aggregation_vkey: shared_config.aggregation_vkey,
