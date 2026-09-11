@@ -102,15 +102,15 @@ kona-registry = { git = "https://github.com/ethereum-optimism/optimism", tag = "
 kona-genesis = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.7.0", default-features = false }
 
 # hokulea
-hokulea-compute-proof = { git = "https://github.com/fakedev9999/hokulea", rev = "a139b2aa39d92e43d324c60d084e2b65341d5e58" }
-hokulea-eigenda = { git = "https://github.com/fakedev9999/hokulea", rev = "a139b2aa39d92e43d324c60d084e2b65341d5e58" }
-hokulea-host-bin = { git = "https://github.com/fakedev9999/hokulea", rev = "a139b2aa39d92e43d324c60d084e2b65341d5e58" }
-hokulea-proof = { git = "https://github.com/fakedev9999/hokulea", rev = "a139b2aa39d92e43d324c60d084e2b65341d5e58" }
-hokulea-witgen = { git = "https://github.com/fakedev9999/hokulea", rev = "a139b2aa39d92e43d324c60d084e2b65341d5e58" }
-hokulea-zkvm-verification = { git = "https://github.com/fakedev9999/hokulea", rev = "a139b2aa39d92e43d324c60d084e2b65341d5e58" }
-canoe-sp1-cc-host = { git = "https://github.com/fakedev9999/hokulea", rev = "a139b2aa39d92e43d324c60d084e2b65341d5e58" }
-canoe-sp1-cc-verifier = { git = "https://github.com/fakedev9999/hokulea", rev = "a139b2aa39d92e43d324c60d084e2b65341d5e58" }
-canoe-verifier-address-fetcher = { git = "https://github.com/fakedev9999/hokulea", rev = "a139b2aa39d92e43d324c60d084e2b65341d5e58" }
+hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.3.0" }
+hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.3.0" }
+hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.3.0" }
+hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.3.0" }
+hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.3.0" }
+hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.3.0" }
+canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.3.0" }
+canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.3.0" }
+canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.3.0" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
