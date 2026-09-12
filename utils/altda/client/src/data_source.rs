@@ -9,11 +9,13 @@
 //! This mirrors the Go implementation at `op-node/rollup/derive/altda_data_source.go`.
 
 use alloy_primitives::{Address, Bytes};
+use anyhow::{ensure, Result};
 use async_trait::async_trait;
 use kona_derive::{
     BlobProvider, ChainProvider, DataAvailabilityProvider, EthereumDataSource, PipelineError,
     PipelineErrorKind, PipelineResult,
 };
+use kona_genesis::RollupConfig;
 use kona_preimage::{CommsClient, PreimageKey};
 use kona_proof::Hint;
 use kona_protocol::BlockInfo;
@@ -47,6 +49,9 @@ pub const KECCAK256_COMMITMENT_TYPE: u8 = 0x00;
 /// Spec: `specs/experimental/alt-da.md` (commitment type definitions)
 pub const GENERIC_COMMITMENT_TYPE: u8 = 0x01;
 
+/// The op-alt-da default for Keccak commitments when the rollup omits its limit.
+const DEFAULT_MAX_INPUT_SIZE: u64 = 130_672;
+
 /// A data source that wraps [`EthereumDataSource`] and resolves AltDA commitments.
 ///
 /// When the batcher posts AltDA commitments (version byte `0x01`) instead of raw batch data,
@@ -74,6 +79,7 @@ where
     pub ethereum_source: EthereumDataSource<C, B>,
     /// The oracle client for sending hints and reading preimages.
     pub oracle: Arc<O>,
+    max_input_size: u64,
     /// Pending commitment from a previous iteration that encountered a temporary error
     /// during resolution. Stored so we can retry without re-reading from L1.
     pending_commitment: Option<PendingCommitment>,
@@ -97,8 +103,18 @@ where
     O: CommsClient + Send + Clone + Debug,
 {
     /// Creates a new [`AltDADataSource`].
-    pub fn new(ethereum_source: EthereumDataSource<C, B>, oracle: Arc<O>) -> Self {
-        Self { ethereum_source, oracle, pending_commitment: None }
+    pub fn new(
+        ethereum_source: EthereumDataSource<C, B>,
+        oracle: Arc<O>,
+        rollup_config: &RollupConfig,
+    ) -> Result<Self> {
+        let max_input_size = rollup_config
+            .alt_da_config
+            .as_ref()
+            .and_then(|config| config.da_max_input_size)
+            .unwrap_or(DEFAULT_MAX_INPUT_SIZE);
+        ensure!(max_input_size > 0, "AltDA da_max_input_size must be greater than zero");
+        Ok(Self { ethereum_source, oracle, max_input_size, pending_commitment: None })
     }
 }
 
@@ -197,9 +213,14 @@ where
             KECCAK256_COMMITMENT_TYPE => {
                 let result = self.resolve_keccak256_commitment(commitment).await;
                 match &result {
-                    Ok(_) => {
-                        // Resolution succeeded — clear the pending commitment.
+                    Ok(data) => {
+                        // Consume oversized inputs too, so the next call can make progress.
                         self.pending_commitment = None;
+                        if data.len() as u64 > self.max_input_size {
+                            warn!(target: "altda", size = data.len(), max = self.max_input_size,
+                                "AltDA input exceeds maximum size, skipping");
+                            return Err(PipelineError::NotEnoughData.temp());
+                        }
                     }
                     Err(PipelineErrorKind::Temporary(_)) => {
                         // Temporary error — keep the pending commitment for retry.
@@ -289,5 +310,141 @@ where
         );
 
         Ok(resolved_data.into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy_primitives::keccak256;
+    use kona_derive::test_utils::{TestBlobProvider, TestChainProvider};
+    use kona_genesis::AltDAConfig;
+    use op_succinct_client_utils::witness::preimage_store::PreimageStore;
+
+    fn source_with_batches(
+        batches: &[Vec<u8>],
+        limit: Option<u64>,
+    ) -> Result<AltDADataSource<TestChainProvider, TestBlobProvider, PreimageStore>> {
+        let config = RollupConfig {
+            alt_da_config: Some(AltDAConfig { da_max_input_size: limit, ..Default::default() }),
+            ..Default::default()
+        };
+        let mut ethereum_source = EthereumDataSource::new_from_parts(
+            TestChainProvider::default(),
+            TestBlobProvider::default(),
+            &config,
+        );
+        let mut oracle = PreimageStore::default();
+        // Start at the same buffered-calldata boundary as the upstream source tests.
+        ethereum_source.calldata_source.open = true;
+        for batch in batches {
+            let hash = keccak256(batch).0;
+            oracle.save_preimage(PreimageKey::new_keccak256(hash), batch.clone()).unwrap();
+            let mut commitment = vec![ALTDA_DERIVATION_VERSION, KECCAK256_COMMITMENT_TYPE];
+            commitment.extend_from_slice(&hash);
+            ethereum_source.calldata_source.calldata.push_back(commitment.into());
+        }
+        AltDADataSource::new(ethereum_source, Arc::new(oracle), &config)
+    }
+
+    #[tokio::test]
+    async fn oversized_commitment_is_skipped_without_blocking_next_batch() {
+        let valid = vec![42; 100];
+        let mut source = source_with_batches(&[vec![1; 130_673], valid.clone()], None).unwrap();
+
+        assert!(matches!(
+            source.next(&BlockInfo::default(), Address::ZERO).await,
+            Err(PipelineErrorKind::Temporary(PipelineError::NotEnoughData))
+        ));
+        assert!(source.pending_commitment.is_none());
+        assert_eq!(
+            source.next(&BlockInfo::default(), Address::ZERO).await.unwrap(),
+            Bytes::from(valid)
+        );
+        assert!(matches!(
+            source.next(&BlockInfo::default(), Address::ZERO).await,
+            Err(PipelineErrorKind::Temporary(PipelineError::Eof))
+        ));
+        assert!(!source.ethereum_source.calldata_source.open);
+    }
+
+    #[tokio::test]
+    async fn configured_and_default_limits_accept_boundary_and_skip_one_byte_over() {
+        for configured in [None, Some(1), Some(200_000)] {
+            let limit = configured.unwrap_or(DEFAULT_MAX_INPUT_SIZE) as usize;
+            let boundary = vec![42; limit];
+            let mut source =
+                source_with_batches(&[vec![1; limit + 1], boundary.clone()], configured).unwrap();
+            assert!(matches!(
+                source.next(&BlockInfo::default(), Address::ZERO).await,
+                Err(PipelineErrorKind::Temporary(PipelineError::NotEnoughData))
+            ));
+            assert_eq!(
+                source.next(&BlockInfo::default(), Address::ZERO).await.unwrap(),
+                Bytes::from(boundary)
+            );
+        }
+    }
+
+    #[test]
+    fn zero_limit_is_rejected_before_derivation() {
+        assert_eq!(
+            source_with_batches(&[], Some(0)).unwrap_err().to_string(),
+            "AltDA da_max_input_size must be greater than zero"
+        );
+    }
+
+    #[tokio::test]
+    async fn missing_preimage_retries_pending_commitment_then_advances() {
+        let first = vec![42; 8];
+        let second = vec![43; 8];
+        let mut source = source_with_batches(&[first.clone(), second.clone()], Some(8)).unwrap();
+        let key = PreimageKey::new_keccak256(keccak256(&first).0);
+        Arc::get_mut(&mut source.oracle).unwrap().preimage_map.remove(&key);
+        for _ in 0..2 {
+            assert!(matches!(
+                source.next(&BlockInfo::default(), Address::ZERO).await,
+                Err(PipelineErrorKind::Temporary(PipelineError::Provider(_)))
+            ));
+            assert!(source.pending_commitment.is_some());
+            assert_eq!(source.ethereum_source.calldata_source.calldata.len(), 1);
+        }
+        Arc::get_mut(&mut source.oracle).unwrap().save_preimage(key, first.clone()).unwrap();
+        assert_eq!(
+            source.next(&BlockInfo::default(), Address::ZERO).await.unwrap(),
+            Bytes::from(first)
+        );
+        assert!(source.pending_commitment.is_none());
+        assert_eq!(
+            source.next(&BlockInfo::default(), Address::ZERO).await.unwrap(),
+            Bytes::from(second)
+        );
+    }
+
+    #[tokio::test]
+    async fn non_altda_data_passes_through_and_generic_commitments_stay_unsupported() {
+        let mut source = source_with_batches(&[], Some(1)).unwrap();
+        let plain = Bytes::from(vec![0; 10]);
+        source.ethereum_source.calldata_source.calldata.extend([
+            vec![ALTDA_DERIVATION_VERSION, GENERIC_COMMITMENT_TYPE, 42].into(),
+            plain.clone(),
+        ]);
+        assert!(matches!(
+            source.next(&BlockInfo::default(), Address::ZERO).await,
+            Err(PipelineErrorKind::Temporary(PipelineError::NotEnoughData))
+        ));
+        assert!(source.pending_commitment.is_none());
+        assert_eq!(source.next(&BlockInfo::default(), Address::ZERO).await.unwrap(), plain);
+    }
+
+    #[tokio::test]
+    async fn clear_discards_pending_commitment_after_fetch_failure() {
+        let mut source = source_with_batches(&[vec![42; 8]], None).unwrap();
+        Arc::get_mut(&mut source.oracle).unwrap().preimage_map.clear();
+        assert!(source.next(&BlockInfo::default(), Address::ZERO).await.is_err());
+        assert!(source.pending_commitment.is_some());
+        source.clear();
+        assert!(source.pending_commitment.is_none());
+        assert!(!source.ethereum_source.calldata_source.open);
     }
 }
