@@ -50,3 +50,27 @@ impl From<BootInfo> for BootInfoStruct {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kona_genesis::AltDAConfig;
+
+    #[test]
+    fn altda_limit_roundtrips_and_changes_the_config_hash_only_when_set() {
+        let mut config =
+            RollupConfig { alt_da_config: Some(AltDAConfig::default()), ..Default::default() };
+        let original_hash = hash_rollup_config(&config);
+        let serialized = serde_json::to_string(&config).unwrap();
+        assert!(!serialized.contains("da_max_input_size"));
+        let restored: RollupConfig = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(hash_rollup_config(&restored), original_hash);
+
+        config.alt_da_config.as_mut().unwrap().da_max_input_size = Some(200_000);
+        let restored: RollupConfig =
+            serde_json::from_str(&serde_json::to_string(&config).unwrap()).unwrap();
+        assert_eq!(restored.alt_da_config.as_ref().unwrap().da_max_input_size, Some(200_000));
+        assert_eq!(hash_rollup_config(&restored), hash_rollup_config(&config));
+        assert_ne!(hash_rollup_config(&restored), original_hash);
+    }
+}
