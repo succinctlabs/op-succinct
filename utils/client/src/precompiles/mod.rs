@@ -8,6 +8,7 @@ use revm::{
     context_interface::JournalTr,
     handler::{precompile_output_to_interpreter_result, EthPrecompiles, PrecompileProvider},
     interpreter::{CallInput, CallInputs, InterpreterResult},
+    primitives::AddressSet,
 };
 #[cfg(any(test, target_os = "zkvm"))]
 use revm_precompile::PrecompileId;
@@ -98,7 +99,7 @@ where
     }
 
     // NOTE: This `run` mirrors the canonical `EthPrecompiles::run` in
-    // revm-handler v18.1.0 / op-revm v20.0.0, with cycle-tracker prints
+    // revm-handler v41.0.0 / op-revm v20.0.0, with cycle-tracker prints
     // wrapped around `precompile.execute()` for the zkVM target. Keep the
     // body in sync when bumping revm-handler / op-revm — see
     // https://github.com/bluealloy/revm/blob/main/crates/handler/src/precompile_provider.rs
@@ -171,7 +172,7 @@ where
     }
 
     #[inline]
-    fn warm_addresses(&self) -> Box<impl Iterator<Item = Address>> {
+    fn warm_addresses(&self) -> &AddressSet {
         self.inner.warm_addresses()
     }
 
@@ -209,8 +210,8 @@ mod tests {
         OpSpecId::HOLOCENE,
         OpSpecId::ISTHMUS,
         OpSpecId::JOVIAN,
-        OpSpecId::INTEROP,
         OpSpecId::KARST,
+        OpSpecId::LAGOON,
     ];
 
     // Compile-time guard: a new `OpSpecId` variant must be added to
@@ -229,8 +230,8 @@ mod tests {
             OpSpecId::HOLOCENE |
             OpSpecId::ISTHMUS |
             OpSpecId::JOVIAN |
-            OpSpecId::INTEROP |
-            OpSpecId::KARST => {}
+            OpSpecId::KARST |
+            OpSpecId::LAGOON => {}
         }
     }
 
@@ -241,6 +242,7 @@ mod tests {
             input: CallInput::Bytes(input),
             gas_limit,
             reservoir: 0,
+            charged_new_account_state_gas: false,
             bytecode_address: address,
             target_address: Address::ZERO, // Simulates DELEGATECALL context
             caller: Address::ZERO,
@@ -378,6 +380,7 @@ mod tests {
             input: CallInput::SharedBuffer(0..0),
             gas_limit: u64::MAX,
             reservoir: 0,
+            charged_new_account_state_gas: false,
             bytecode_address: sha256_addr,
             target_address: Address::ZERO,
             caller: Address::ZERO,
@@ -507,14 +510,12 @@ mod tests {
             let op_precompiles = OpPrecompiles::new_with_spec(spec);
             let zkvm_precompiles = OpZkvmPrecompiles::new_with_spec(spec);
 
-            let op_addresses: Vec<_> =
-                <OpPrecompiles as PrecompileProvider<TestContext>>::warm_addresses(&op_precompiles)
-                    .collect();
-            let zkvm_addresses: Vec<_> =
+            let op_addresses =
+                <OpPrecompiles as PrecompileProvider<TestContext>>::warm_addresses(&op_precompiles);
+            let zkvm_addresses =
                 <OpZkvmPrecompiles as PrecompileProvider<TestContext>>::warm_addresses(
                     &zkvm_precompiles,
-                )
-                .collect();
+                );
 
             assert_eq!(
                 zkvm_addresses.len(),
@@ -522,7 +523,7 @@ mod tests {
                 "ZKVM and canonical OP precompile counts must match for {spec:?}",
             );
 
-            for address in &op_addresses {
+            for address in op_addresses {
                 assert!(
                     <OpZkvmPrecompiles as PrecompileProvider<TestContext>>::contains(
                         &zkvm_precompiles,
@@ -532,7 +533,7 @@ mod tests {
                 );
             }
 
-            for address in &zkvm_addresses {
+            for address in zkvm_addresses {
                 assert!(
                     <OpPrecompiles as PrecompileProvider<TestContext>>::contains(
                         &op_precompiles,
@@ -550,6 +551,8 @@ mod tests {
             let op_precompiles = OpPrecompiles::new_with_spec(spec);
             let op_addresses: Vec<_> =
                 <OpPrecompiles as PrecompileProvider<TestContext>>::warm_addresses(&op_precompiles)
+                    .iter()
+                    .copied()
                     .collect();
 
             for address in op_addresses {
@@ -591,7 +594,7 @@ mod tests {
 
     #[test]
     fn test_jovian_family_uses_canonical_bn254_pairing_limits() {
-        for spec in [OpSpecId::JOVIAN, OpSpecId::INTEROP, OpSpecId::KARST] {
+        for spec in [OpSpecId::JOVIAN, OpSpecId::KARST, OpSpecId::LAGOON] {
             let oversized_pairing_input =
                 vec![0; oversized_aligned_pair_input_len(bn254_pair::JOVIAN_MAX_INPUT_SIZE)];
             let call_inputs =
