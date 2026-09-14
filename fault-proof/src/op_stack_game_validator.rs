@@ -143,6 +143,11 @@ impl OPStackGameValidator {
 
         let first_status = self.op_node_sync_status().await.map_err(rpc_unavailable)?;
         record_op_node_l1_lag(&first_status);
+        self.validate_canonical_l1_block(
+            first_status.current_l1.number,
+            first_status.current_l1.hash,
+        )
+        .await?;
         if first_status.current_l1.number <= game_l1_number {
             return Err(UnavailableReason::OpNodeBehind)
         }
@@ -155,6 +160,11 @@ impl OPStackGameValidator {
 
         let second_status = self.op_node_sync_status().await.map_err(rpc_unavailable)?;
         record_op_node_l1_lag(&second_status);
+        self.validate_canonical_l1_block(
+            second_status.current_l1.number,
+            second_status.current_l1.hash,
+        )
+        .await?;
         if !op_node_watermarks_are_usable(
             first_status.current_l1.number,
             second_status.current_l1.number,
@@ -345,6 +355,10 @@ mod tests {
     }
 
     fn test_sync_status(current_l1: u64) -> SyncStatus {
+        test_sync_status_with_hash(current_l1, test_l1_hash(current_l1))
+    }
+
+    fn test_sync_status_with_hash(current_l1: u64, current_l1_hash: B256) -> SyncStatus {
         let mut status = SyncStatus {
             current_l1: Default::default(),
             current_l1_finalized: Default::default(),
@@ -358,8 +372,17 @@ mod tests {
             local_safe_l2: Default::default(),
         };
         status.current_l1.number = current_l1;
+        status.current_l1.hash = current_l1_hash;
         status.head_l1.number = current_l1;
         status
+    }
+
+    fn test_l1_hash(number: u64) -> B256 {
+        if number == 100 {
+            B256::repeat_byte(0x55)
+        } else {
+            B256::repeat_byte(0x77)
+        }
     }
 
     fn test_header(number: u64, hash: B256) -> Header {
@@ -417,7 +440,12 @@ mod tests {
         let l1_header = test_header(100, game_l1_hash);
         l1_asserter.push_success(&Some(l1_header.clone()));
         l1_asserter.push_success(&Some(l1_header));
+        l1_asserter
+            .push_success(&Some(test_header(first_current_l1, test_l1_hash(first_current_l1))));
         l1_asserter.push_success(&Some(test_header(safe_db_l1_number, safe_db_l1_hash)));
+        if let Some(current_l1) = second_current_l1 {
+            l1_asserter.push_success(&Some(test_header(current_l1, test_l1_hash(current_l1))));
+        }
 
         op_node_asserter.push_success(&test_sync_status(first_current_l1));
         op_node_asserter.push_success(&SafeHeadResponse {
@@ -500,6 +528,7 @@ mod tests {
 
         l1_asserter.push_success(&Some(game_l1_header.clone()));
         l1_asserter.push_success(&Some(game_l1_header));
+        l1_asserter.push_success(&Some(test_header(102, test_l1_hash(102))));
         op_node_asserter.push_success(&test_sync_status(102));
         op_node_asserter.push_failure_msg("SafeDB record not found");
 
@@ -554,6 +583,7 @@ mod tests {
         let game_l1_header = test_header(100, B256::repeat_byte(0x55));
         l1_asserter.push_success(&Some(game_l1_header.clone()));
         l1_asserter.push_success(&Some(game_l1_header));
+        l1_asserter.push_success(&Some(test_header(100, test_l1_hash(100))));
         op_node_asserter.push_success(&test_sync_status(100));
         let validator = test_validator(&l1_asserter, &l2_asserter, &op_node_asserter);
 
@@ -574,6 +604,7 @@ mod tests {
         let game_l1_header = test_header(100, B256::repeat_byte(0x55));
         l1_asserter.push_success(&Some(game_l1_header.clone()));
         l1_asserter.push_success(&Some(game_l1_header));
+        l1_asserter.push_success(&Some(test_header(102, test_l1_hash(102))));
         l1_asserter.push_success(&Some(test_header(99, B256::repeat_byte(0x45))));
         op_node_asserter.push_success(&test_sync_status(102));
         op_node_asserter.push_success(&SafeHeadResponse {
@@ -583,8 +614,58 @@ mod tests {
         let validator = test_validator(&l1_asserter, &l2_asserter, &op_node_asserter);
 
         assert_eq!(
-            validator.historical_local_safe_head(&test_request()).await,
-            Err(UnavailableReason::L1CanonicalHashMismatch)
+            validator.validate(&test_request()).await,
+            GameValidation::Unavailable(UnavailableReason::L1CanonicalHashMismatch)
+        );
+        assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_asserter.read_q().is_empty());
+        assert!(op_node_asserter.read_q().is_empty());
+    }
+
+    #[tokio::test]
+    async fn stale_second_op_node_l1_fork_is_unavailable() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let op_node_asserter = Asserter::new();
+        let game_l1_header = test_header(100, B256::repeat_byte(0x55));
+        l1_asserter.push_success(&Some(game_l1_header.clone()));
+        l1_asserter.push_success(&Some(game_l1_header));
+        l1_asserter.push_success(&Some(test_header(102, B256::repeat_byte(0x77))));
+        l1_asserter.push_success(&Some(test_header(100, B256::repeat_byte(0x55))));
+        l1_asserter.push_success(&Some(test_header(102, B256::repeat_byte(0x77))));
+        op_node_asserter.push_success(&test_sync_status(102));
+        op_node_asserter.push_success(&SafeHeadResponse {
+            l1_block: BlockNumHash { number: 100, hash: B256::repeat_byte(0x55) },
+            safe_head: BlockNumHash { number: 200, hash: B256::repeat_byte(0x66) },
+        });
+        op_node_asserter.push_success(&test_sync_status_with_hash(102, B256::repeat_byte(0xaa)));
+        l2_asserter.push_success(&Some(test_header(200, B256::repeat_byte(0x66))));
+        let validator = test_validator(&l1_asserter, &l2_asserter, &op_node_asserter);
+
+        assert_eq!(
+            validator.validate(&test_request()).await,
+            GameValidation::Unavailable(UnavailableReason::L1CanonicalHashMismatch)
+        );
+        assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_asserter.read_q().is_empty());
+        assert!(op_node_asserter.read_q().is_empty());
+    }
+
+    #[tokio::test]
+    async fn stale_first_op_node_l1_fork_is_unavailable() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let op_node_asserter = Asserter::new();
+        let game_l1_header = test_header(100, B256::repeat_byte(0x55));
+        l1_asserter.push_success(&Some(game_l1_header.clone()));
+        l1_asserter.push_success(&Some(game_l1_header));
+        l1_asserter.push_success(&Some(test_header(102, B256::repeat_byte(0x77))));
+        op_node_asserter.push_success(&test_sync_status_with_hash(102, B256::repeat_byte(0xaa)));
+        let validator = test_validator(&l1_asserter, &l2_asserter, &op_node_asserter);
+
+        assert_eq!(
+            validator.validate(&test_request()).await,
+            GameValidation::Unavailable(UnavailableReason::L1CanonicalHashMismatch)
         );
         assert!(l1_asserter.read_q().is_empty());
         assert!(l2_asserter.read_q().is_empty());
