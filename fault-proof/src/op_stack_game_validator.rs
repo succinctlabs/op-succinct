@@ -508,6 +508,33 @@ mod tests {
             .contains("L2 chain ID"));
     }
 
+    #[tokio::test]
+    async fn startup_validation_accepts_consistent_backend() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let op_node_asserter = Asserter::new();
+        let game_l1_hash = B256::repeat_byte(0x55);
+        let safe_l2_hash = B256::repeat_byte(0x66);
+
+        l1_asserter.push_success(&0u64);
+        l1_asserter.push_success(&Some(test_header(100, game_l1_hash)));
+        l2_asserter.push_success(&0u64);
+        l2_asserter.push_success(&Some(test_header(200, safe_l2_hash)));
+        op_node_asserter.push_success(&RollupConfig::default());
+        op_node_asserter.push_success(&test_sync_status(101));
+        op_node_asserter.push_success(&SafeHeadResponse {
+            l1_block: BlockNumHash { number: 100, hash: game_l1_hash },
+            safe_head: BlockNumHash { number: 200, hash: safe_l2_hash },
+        });
+
+        let validator = test_validator(&l1_asserter, &l2_asserter, &op_node_asserter);
+
+        validator.validate_startup().await.unwrap();
+        assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_asserter.read_q().is_empty());
+        assert!(op_node_asserter.read_q().is_empty());
+    }
+
     #[test]
     fn safe_db_floor_and_watermark_boundaries_are_strict() {
         assert!(safe_db_record_is_at_or_before(99, 100));

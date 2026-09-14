@@ -4,12 +4,16 @@ use std::{num::NonZero, path::PathBuf, sync::Arc};
 use alloy_primitives::Address;
 use alloy_provider::ProviderBuilder;
 use anyhow::Result;
+use async_trait::async_trait;
 use fault_proof::{
     challenger::OPSuccinctChallenger,
     config::{ChallengerConfig, ProofProviderConfig, RangeSplitCount},
     contract::{AnchorStateRegistry, DisputeGameFactory},
-    op_stack_game_validator::OPStackGameValidator,
+    game_validator::{
+        GameValidation, GameValidationRequest, GameValidator, InvalidReason, UnavailableReason,
+    },
     proposer::OPSuccinctProposer,
+    L2Provider, L2ProviderTrait,
 };
 use op_succinct_host_utils::{
     fetcher::{OPSuccinctDataFetcher, RPCConfig},
@@ -19,6 +23,37 @@ use op_succinct_proof_utils::initialize_host;
 use op_succinct_signer_utils::SignerLock;
 use sp1_sdk::{network::FulfillmentStrategy, SP1ProofMode};
 use tracing::Instrument;
+
+/// Test-only validator for Challenger lifecycle tests.
+///
+/// The lifecycle tests use a fresh Anvil L1 together with external L2 and op-node endpoints, so
+/// the production validator's startup pairing checks are intentionally tested separately. This
+/// validator keeps output-root comparisons against the execution node while allowing the
+/// lifecycle tests to exercise Challenger behavior without requiring a real SafeDB pairing.
+struct TestGameValidator {
+    l2_provider: L2Provider,
+}
+
+#[async_trait]
+impl GameValidator for TestGameValidator {
+    async fn validate_startup(&self) -> Result<()> {
+        Ok(())
+    }
+
+    async fn validate(&self, request: &GameValidationRequest) -> GameValidation {
+        if u64::try_from(request.l2_block_number).is_err() {
+            return GameValidation::Invalid(InvalidReason::L2BlockNumberOverflow)
+        }
+
+        match self.l2_provider.compute_output_root_at_block(request.l2_block_number).await {
+            Ok(computed) if computed == request.output_root => GameValidation::Valid,
+            Ok(_) => GameValidation::Invalid(InvalidReason::OutputRootMismatch),
+            Err(error) => {
+                GameValidation::Unavailable(UnavailableReason::RpcFailure(error.to_string()))
+            }
+        }
+    }
+}
 
 pub async fn new_proposer(
     rpc_config: &RPCConfig,
@@ -151,11 +186,9 @@ pub async fn new_challenger(
     let anchor_state_registry =
         AnchorStateRegistry::new(*anchor_state_registry_address, l1_provider.clone());
     let factory = DisputeGameFactory::new(*factory_address, l1_provider.clone());
-    let game_validator = Arc::new(OPStackGameValidator::new(
-        l1_provider.clone(),
-        ProviderBuilder::default().connect_http(rpc_config.l2_rpc.clone()),
-        ProviderBuilder::default().connect_http(rpc_config.l2_node_rpc.clone()),
-    ));
+    let game_validator = Arc::new(TestGameValidator {
+        l2_provider: ProviderBuilder::default().connect_http(rpc_config.l2_rpc.clone()),
+    });
 
     Ok(OPSuccinctChallenger::new_with_game_validator(
         config,
