@@ -44,7 +44,7 @@ In the root directory, create a file called `.env` and set the following environ
 ```env
 # Required
 L1_RPC=<YOUR_L1_RPC_URL>                   # L1 Archive Node
-L2_RPC=<YOUR_L2_RPC_URL>                   # L2 Execution Node (op-geth)
+L2_RPC=<YOUR_L2_RPC_URL>                   # L2 Execution Node (op-reth)
 L2_NODE_RPC=<YOUR_L2_NODE_RPC_URL>         # L2 Rollup Node (op-node)
 PRIVATE_KEY=<YOUR_PRIVATE_KEY>             # Private key for deploying contracts
 ETHERSCAN_API_KEY=<YOUR_ETHERSCAN_API_KEY> # For verifying deployed contracts
