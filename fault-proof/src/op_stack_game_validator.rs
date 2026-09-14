@@ -368,7 +368,6 @@ mod tests {
             unsafe_l2: Default::default(),
             safe_l2: Default::default(),
             finalized_l2: Default::default(),
-            cross_unsafe_l2: Default::default(),
             local_safe_l2: Default::default(),
         };
         status.current_l1.number = current_l1;
