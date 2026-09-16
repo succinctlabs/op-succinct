@@ -30,8 +30,7 @@ use crate::data_source::AltDADataSource;
 /// returns data prefixed with `DerivationVersion1` (`0x01`), the AltDA source sends a
 /// hint to the host and reads the resolved batch data from the preimage oracle.
 ///
-/// Follows the same structural pattern as `CelestiaDAWitnessExecutor` and
-/// `EigenDAWitnessExecutor`.
+/// Follows the same structural pattern as `EigenDAWitnessExecutor`.
 pub struct AltDAWitnessExecutor<O, B>
 where
     O: CommsClient + FlushableCache + Send + Sync + Debug,
@@ -75,7 +74,8 @@ where
     ) -> Result<OraclePipeline<Self::O, Self::L1, Self::L2, Self::DA>> {
         let ethereum_data_source =
             EthereumDataSource::new_from_parts(l1_provider.clone(), beacon, &rollup_config);
-        let da_provider = AltDADataSource::new(ethereum_data_source, oracle.clone());
+        let da_provider =
+            AltDADataSource::new(ethereum_data_source, oracle.clone(), &rollup_config)?;
 
         Ok(OraclePipeline::new(
             rollup_config,
