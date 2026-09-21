@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - '.github/workflows/cargo-tests.yml'
+      - '.github/workflows/integration-tests.yml'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'justfile'
