@@ -6,13 +6,14 @@ programs=(range range-altda range-eigenda)
 patches=(
   "sha2 RustCrypto-hashes"
   "sha3 RustCrypto-hashes"
+  "crypto-bigint RustCrypto-bigint"
   "k256 elliptic-curves"
   "p256 elliptic-curves"
   "substrate-bn bn"
 )
 
 for program in "${programs[@]}"; do
-  dependency_tree=$(cargo tree --locked -p "$program" --edges normal --prefix none --format '{p}')
+  dependency_tree=$(cargo tree --locked -p "$program" --all-features --edges normal --prefix none --format '{p}')
 
   for patch in "${patches[@]}"; do
     read -r package repository <<< "$patch"
