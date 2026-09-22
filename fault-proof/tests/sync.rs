@@ -20,6 +20,7 @@ mod asr_filtering {
             proposal_status: ProposalStatus::Unchallenged,
             deadline: 0,
             should_attempt_to_resolve: false,
+            should_attempt_to_close_game: false,
             should_attempt_to_claim_bond: false,
             aggregation_vkey: B256::ZERO,
             range_vkey_commitment: B256::ZERO,
@@ -77,7 +78,7 @@ mod proposer_sync {
     use alloy_sol_types::{SolCall, SolValue};
     use anyhow::{Context, Result};
     use fault_proof::{
-        contract::ProposalStatus,
+        contract::{ProposalStatus, BOND_DISTRIBUTION_MODE_UNDECIDED},
         proposer::{
             Game, GameFetchResult, OPSuccinctProposer, ProposerStateSnapshot, MAX_GAME_DEADLINE_LAG,
         },
@@ -1410,13 +1411,12 @@ mod proposer_sync {
         Ok(())
     }
 
-    /// Tests the `should_attempt_to_claim_bond` flag logic for finalized games.
+    /// Tests close-before-claim flag logic for finalized games.
     ///
-    /// Verifies that the flag is correctly set based on:
-    /// - Finality (finalized vs not finalized)
-    /// - Credit availability (credit > 0 vs credit = 0)
+    /// A finalized game is not necessarily closed. The proposer must close an UNDECIDED
+    /// DEFENDER_WINS game before using credit to decide claim or eviction.
     #[tokio::test]
-    async fn test_bond_claim_marking() -> Result<()> {
+    async fn test_close_and_bond_claim_marking() -> Result<()> {
         let (env, proposer, init_bond) = setup().await?;
 
         let starting_l2_block = env.anvil.starting_l2_block_number;
@@ -1437,6 +1437,10 @@ mod proposer_sync {
         // === Case 1: DEFENDER_WINS + not finalized ===
         let game_0 = cached_game(&proposer, 0).await?;
         assert!(
+            !game_0.should_attempt_to_close_game,
+            "Game 0: should_attempt_to_close_game should be false (not finalized)"
+        );
+        assert!(
             !game_0.should_attempt_to_claim_bond,
             "Game 0: should_attempt_to_claim_bond should be false (not finalized)"
         );
@@ -1448,25 +1452,112 @@ mod proposer_sync {
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
         proposer.sync_state().await?;
 
-        // === Case 2: DEFENDER_WINS + finalized + credit > 0 ===
+        // === Case 2: DEFENDER_WINS + finalized + UNDECIDED ===
+        let game_0 = cached_game(&proposer, 0).await?;
+        assert_eq!(
+            env.get_bond_distribution_mode(address).await?,
+            BOND_DISTRIBUTION_MODE_UNDECIDED,
+            "Game 0 should not be closed before closeGame"
+        );
+        assert!(
+            game_0.should_attempt_to_close_game,
+            "Game 0: should_attempt_to_close_game should be true (finalized + UNDECIDED)"
+        );
+        assert!(
+            !game_0.should_attempt_to_claim_bond,
+            "Game 0: should_attempt_to_claim_bond should be false before close"
+        );
+        tracing::info!("✓ Case 2: DEFENDER_WINS + finalized + UNDECIDED → close, not claim");
+
+        // Close game before claiming. Once closed, the proposer may claim credit.
+        env.close_game(address).await?;
+        proposer.sync_state().await?;
+
+        // === Case 3: DEFENDER_WINS + closed + credit > 0 ===
         let game_0 = cached_game(&proposer, 0).await?;
         assert!(
-            game_0.should_attempt_to_claim_bond,
-            "Game 0: should_attempt_to_claim_bond should be true (finalized + credit > 0)"
+            !game_0.should_attempt_to_close_game,
+            "Game 0: should_attempt_to_close_game should be false after close"
         );
-        tracing::info!("✓ Case 2: DEFENDER_WINS + finalized + credit > 0 → should_attempt_to_claim_bond = true");
+        assert!(
+            game_0.should_attempt_to_claim_bond,
+            "Game 0: should_attempt_to_claim_bond should be true (closed + credit > 0)"
+        );
+        tracing::info!("✓ Case 3: DEFENDER_WINS + closed + credit > 0 → claim");
 
         // Claim bond for game 0 to set credit = 0
         env.claim_bond(address, PROPOSER_ADDRESS).await?;
         proposer.sync_state().await?;
 
-        // === Case 3: DEFENDER_WINS + finalized + credit = 0 ===
+        // === Case 4: DEFENDER_WINS + closed + credit = 0 ===
         let game_0 = cached_game(&proposer, 0).await?;
         assert!(
-            !game_0.should_attempt_to_claim_bond,
-            "Game 0: should_attempt_to_claim_bond should be false (credit = 0)"
+            !game_0.should_attempt_to_close_game,
+            "Game 0: should_attempt_to_close_game should be false (closed + credit = 0)"
         );
-        tracing::info!("✓ Case 3: DEFENDER_WINS + finalized + credit = 0 → should_attempt_to_claim_bond = false");
+        assert!(
+            !game_0.should_attempt_to_claim_bond,
+            "Game 0: should_attempt_to_claim_bond should be false (closed + credit = 0)"
+        );
+        tracing::info!("✓ Case 4: DEFENDER_WINS + closed + credit = 0 → no claim");
+
+        Ok(())
+    }
+
+    /// Verifies zero-init-bond games are closed before eviction.
+    #[tokio::test]
+    async fn test_zero_init_bond_finalized_game_closes_before_eviction() -> Result<()> {
+        let (env, proposer, _init_bond) = setup().await?;
+
+        let set_init_call = DisputeGameFactory::setInitBondCall {
+            _gameType: TEST_GAME_TYPE,
+            _initBond: U256::ZERO,
+        };
+        env.send_factory_tx(set_init_call.abi_encode(), None).await?;
+
+        let block = env.anvil.starting_l2_block_number + 1;
+        let root_claim = env.compute_output_root_at_block(block).await?;
+        env.create_game(root_claim, block, M, U256::ZERO).await?;
+        let (_, address) = env.last_game_info().await?;
+
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        env.resolve_game(address).await?;
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+
+        proposer.sync_state().await?;
+
+        let game = cached_game(&proposer, 0).await?;
+        assert_eq!(
+            env.get_credit(address, PROPOSER_ADDRESS).await?,
+            U256::ZERO,
+            "zero init bond should leave proposer credit at zero"
+        );
+        assert_eq!(
+            env.get_bond_distribution_mode(address).await?,
+            BOND_DISTRIBUTION_MODE_UNDECIDED,
+            "zero-bond game should still be unclosed"
+        );
+        assert!(
+            game.should_attempt_to_close_game,
+            "zero-credit finalized game should be marked for close"
+        );
+        assert!(
+            !game.should_attempt_to_claim_bond,
+            "zero-credit unclosed game must not be claimed"
+        );
+
+        env.close_game(address).await?;
+        proposer.sync_state().await?;
+
+        let game = cached_game(&proposer, 0).await?;
+        assert!(
+            !game.should_attempt_to_close_game,
+            "already closed zero-credit game should not be marked for close after restart/sync"
+        );
+        assert!(
+            !game.should_attempt_to_claim_bond,
+            "closed zero-credit game should not be marked for claim"
+        );
 
         Ok(())
     }
@@ -1732,7 +1823,7 @@ mod challenger_sync {
     use anyhow::{Context, Result};
     use fault_proof::{
         challenger::{Game, OPSuccinctChallenger},
-        contract::{GameStatus, ProposalStatus},
+        contract::{GameStatus, ProposalStatus, BOND_DISTRIBUTION_MODE_UNDECIDED},
     };
     use op_succinct_bindings::dispute_game_factory::DisputeGameFactory;
     use rand::Rng;
@@ -2148,20 +2239,22 @@ mod challenger_sync {
 
     // ==================== Bond Claim Marking Tests ====================
 
-    /// Verifies `should_attempt_to_claim_bond` flag across different states.
+    /// Verifies close-before-claim flags across different challenger states.
     ///
     /// Conditions for bond claim:
     /// - Game status is CHALLENGER_WINS
     /// - Game is finalized (past finality delay)
+    /// - Game has been closed
     /// - Credit > 0
     #[rstest]
-    #[case::finalized_with_credit(true, false, true)]
-    #[case::not_finalized(false, false, false)]
-    #[case::finalized_no_credit(true, true, false)]
+    #[case::not_finalized(false, false, false, false)]
+    #[case::finalized_unclosed(true, false, true, false)]
+    #[case::finalized_closed_no_credit(true, true, false, false)]
     #[tokio::test]
-    async fn test_bond_claim_marking(
+    async fn test_close_and_bond_claim_marking(
         #[case] finalized: bool,
         #[case] claim_bond: bool,
+        #[case] expected_should_close: bool,
         #[case] expected_should_claim: bool,
     ) -> Result<()> {
         let (env, challenger, init_bond) = setup().await?;
@@ -2196,10 +2289,49 @@ mod challenger_sync {
             let game = cached_game(&challenger, 0).await?;
             assert_eq!(game.status, GameStatus::CHALLENGER_WINS);
             assert_eq!(
+                game.should_attempt_to_close_game, expected_should_close,
+                "should_attempt_to_close_game mismatch"
+            );
+            assert_eq!(
                 game.should_attempt_to_claim_bond, expected_should_claim,
                 "should_attempt_to_claim_bond mismatch"
             );
         }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_challenger_claims_only_after_close() -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+
+        let block = env.anvil.starting_l2_block_number + 1;
+        env.create_game(random_invalid_root(), block, M, init_bond).await?;
+        let (_, game_address) = env.last_game_info().await?;
+
+        env.challenge_game(game_address).await?;
+        env.warp_time(MAX_PROVE_DURATION + 1).await?;
+        env.resolve_game(game_address).await?;
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+
+        challenger.sync_state().await?;
+        let game = cached_game(&challenger, 0).await?;
+        assert_eq!(
+            env.get_bond_distribution_mode(game_address).await?,
+            BOND_DISTRIBUTION_MODE_UNDECIDED,
+            "challenger-won game should be unclosed before closeGame"
+        );
+        assert!(game.should_attempt_to_close_game, "unclosed finalized game should close first");
+        assert!(
+            !game.should_attempt_to_claim_bond,
+            "unclosed finalized game should not claim before close"
+        );
+
+        env.close_game(game_address).await?;
+        challenger.sync_state().await?;
+        let game = cached_game(&challenger, 0).await?;
+        assert!(!game.should_attempt_to_close_game, "closed game should not close again");
+        assert!(game.should_attempt_to_claim_bond, "closed game with credit should claim");
 
         Ok(())
     }

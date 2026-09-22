@@ -1,6 +1,12 @@
 use alloy_sol_macro::sol;
 use serde::{Deserialize, Serialize};
 
+/// `BondDistributionMode.UNDECIDED` in the Optimism dispute-game contracts.
+pub const BOND_DISTRIBUTION_MODE_UNDECIDED: u8 = 0;
+
+/// Maximum consecutive close-game failures before automatic retries pause until restart.
+pub const MAX_CLOSE_GAME_FAILURES: u8 = 5;
+
 sol! {
     type GameType is uint32;
     type Claim is bytes32;
@@ -123,6 +129,12 @@ sol! {
 
         /// @notice Claim the credit belonging to the recipient address.
         function claimCredit(address _recipient) external;
+
+        /// @notice Closes out the game and determines the bond distribution mode.
+        function closeGame() external;
+
+        /// @notice Returns the bond distribution mode.
+        function bondDistributionMode() external view returns (uint8);
 
         /// @notice Returns the credit balance of a given recipient.
         function credit(address _recipient) external view returns (uint256 credit_);
