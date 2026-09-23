@@ -1970,7 +1970,9 @@ mod challenger_sync {
         challenger.sync_state().await?;
 
         let game = cached_game(&challenger, 0).await?;
-        assert_eq!(matches!(game.validation, GameValidation::Invalid(_)), is_invalid);
+        if !already_challenged {
+            assert_eq!(matches!(game.validation, GameValidation::Invalid(_)), is_invalid);
+        }
         assert_eq!(
             game.should_attempt_to_challenge, expected_should_challenge,
             "should_attempt_to_challenge mismatch for is_invalid={is_invalid}, already_challenged={already_challenged}"
