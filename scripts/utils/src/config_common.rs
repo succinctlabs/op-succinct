@@ -1,7 +1,7 @@
 use alloy_primitives::{hex, Address};
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
-use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
+use op_succinct_client_utils::boot::hash_rollup_config;
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
 use op_succinct_proof_utils::get_range_elf_embedded;
@@ -90,7 +90,7 @@ pub async fn get_shared_config_data(
 
     let range_pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
     let range_vkey = range_pk.verifying_key();
-    let range_vkey_commitment = format!("0x{}", hex::encode(u32_to_u8(range_vkey.hash_u32())));
+    let range_vkey_commitment = format!("0x{}", hex::encode(range_vkey.hash_bytes()));
 
     Ok(SharedConfigData {
         rollup_config_hash,

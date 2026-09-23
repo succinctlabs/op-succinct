@@ -9,9 +9,10 @@ use alloy_primitives::B256;
 use alloy_sol_types::SolValue;
 use op_succinct_client_utils::{
     boot::BootInfoStruct,
-    types::{u32_to_u8, AggregationInputs, AggregationOutputs},
+    types::{AggregationInputs, AggregationOutputs},
 };
 use sha2::{Digest, Sha256};
+use sp1_hypercube::words_to_bytes_be;
 use std::collections::HashMap;
 
 pub fn main() {
@@ -82,7 +83,7 @@ pub fn main() {
     };
 
     // Convert the range vkey to a B256.
-    let multi_block_vkey_b256 = B256::from(u32_to_u8(agg_inputs.multi_block_vkey));
+    let multi_block_vkey_b256 = B256::from(words_to_bytes_be(&agg_inputs.multi_block_vkey));
 
     let agg_outputs = AggregationOutputs {
         l1Head: final_boot_info.l1Head,
