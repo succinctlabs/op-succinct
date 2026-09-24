@@ -52,6 +52,17 @@ pub const GENERIC_COMMITMENT_TYPE: u8 = 0x01;
 /// The op-alt-da default for Keccak commitments when the rollup omits its limit.
 const DEFAULT_MAX_INPUT_SIZE: u64 = 130_672;
 
+/// Returns the effective AltDA input limit shared by the guest and the HTTP host.
+pub fn max_input_size(rollup_config: &RollupConfig) -> Result<u64> {
+    let max_input_size = rollup_config
+        .alt_da_config
+        .as_ref()
+        .and_then(|config| config.da_max_input_size)
+        .unwrap_or(DEFAULT_MAX_INPUT_SIZE);
+    ensure!(max_input_size > 0, "AltDA da_max_input_size must be greater than zero");
+    Ok(max_input_size)
+}
+
 /// A data source that wraps [`EthereumDataSource`] and resolves AltDA commitments.
 ///
 /// When the batcher posts AltDA commitments (version byte `0x01`) instead of raw batch data,
@@ -108,12 +119,7 @@ where
         oracle: Arc<O>,
         rollup_config: &RollupConfig,
     ) -> Result<Self> {
-        let max_input_size = rollup_config
-            .alt_da_config
-            .as_ref()
-            .and_then(|config| config.da_max_input_size)
-            .unwrap_or(DEFAULT_MAX_INPUT_SIZE);
-        ensure!(max_input_size > 0, "AltDA da_max_input_size must be greater than zero");
+        let max_input_size = max_input_size(rollup_config)?;
         Ok(Self { ethereum_source, oracle, max_input_size, pending_commitment: None })
     }
 }
