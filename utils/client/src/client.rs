@@ -105,6 +105,10 @@ where
             Err(e) => {
                 error!(target: "client", "Failed to execute L2 block: {}", e);
 
+                if !E::is_invalid_payload_error(&e) {
+                    return Err(DriverError::Executor(e));
+                }
+
                 if cfg.is_holocene_active(attributes.payload_attributes.timestamp) {
                     // Retry with a deposit-only block.
                     warn!(target: "client", "Flushing current channel and retrying deposit only block");
