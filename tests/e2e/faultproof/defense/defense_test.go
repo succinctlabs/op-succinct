@@ -22,12 +22,13 @@ func TestFaultProofProposer_DefendsWithProofAfterChallenge(gt *testing.T) {
 	logger := t.Logger()
 
 	// === SETUP ===
-	// Configure proposer with fast finality mode for proof generation
-	proposerCfg := opspresets.FastFinalityFPProposerConfig()
+	// Wait for a challenge before proving so this test exercises defense.
+	proposerCfg := opspresets.DefaultFPProposerConfig()
 	proposerCfg.ProposalIntervalInBlocks = 40
 	proposerCfg.RangeSplitCount = 1
 	proposerCfg.MaxConcurrentRangeProofs = 1
-	proposerCfg.MaxProveDuration = 60 // Give proposer 60s to respond to challenge
+	proposerCfg.MaxChallengeDuration = 60 // Allow time for historical L1 validation and challenge inclusion.
+	proposerCfg.MaxProveDuration = 60     // Give proposer 60s to respond to challenge.
 
 	// Configure challenger to always challenge valid games (malicious mode)
 	challengerCfg := opspresets.DefaultFPChallengerConfig()
