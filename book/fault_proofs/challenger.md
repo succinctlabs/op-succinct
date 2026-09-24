@@ -7,7 +7,7 @@ The fault proof challenger is a component responsible for monitoring and challen
 Before running the challenger, ensure you have:
 
 1. Rust toolchain installed (latest stable version)
-2. Access to L1 and L2 network nodes
+2. Access to L1, L2 execution, and L2 rollup nodes
 3. The DisputeGameFactory contract deployed (See [Deploy](./deploy.md))
 4. Sufficient ETH balance for:
    - Transaction fees
@@ -27,6 +27,10 @@ The challenger performs several key functions:
 
 The challenger is configured through environment variables.
 
+`L1_RPC` and the contract settings configure the shared challenger lifecycle. `L2_RPC` and
+`L2_NODE_RPC` are consumed by the default OP Stack game-validation backend; challengers that inject
+a different `GameValidator` do not require those two endpoints.
+
 Create a `.env.challenger` file in the `fault-proof` directory with all required variables. This single file is used by:
 - Docker Compose (for both variable substitution and runtime configuration)
 - Direct binary execution (`cargo run --bin challenger` from the `fault-proof` directory; the binary automatically loads `.env.challenger`)
@@ -37,6 +41,7 @@ Create a `.env.challenger` file in the `fault-proof` directory with all required
 |----------|-------------|
 | `L1_RPC` | L1 RPC endpoint URL |
 | `L2_RPC` | L2 RPC endpoint URL |
+| `L2_NODE_RPC` | RPC endpoint for the single op-node paired with `L2_RPC` |
 | `ANCHOR_STATE_REGISTRY_ADDRESS` | Address of the AnchorStateRegistry contract |
 | `FACTORY_ADDRESS` | Address of the DisputeGameFactory contract |
 | `GAME_TYPE` | Type identifier for the dispute game |
@@ -56,12 +61,14 @@ Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for t
 | `FETCH_INTERVAL` | Polling interval in seconds | `30` |
 | `CHALLENGER_METRICS_PORT` | The port to expose metrics on. Update prometheus.yml to use this port, if using docker compose. | `9001` |
 | `MALICIOUS_CHALLENGE_PERCENTAGE` | Percentage (0.0-100.0) of valid games to challenge for testing defense mechanisms | `0.0` |
+| `SYNC_L1_CONFIRMATIONS` | Number of L1 blocks behind `latest` used for pinned state reads. The operator must choose a value appropriate for the chain's reorg assumptions; no challenge-window upper bound is enforced. | `0` |
 | `TX_CONFIRMATION_TIMEOUT` | Maximum time (in seconds) to wait for an L1 transaction to reach the required number of confirmations. Setting this too low risks timeout-triggered retries that can lead to redundant operations. | `60` |
 
 ```env
 # Required Configuration
 L1_RPC=                              # L1 RPC endpoint URL
 L2_RPC=                              # L2 RPC endpoint URL
+L2_NODE_RPC=                         # RPC URL of the op-node paired with L2_RPC
 ANCHOR_STATE_REGISTRY_ADDRESS=       # Address of the AnchorStateRegistry contract
 FACTORY_ADDRESS=                     # Address of the DisputeGameFactory contract
 GAME_TYPE=                           # Type identifier for the dispute game
@@ -74,9 +81,51 @@ CHALLENGER_METRICS_PORT=9001          # The port to expose metrics on
 # Testing Configuration (Optional)
 MALICIOUS_CHALLENGE_PERCENTAGE=0.0    # Percentage of valid games to challenge for testing (0.0 = disabled)
 
+# L1 State Snapshot Configuration (Optional; required with a non-zero value in production)
+SYNC_L1_CONFIRMATIONS=5               # Example: L1 blocks behind latest used for pinned sync reads
+
 # Transaction Configuration (Optional)
 TX_CONFIRMATION_TIMEOUT=60            # L1 tx confirmation timeout in seconds (raise for congested L1s)
 ```
+
+Each synchronization cycle pins factory, game, parent, registry, and credit reads to one canonical
+L1 block at `latest - SYNC_L1_CONFIRMATIONS`. Deadline decisions continue to use the timestamp from
+the cycle's `latest` block. Before submitting a challenge, resolution, or credit claim, the
+challenger rechecks the relevant eligibility at a fresh canonical `latest` block and skips the
+transaction if that preflight is unavailable or stale.
+
+For production deployments, configure `SYNC_L1_CONFIRMATIONS` to a non-zero value selected for the
+target L1's expected reorg depth and finality assumptions. This value provides a reorg safety
+margin for the Challenger's synchronization snapshot; it is not a finality guarantee. The default
+value of `0` is intended for local development and testing only.
+
+Before entering the main loop, the challenger verifies that the op-node rollup configuration has
+the same L1 and L2 chain IDs as `L1_RPC` and `L2_RPC`, that SafeDB is enabled and populated, and
+that its safe head exists with the same hash on the paired execution node. Startup validation is
+retried until this fixed node pair is healthy.
+
+The shared challenger lifecycle delegates chain-specific claim checks to a `GameValidator`.
+The standard Challenger binary wires the OP Stack validator, which owns the op-node and paired L2
+execution providers and performs all of the SafeDB checks described below. Custom integrations may
+inject another validator without changing game discovery, retry, deadline, or transaction handling.
+
+For every active unchallenged game, the challenger resolves `game.l1Head` to its canonical L1
+block number `X`, then queries `optimism_safeHeadAtL1Block(X)` after confirming that
+`optimism_syncStatus.current_l1` has processed past `X`. A claim above this historical local-safe
+head is invalid even if the execution node now contains the same block as unsafe. Node lag,
+missing SafeDB history, execution history/state pruning, and L1/L2 hash mismatches remain
+`Unavailable`: they are retried and alerted on, never challenged as unknown data.
+
+`L2_NODE_RPC` must point directly to one dedicated op-node, not a node pool. `L2_RPC` must point to
+the execution node paired with it. The op-node must have SafeDB enabled with `--safedb.path`, must
+retain history covering the active challenge window, and must not use FollowSource or
+SuperAuthority because the challenger relies on SafeDB having historical local-safe semantics.
+
+If the confirmed L1 height moves backwards relative to the highest snapshot accepted by the
+challenger, it fails closed and skips that cycle. The high-water mark is recorded before applying
+the snapshot, so a cancelled or partially failed sync cannot later admit an older snapshot. An
+unchanged confirmed height is still processed so unavailable validation and failed actions continue
+to retry.
 
 ## Running
 
@@ -135,6 +184,55 @@ The challenger relies on structured `tracing` logs:
 - Checks game validity against the L2 state commitment
 - Filters to the configured OP Succinct fault dispute game type that was respected at creation time
 - Marks games for challenging, resolution, or bond claiming based on proposal status, parent outcomes, and deadlines
+
+### Output Root Validation
+
+The dispute game exposes its claimed L2 block number as a `uint256`, while the execution RPC block
+number is limited to `u64`. Values up to and including `u64::MAX` are accepted. Larger values are
+treated as invalid without issuing an L2 RPC request, rather than being truncated or causing the
+challenger to panic.
+
+For representable block numbers, the challenger requests the L2 header without full transaction
+bodies. Post-Isthmus headers provide the L2-to-L1 message passer storage root through
+`withdrawalsRoot`; for earlier blocks, the challenger falls back to `eth_getProof` at the same block
+number when calculating the output root.
+
+### Validation Outcomes and Retries
+
+Output-root validation records one of three outcomes for each monitored game:
+
+- `Valid`: the locally computed output root matches the claim.
+- `Invalid`: the output root mismatches, the claimed L2 block number exceeds `u64::MAX`, or the
+  claim is above the historical local-safe head at `game.l1Head`.
+- `Unavailable`: validation could not complete because required RPC data could not be read.
+
+Only `Invalid` authorizes an automatic challenge based on output-root validation. An `Unavailable`
+game is never treated as invalid: while its challenge window remains open, the challenger retries it
+on every polling cycle. At or after the deadline, it keeps the unavailable reason for observability
+but stops fetching the output root and does not submit a challenge based on an unknown result.
+Challenges inherited from a parent game that resolved in favor of the challenger remain independent
+of this output-root classification.
+
+Game discovery and validation retries are tracked independently from the factory cursor. A failed
+index is retained for retry while the cursor continues to later indices, so one malformed or
+temporarily unavailable game cannot starve subsequent discovery. Individual game refresh failures
+are also isolated so other cached games can still be synchronized and acted on.
+
+The following metrics expose unavailable validation and isolated synchronization failures:
+
+- `op_succinct_fp_challenger_unverifiable_games`: in-progress, unchallenged games whose output root
+  remains unavailable.
+- `op_succinct_fp_challenger_nearest_unverifiable_deadline_seconds`: seconds until the nearest such
+  deadline (`-1` when none and `0` once expired).
+- `op_succinct_fp_challenger_sync_failures_total`: isolated discovery, refresh, and synchronization
+  failures.
+- `op_succinct_fp_challenger_confirmed_l1_head`: L1 block number selected for the latest pinned sync
+  snapshot.
+- `op_succinct_fp_challenger_l1_confirmation_lag_blocks`: block distance between `latest` and that
+  confirmed snapshot.
+- `op_succinct_fp_challenger_preflight_errors_total`: latest-state action preflight RPC errors.
+- `op_succinct_fp_challenger_preflight_skips_total`: stale actions rejected by latest-state
+  preflight.
 
 ### Game Challenging
 - Submits challenges for games flagged by the sync step
