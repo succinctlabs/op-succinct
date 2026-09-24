@@ -110,6 +110,9 @@ jobs:
           command: check
           args: --all-targets --all-features --tests
 
+      - name: Check SP1 patch sources
+        run: scripts/check-sp1-patches.sh
+
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
         with:
