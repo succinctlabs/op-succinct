@@ -42,3 +42,7 @@ spin.workspace = true
 # kzg
 kzg-rs.workspace = true
 cfg-if.workspace = true
+
+[dev-dependencies]
+op-alloy-rpc-types-engine.workspace = true
+tokio.workspace = true

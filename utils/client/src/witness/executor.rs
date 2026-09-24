@@ -8,7 +8,9 @@ use kona_derive::{
     BlobProvider, ChainProvider, DataAvailabilityProvider, L2ChainProvider, Pipeline,
     SignalReceiver,
 };
-use kona_driver::{Driver, DriverPipeline, PipelineCursor};
+#[cfg(target_os = "zkvm")]
+use kona_driver::DriverPhase;
+use kona_driver::{Driver, DriverMetrics, DriverPipeline, PipelineCursor};
 use kona_executor::TrieDBProvider;
 use kona_genesis::{L1ChainConfig, RollupConfig};
 use kona_preimage::CommsClient;
@@ -23,9 +25,23 @@ use spin::RwLock;
 use tracing::info;
 
 use crate::{
-    client::{advance_to_target, fetch_safe_head_hash},
+    client::fetch_safe_head_hash,
     precompiles::{CustomCrypto, ZkvmOpEvmFactory},
 };
+
+struct CycleTrackingMetrics;
+
+impl DriverMetrics for CycleTrackingMetrics {
+    #[cfg(target_os = "zkvm")]
+    fn phase_start(&self, phase: DriverPhase) {
+        println!("cycle-tracker-report-start: {}", phase.as_str());
+    }
+
+    #[cfg(target_os = "zkvm")]
+    fn phase_end(&self, phase: DriverPhase) {
+        println!("cycle-tracker-report-end: {}", phase.as_str());
+    }
+}
 
 // Gets the inputs for constructing the derivation pipeline.
 pub async fn get_inputs_for_pipeline<O>(
@@ -147,15 +163,15 @@ pub trait WitnessExecutor {
         // Run the derivation pipeline until we are able to produce the output root of the claimed
         // L2 block.
 
-        // Use custom advance to target with cycle tracking.
         #[cfg(target_os = "zkvm")]
         println!("cycle-tracker-report-start: block-execution-and-derivation");
-        let (safe_head, output_root) = advance_to_target(
-            &mut driver,
-            rollup_config.as_ref(),
-            Some(boot.claimed_l2_block_number),
-        )
-        .await?;
+        let (safe_head, output_root) = driver
+            .advance_to_target_with_metrics(
+                rollup_config.as_ref(),
+                Some(boot.claimed_l2_block_number),
+                &CycleTrackingMetrics,
+            )
+            .await?;
         #[cfg(target_os = "zkvm")]
         println!("cycle-tracker-report-end: block-execution-and-derivation");
 
@@ -174,8 +190,8 @@ pub trait WitnessExecutor {
 
         // Bind the committed l2BlockNumber to the actual derived safe-head number. Without this
         // check, a non-interop EndOfSource that triggers the silent target downgrade in
-        // advance_to_target can let an adversarial witness commit (l2PostRoot, l2BlockNumber)
-        // pairs that refer to different L2 blocks. See GHSA-5jh4-3p33-85xc.
+        // Kona's advance_to_target can let an adversarial witness commit (l2PostRoot,
+        // l2BlockNumber) pairs that refer to different L2 blocks. See GHSA-5jh4-3p33-85xc.
         ensure_derived_block_matches_claim(
             safe_head.block_info.number,
             boot.claimed_l2_block_number,
@@ -201,7 +217,7 @@ pub trait WitnessExecutor {
 /// Ensures the derived L2 safe-head block number matches the boot's claimed L2 block number.
 ///
 /// This is the postcondition that closes GHSA-5jh4-3p33-85xc: a non-interop `EndOfSource` inside
-/// `advance_to_target` silently downgrades the local target to the current safe head, so a
+/// Kona's `advance_to_target` silently downgrades the local target to the current safe head, so a
 /// successful return does not by itself prove the requested target was reached.
 fn ensure_derived_block_matches_claim(
     safe_head_number: u64,
@@ -220,6 +236,13 @@ fn ensure_derived_block_matches_claim(
 #[cfg(test)]
 mod tests {
     use super::ensure_derived_block_matches_claim;
+    use kona_driver::DriverPhase;
+
+    #[test]
+    fn driver_phase_names_match_cycle_report_keys() {
+        assert_eq!(DriverPhase::PayloadDerivation.as_str(), "payload-derivation");
+        assert_eq!(DriverPhase::BlockExecution.as_str(), "block-execution");
+    }
 
     #[test]
     fn returns_ok_when_derived_equals_claimed() {
