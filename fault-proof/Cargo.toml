@@ -73,6 +73,8 @@ tempfile = "3"
 [dev-dependencies]
 alloy-signer-local.workspace = true
 alloy-node-bindings.workspace = true
+alloy-json-rpc = "2.1.0"
+tower = "0.5.3"
 alloy.workspace = true
 op-succinct-bindings.workspace = true
 serde_json.workspace = true
