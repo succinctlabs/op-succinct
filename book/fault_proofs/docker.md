@@ -45,6 +45,7 @@ MAX_CONCURRENT_DEFENSE_TASKS=8      # Maximum number of concurrently running def
 # Required Configuration
 L1_RPC=                              # L1 RPC endpoint URL
 L2_RPC=                              # L2 RPC endpoint URL
+L2_NODE_RPC=                         # RPC URL of the op-node paired with L2_RPC
 ANCHOR_STATE_REGISTRY_ADDRESS=       # Address of the AnchorStateRegistry contract
 FACTORY_ADDRESS=                     # Address of the DisputeGameFactory contract
 GAME_TYPE=                           # Type identifier for the dispute game
