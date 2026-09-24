@@ -5,12 +5,13 @@ use kona_derive::{
     OriginProvider, Pipeline, PipelineError, PipelineErrorKind, PipelineResult, Signal,
     SignalReceiver, StepResult,
 };
-use kona_driver::{Driver, DriverError, DriverPipeline, Executor, PipelineCursor, TipCursor};
+use kona_driver::{
+    Driver, DriverError, DriverPipeline, Executor, NoopDriverMetrics, PipelineCursor, TipCursor,
+};
 use kona_executor::{BlockBuildingOutcome, ExecutorError, TrieDBError};
 use kona_genesis::{RollupConfig, SystemConfig};
 use kona_protocol::{BlockInfo, L2BlockInfo, OpAttributesWithParent};
 use op_alloy_rpc_types_engine::OpPayloadAttributes;
-use op_succinct_client_utils::client::advance_to_target;
 use spin::RwLock;
 use std::sync::Arc;
 
@@ -150,7 +151,7 @@ fn driver_with_error(
 #[tokio::test]
 async fn invalid_payload_still_triggers_deposit_only_fallback() {
     let (mut driver, config) = driver_with_error(ExecutorError::BlockGasLimitExceeded);
-    let result = advance_to_target(&mut driver, &config, Some(1)).await;
+    let result = driver.advance_to_target_with_metrics(&config, Some(1), &NoopDriverMetrics).await;
 
     assert!(matches!(result, Err(DriverError::Executor(ExecutorError::MissingExecutor))));
     assert_eq!(driver.pipeline.flushes, 1);
@@ -162,7 +163,7 @@ async fn invalid_payload_still_triggers_deposit_only_fallback() {
 async fn provider_error_does_not_invalidate_channel() {
     let error = ExecutorError::TrieDBError(TrieDBError::Provider("missing witness".into()));
     let (mut driver, config) = driver_with_error(error);
-    let result = advance_to_target(&mut driver, &config, Some(1)).await;
+    let result = driver.advance_to_target_with_metrics(&config, Some(1), &NoopDriverMetrics).await;
 
     assert!(matches!(result, Err(DriverError::Executor(ExecutorError::TrieDBError(_)))));
     assert_eq!(driver.pipeline.flushes, 0);
@@ -176,7 +177,7 @@ async fn pre_holocene_provider_error_is_not_discarded() {
     config.hardforks.holocene_time = None;
     driver.pipeline.config.hardforks.holocene_time = None;
 
-    let result = advance_to_target(&mut driver, &config, Some(1)).await;
+    let result = driver.advance_to_target_with_metrics(&config, Some(1), &NoopDriverMetrics).await;
 
     assert!(matches!(result, Err(DriverError::Executor(ExecutorError::TrieDBError(_)))));
     assert_eq!(driver.pipeline.flushes, 0);
