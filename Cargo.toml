@@ -245,15 +245,44 @@ tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch
 # Patch op-alloy and alloy-op-evm to use the optimism monorepo versions
 # Required because kona v1.7.0 uses path deps from the monorepo, and hokulea's
 # own [patch] section doesn't propagate when used as a git dependency.
-op-alloy-consensus = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.7.0" }
-op-alloy-network = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.7.0" }
-op-alloy-rpc-types = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.7.0" }
-op-alloy-rpc-types-engine = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.7.0" }
-op-alloy-provider = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.7.0" }
-alloy-op-evm = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.7.0" }
-alloy-op-hardforks = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.7.0" }
-op-alloy = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.7.0" }
+op-alloy-consensus = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+op-alloy-network = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+op-alloy-rpc-types = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+op-alloy-rpc-types-engine = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+op-alloy-provider = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+alloy-op-evm = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+alloy-op-hardforks = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+op-alloy = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
 # op-revm must also be patched to git: alloy-op-evm (git) carries the git op-revm,
 # but hokulea pulls op-revm from crates.io, producing two op-revm versions and
 # OpSpecId/OpEvm type mismatches. Patching unifies the whole graph on the git op-revm.
-op-revm = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.7.0" }
+op-revm = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+
+[patch."https://github.com/ethereum-optimism/optimism"]
+alloy-op-evm = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+alloy-op-hardforks = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+kona-cli = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+kona-client = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+kona-derive = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+kona-driver = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+kona-executor = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+kona-genesis = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+kona-hardforks = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+kona-host = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+kona-interop = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+kona-macros = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+kona-mpt = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+kona-preimage = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+kona-proof = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+kona-proof-interop = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+kona-protocol = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+kona-registry = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+kona-std-fpvm = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+kona-std-fpvm-proc = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+op-alloy = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+op-alloy-consensus = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+op-alloy-network = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+op-alloy-provider = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+op-alloy-rpc-types = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+op-alloy-rpc-types-engine = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
+op-revm = { git = "https://github.com/fakedev9999/optimism", rev = "0fa0eff54303465a0ca499c4ff5e5441a611018f" }
