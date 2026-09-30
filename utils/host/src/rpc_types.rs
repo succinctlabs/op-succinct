@@ -5,7 +5,9 @@
 
 use alloy_eips::BlockNumHash;
 use alloy_primitives::B256;
-use kona_protocol::{L2BlockInfo, SyncStatus};
+pub use kona_genesis::RollupConfig;
+use kona_protocol::L2BlockInfo;
+pub use kona_protocol::SyncStatus;
 use serde::{Deserialize, Serialize};
 
 /// An [output response][or] for Optimism Rollup.

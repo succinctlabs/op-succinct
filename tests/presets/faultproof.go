@@ -173,7 +173,7 @@ func WithSuccinctFPChallenger(ids *sysgo.DefaultSingleChainInteropSystemIDs, cfg
 		if cfg.EnvFilePath != "" {
 			challengerOpts = append(challengerOpts, sysgo.WithFPChallengerWriteEnvFile(cfg.EnvFilePath))
 		}
-		sysgo.WithSuccinctFaultProofChallengerPostDeploy(orch, ids.L2ChallengerA, ids.L1EL, ids.L2AEL, challengerOpts...)
+		sysgo.WithSuccinctFaultProofChallengerPostDeploy(orch, ids.L2ChallengerA, ids.L1EL, ids.L2ACL, ids.L2AEL, challengerOpts...)
 	}))
 }
 
@@ -338,13 +338,13 @@ func NewDefaultFaultProofSystemWithChallenger(t devtest.T) *FaultProofSystem {
 // GameImplConfig holds the configuration needed to deploy a new game implementation.
 // This is extracted from the current deployed game implementation.
 type GameImplConfig struct {
-	FactoryProxy        common.Address
-	VerifierAddress     common.Address
-	AnchorStateRegistry common.Address
-	AccessManager       common.Address
-	RollupConfigHash    [32]byte
-	AggregationVkey     [32]byte
-	RangeVkeyCommitment [32]byte
+	FactoryProxy         common.Address
+	VerifierAddress      common.Address
+	AnchorStateRegistry  common.Address
+	AccessManager        common.Address
+	RollupConfigHash     [32]byte
+	AggregationVkey      [32]byte
+	RangeVkeyCommitment  [32]byte
 	MaxChallengeDuration uint64
 	MaxProveDuration     uint64
 	ChallengerBondWei    *big.Int
@@ -481,4 +481,3 @@ func (s *FaultProofSystem) UpgradeGameImplWithFakeVkeys(
 
 	return newImplAddr, nil
 }
-
