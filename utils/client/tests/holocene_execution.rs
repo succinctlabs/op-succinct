@@ -150,13 +150,21 @@ fn driver_with_error(
 
 #[tokio::test]
 async fn invalid_payload_still_triggers_deposit_only_fallback() {
-    let (mut driver, config) = driver_with_error(ExecutorError::BlockGasLimitExceeded);
-    let result = driver.advance_to_target_with_metrics(&config, Some(1), &NoopDriverMetrics).await;
+    let errors = [
+        ExecutorError::BlockGasLimitExceeded,
+        ExecutorError::UnsupportedTransactionType(0xff),
+        ExecutorError::RLPError(alloy_rlp::Error::InputTooShort.into()),
+    ];
+    for error in errors {
+        let (mut driver, config) = driver_with_error(error);
+        let result =
+            driver.advance_to_target_with_metrics(&config, Some(1), &NoopDriverMetrics).await;
 
-    assert!(matches!(result, Err(DriverError::Executor(ExecutorError::MissingExecutor))));
-    assert_eq!(driver.pipeline.flushes, 1);
-    assert_eq!(driver.executor.calls.len(), 2);
-    assert_eq!(driver.executor.calls[1], vec![Bytes::from_static(&[0x7e])]);
+        assert!(matches!(result, Err(DriverError::Executor(ExecutorError::MissingExecutor))));
+        assert_eq!(driver.pipeline.flushes, 1);
+        assert_eq!(driver.executor.calls.len(), 2);
+        assert_eq!(driver.executor.calls[1], vec![Bytes::from_static(&[0x7e])]);
+    }
 }
 
 #[tokio::test]
