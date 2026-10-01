@@ -11457,7 +11457,7 @@ dependencies = [
 [[package]]
 name = "sha2"
 version = "0.11.0"
-source = "git+https://github.com/sp1-patches/RustCrypto-hashes?rev=8993e08b9f7c47cd4a056decbf85d2d7ab3fe77c#8993e08b9f7c47cd4a056decbf85d2d7ab3fe77c"
+source = "git+https://github.com/sp1-patches/RustCrypto-hashes?tag=patch-sha2-0.11.0-sp1-6.2.0#8993e08b9f7c47cd4a056decbf85d2d7ab3fe77c"
 dependencies = [
  "cfg-if",
  "cpufeatures 0.3.0",
