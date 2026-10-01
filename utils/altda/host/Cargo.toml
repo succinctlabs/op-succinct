@@ -14,6 +14,7 @@ op-succinct-host-utils.workspace = true
 kona-host.workspace = true
 kona-preimage.workspace = true
 kona-proof.workspace = true
+kona-registry.workspace = true
 
 # alloy
 alloy-primitives.workspace = true

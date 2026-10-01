@@ -15,6 +15,7 @@ use kona_host::{
 };
 use kona_preimage::{Channel, HintReader, OracleServer};
 use kona_proof::{errors::HintParsingError, HintType};
+use op_succinct_altda_client_utils::data_source::max_input_size;
 use op_succinct_host_utils::host::PreimageServerStarter;
 use serde::Serialize;
 use tokio::task::{self, JoinHandle};
@@ -136,6 +137,18 @@ impl AltDAChainHost {
     /// Creates the standard kona providers (L1, L2, beacon) plus an HTTP client and DA server
     /// URL for fetching AltDA commitment data.
     async fn create_providers(&self) -> Result<AltDAChainProviders, SingleChainHostError> {
+        let rollup_config = if self.single_host.rollup_config_path.is_some() {
+            self.single_host.read_rollup_config()?
+        } else {
+            let chain_id =
+                self.single_host.l2_chain_id.ok_or(SingleChainHostError::NoRollupConfig)?;
+            kona_registry::ROLLUP_CONFIGS
+                .get(&chain_id)
+                .cloned()
+                .ok_or(SingleChainHostError::NoRollupConfig)?
+        };
+        let max_input_size = max_input_size(&rollup_config)
+            .map_err(|_| SingleChainHostError::Other("Invalid AltDA da_max_input_size"))?;
         let inner_providers = self.single_host.create_providers().await?;
 
         let da_server_url = self
@@ -146,6 +159,7 @@ impl AltDAChainHost {
         Ok(AltDAChainProviders {
             inner_providers,
             da_server_url,
+            max_input_size,
             http_client: reqwest::Client::builder()
                 .timeout(Duration::from_secs(30))
                 .build()
@@ -169,6 +183,8 @@ pub struct AltDAChainProviders {
     pub inner_providers: SingleChainProviders,
     /// The URL of the AltDA server.
     pub da_server_url: String,
+    /// The maximum batch size allowed by the rollup configuration.
+    pub max_input_size: u64,
     /// HTTP client for making requests to the DA server.
     pub http_client: reqwest::Client,
 }
