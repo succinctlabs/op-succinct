@@ -1,14 +1,17 @@
 use alloy_primitives::{hex, Address};
 use alloy_signer_local::PrivateKeySigner;
-use anyhow::Result;
+use anyhow::{anyhow, Context, Result};
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
 use op_succinct_proof_utils::get_range_elf_embedded;
 use sp1_sdk::{Elf, HashableKey, Prover, ProverClient, ProvingKey};
 use std::{
-    env, fs,
+    env,
+    fmt::Display,
+    fs,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
 pub const TWO_WEEKS_IN_SECONDS: u64 = 14 * 24 * 60 * 60;
@@ -28,22 +31,49 @@ pub struct SharedConfigData {
 /// - Otherwise if private_key_by_default=true and PRIVATE_KEY exists, returns address derived from
 ///   private key
 /// - Otherwise returns zero address
-pub fn get_address(env_var: &str, private_key_by_default: bool) -> String {
+pub fn get_address(env_var: &str, private_key_by_default: bool) -> Result<String> {
     // First try to get address directly from env var.
     if let Ok(addr) = env::var(env_var) {
-        return addr;
+        return Ok(addr);
     }
 
     // Next try to derive address from private key if enabled.
     if private_key_by_default {
         if let Ok(pk) = env::var("PRIVATE_KEY") {
-            let signer: PrivateKeySigner = pk.parse().unwrap();
-            return signer.address().to_string();
+            let signer: PrivateKeySigner = pk.parse().with_context(|| {
+                format!("PRIVATE_KEY must be valid to derive default {env_var}")
+            })?;
+            return Ok(signer.address().to_string());
         }
     }
 
     // Fallback to zero address.
-    Address::ZERO.to_string()
+    Ok(Address::ZERO.to_string())
+}
+
+/// Parse an environment variable if present, or use the provided default value.
+pub fn parse_env_or<T>(env_var: &str, default: T) -> Result<T>
+where
+    T: FromStr,
+    T::Err: Display,
+{
+    match env::var(env_var) {
+        Ok(value) => value
+            .parse()
+            .map_err(|err| anyhow!("{env_var} must be a valid value, got '{value}': {err}")),
+        Err(env::VarError::NotPresent) => Ok(default),
+        Err(err) => Err(err).with_context(|| format!("failed to read {env_var}")),
+    }
+}
+
+/// Parse an environment variable when it is required.
+pub fn parse_required_env<T>(env_var: &str) -> Result<T>
+where
+    T: FromStr,
+    T::Err: Display,
+{
+    let value = env::var(env_var).with_context(|| format!("{env_var} must be set"))?;
+    value.parse().map_err(|err| anyhow!("{env_var} must be a valid value, got '{value}': {err}"))
 }
 
 /// Parse comma-separated addresses from environment variable.
@@ -79,7 +109,7 @@ pub async fn get_shared_config_data(
         "0x3B6041173B80E77f038f3F2C0f9744f04837185e".to_string()
     });
 
-    let rollup_config = data_fetcher.rollup_config.as_ref().unwrap();
+    let rollup_config = data_fetcher.rollup_config.as_ref().context("rollup config not found")?;
     let rollup_config_hash = format!("0x{:x}", hash_rollup_config(rollup_config));
 
     // Calculate verification keys.
