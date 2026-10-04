@@ -51,7 +51,7 @@ These are typically different keys. Confirm you have access to both before proce
 ### Infrastructure & Tooling
 
 - L1 Archive Node RPC
-- L2 Execution Node RPC (`op-geth`)
+- L2 Execution Node RPC (`op-reth`)
 - L2 Rollup Node RPC (`op-node`), preferably with [SafeDB enabled](./fault_proofs/best_practices.md#safedb-configuration)
 - SP1 proving cluster or [Succinct Prover Network](https://docs.succinct.xyz/docs/sp1/prover-network/quickstart) access
 - L1 Beacon RPC (if using SafeDB or fast finality mode)
