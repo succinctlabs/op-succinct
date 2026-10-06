@@ -1,0 +1,52 @@
+name: Sysgo E2E Tests with Cluster Prover
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_target:
+        description: "Test target (e.g. ./e2e/validity/altda/...)"
+        required: false
+        default: "./e2e/validity/altda/..."
+      timeout:
+        description: "Go test timeout"
+        required: false
+        default: "240m"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  e2e-sysgo-cluster-prover:
+    name: Cluster (${{ github.event.inputs.test_target }})
+    runs-on:
+      - runs-on
+      - runner=64cpu-linux-x64
+      - run-id=${{ github.run_id }}
+      - spot=false
+      - disk=large
+    timeout-minutes: 300
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - name: Setup E2E environment
+        uses: ./.github/actions/setup-e2e-sysgo
+
+      - name: Run E2E Tests with Cluster Proving
+        working-directory: tests
+        env:
+          SP1_PROVER: cluster
+          CLI_CLUSTER_RPC: ${{ secrets.CLI_CLUSTER_RPC }}
+          CLI_S3_BUCKET: ${{ secrets.CLI_S3_BUCKET }}
+          CLI_S3_REGION: ${{ secrets.CLI_S3_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLUSTER_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLUSTER_AWS_SECRET_ACCESS_KEY }}
+          OP_SUCCINCT_MOCK: "false"
+          PROVING_TIMEOUT: "21600"
+        run: |
+          echo "Running e2e tests with cluster proving..."
+          just test-e2e-sysgo-altda "${{ github.event.inputs.test_target }}" "${{ github.event.inputs.timeout }}"
