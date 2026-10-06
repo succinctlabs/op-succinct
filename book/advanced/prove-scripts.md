@@ -23,9 +23,11 @@ Create a `.env` file in the project root directory:
 ```bash
 # RPC Endpoints
 L1_RPC=<YOUR_L1_RPC_ENDPOINT>
-L1_BEACON_RPC=<YOUR_L1_BEACON_RPC_ENDPOINT>
 L2_RPC=<YOUR_L2_RPC_ENDPOINT>
 L2_NODE_RPC=<YOUR_L2_NODE_RPC_ENDPOINT>
+
+# Optional for integrations that access consensus-layer data
+L1_BEACON_RPC=<YOUR_L1_BEACON_RPC_ENDPOINT>
 
 # Network Prover Configuration
 NETWORK_PRIVATE_KEY=<YOUR_NETWORK_PRIVATE_KEY>
@@ -43,9 +45,10 @@ AGG_PROOF_MODE=plonk             # Options: plonk, groth16
 | Variable | Description |
 |----------|-------------|
 | `L1_RPC` | L1 Archive Node endpoint |
-| `L1_BEACON_RPC` | L1 Consensus (Beacon) Node endpoint |
-| `L2_RPC` | L2 Execution Node (`op-geth`) endpoint |
+| `L2_RPC` | L2 Execution Node (`op-reth`) endpoint |
 | `L2_NODE_RPC` | L2 Rollup Node (`op-node`) endpoint |
+
+`L1_BEACON_RPC` is optional unless the selected integration accesses consensus-layer data.
 
 #### Required (proving only)
 
