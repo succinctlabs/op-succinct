@@ -1,3 +1,6 @@
+> [!WARNING]
+> This fork is deprecated after `v3.13.0-agglayer`. Use upstream [succinctlabs/op-succinct](https://github.com/succinctlabs/op-succinct) `v3.14.0` or `v4.9.0` and later, with the `agglayer` feature.
+
 # op-succinct
 
 OP Succinct is the production-grade proving engine for the OP Stack, powered by SP1.
