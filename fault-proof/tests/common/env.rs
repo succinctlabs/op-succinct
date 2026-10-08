@@ -529,8 +529,19 @@ impl TestEnvironment {
         parent_id: u32,
         init_bond: Uint<256, 4>,
     ) -> Result<TransactionReceipt> {
+        self.create_game_with_l2_block_number(root_claim, U256::from(block), parent_id, init_bond)
+            .await
+    }
+
+    pub async fn create_game_with_l2_block_number(
+        &self,
+        root_claim: FixedBytes<32>,
+        l2_block_number: U256,
+        parent_id: u32,
+        init_bond: Uint<256, 4>,
+    ) -> Result<TransactionReceipt> {
         let factory = self.factory()?;
-        let extra_data = (U256::from(block), parent_id).abi_encode_packed();
+        let extra_data = (l2_block_number, parent_id).abi_encode_packed();
         let receipt = factory
             .create(self.game_type, root_claim, extra_data.into())
             .value(init_bond)
