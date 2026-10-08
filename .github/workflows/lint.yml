@@ -25,6 +25,7 @@ jobs:
         with:
           filters: |
             code:
+              - '.cargo/**'
               - '.github/workflows/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
