@@ -39,6 +39,7 @@ dependencies = [
  "op-succinct-client-utils",
  "serde_cbor",
  "sha2 0.10.9",
+ "sp1-hypercube",
  "sp1-lib",
  "sp1-zkvm",
 ]

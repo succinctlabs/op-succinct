@@ -1,7 +1,7 @@
 use alloy_primitives::B256;
 use anyhow::Result;
 use clap::Parser;
-use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
+use op_succinct_client_utils::boot::hash_rollup_config;
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
 use op_succinct_proof_utils::get_range_elf_embedded;
@@ -18,8 +18,8 @@ async fn main() -> Result<()> {
     let range_pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
     let range_vk = range_pk.verifying_key();
 
-    // Get the 32 byte commitment to the vkey from hash_u32()
-    let range_vk_hash = B256::from(u32_to_u8(range_vk.hash_u32()));
+    // Get the 32 byte commitment to the vkey.
+    let range_vk_hash = B256::from(range_vk.hash_bytes());
     println!("Range Verification Key Hash: {range_vk_hash}");
 
     let agg_pk = prover.setup(Elf::Static(AGGREGATION_ELF)).await?;

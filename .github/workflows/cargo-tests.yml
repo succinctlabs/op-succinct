@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - '.cargo/**'
       - '.github/workflows/cargo-tests.yml'
       - '.github/workflows/integration-tests.yml'
       - 'Cargo.toml'

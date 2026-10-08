@@ -5,7 +5,7 @@
 use alloy_primitives::{Address, B256};
 use anyhow::{Context, Result};
 use clap::Parser;
-use op_succinct_client_utils::{boot::BootInfoStruct, types::u32_to_u8};
+use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
@@ -99,7 +99,7 @@ async fn build_agg_stdin(
     let header = fetcher.get_latest_l1_head_in_batch(&boot_infos).await?;
     let l1_head_hash = header.hash_slow();
     let headers = fetcher.get_header_preimages(&boot_infos, l1_head_hash).await?;
-    let multi_block_vkey_u8 = u32_to_u8(range_vkey.vk.hash_u32());
+    let multi_block_vkey_u8 = range_vkey.vk.hash_bytes();
     let multi_block_vkey_b256 = B256::from(multi_block_vkey_u8);
     println!("Range ELF Verification Key Commitment: {multi_block_vkey_b256}");
 

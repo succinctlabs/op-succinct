@@ -27,6 +27,7 @@ jobs:
         with:
           filters: |
             code:
+              - '.cargo/**'
               - '.github/workflows/e2e-sysgo-tests.yml'
               - '.github/actions/setup-e2e-sysgo/**'
               - 'contracts/**'

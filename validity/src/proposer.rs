@@ -8,10 +8,7 @@ use alloy_provider::{network::ReceiptResponse, Provider};
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use futures_util::{stream, StreamExt, TryStreamExt};
-use op_succinct_client_utils::{
-    boot::{hash_rollup_config, BootInfoStruct},
-    types::u32_to_u8,
-};
+use op_succinct_client_utils::boot::{hash_rollup_config, BootInfoStruct};
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
@@ -359,7 +356,7 @@ where
             (range_pk, range_vk, agg_pk, agg_vk, Some(network_prover))
         };
 
-        let range_vkey_commitment = B256::from(u32_to_u8(range_vk.vk.hash_u32()));
+        let range_vkey_commitment = B256::from(range_vk.vk.hash_bytes());
         let agg_vkey_hash = B256::from_str(&agg_vk.bytes32())?;
         let rollup_config_hash = hash_rollup_config(
             fetcher
