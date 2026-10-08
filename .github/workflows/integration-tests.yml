@@ -3,6 +3,7 @@ name: Integration Tests
 on:
   pull_request:
     paths:
+      - '.cargo/**'
       - '.github/workflows/integration-tests.yml'
       - 'Cargo.toml'
       - 'Cargo.lock'

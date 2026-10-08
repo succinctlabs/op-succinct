@@ -6,6 +6,7 @@ on:
       - main
       - release/v3.x
     paths:
+      - '.cargo/**'
       - '.github/workflows/cargo-tests.yml'
       - '.github/workflows/integration-tests.yml'
       - 'Cargo.toml'
