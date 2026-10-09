@@ -861,6 +861,10 @@ where
         let mut index = latest_index.clone();
         let mut anchor_deadline: Option<u64> = None;
         let mut invalid_game_ids = Vec::new();
+        // Games validated in this pass. They are committed to the cache together with the
+        // cursor once the pass completes, so a failure mid-pass leaves the cache untouched and
+        // the next cycle refetches every game instead of skipping them as `AlreadyExists`.
+        let mut fetched_games = Vec::new();
 
         loop {
             if index == cursor {
@@ -868,7 +872,8 @@ where
             }
 
             let i = index.index().expect("must have an index here");
-            let fetch_result = self.fetch_game(i, pinned_block).await?;
+            let (fetch_result, game) = self.load_game(i, pinned_block).await?;
+            fetched_games.extend(game);
 
             match fetch_result {
                 GameFetchResult::ValidGame { game_address, deadline } => {
@@ -909,6 +914,9 @@ where
 
         {
             let mut state = self.state.write().await;
+            for game in fetched_games {
+                state.games.insert(game.index, game);
+            }
             state.cursor = latest_index;
         }
 
@@ -1607,11 +1615,30 @@ where
     /// - The game type does not respect the expected type when created.
     /// - The output root claim is invalid.
     pub async fn fetch_game(&self, index: U256, pinned_block: BlockId) -> Result<GameFetchResult> {
+        let (fetch_result, game) = self.load_game(index, pinned_block).await?;
+
+        if let Some(game) = game {
+            let mut state = self.state.write().await;
+            state.games.insert(index, game);
+        }
+
+        Ok(fetch_result)
+    }
+
+    /// Fetch and validate a game from the factory without adding it to the cache.
+    ///
+    /// Returns the game alongside [`GameFetchResult::ValidGame`], and `None` otherwise. The
+    /// caller decides when to commit it to the cache.
+    async fn load_game(
+        &self,
+        index: U256,
+        pinned_block: BlockId,
+    ) -> Result<(GameFetchResult, Option<Game>)> {
         {
             let state = self.state.read().await;
 
             if state.games.contains_key(&index) {
-                return Ok(GameFetchResult::AlreadyExists);
+                return Ok((GameFetchResult::AlreadyExists, None));
             }
         }
 
@@ -1628,7 +1655,7 @@ where
                 expected_game_type = self.config.game_type,
                 "Unsupported game type"
             );
-            return Ok(GameFetchResult::UnsupportedType { game_address });
+            return Ok((GameFetchResult::UnsupportedType { game_address }, None));
         }
 
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
@@ -1644,7 +1671,7 @@ where
                 expected = ?self.anchor_state_registry.address(),
                 "Skipping game with different anchor state registry"
             );
-            return Ok(GameFetchResult::UnsupportedAnchorStateRegistry { game_address });
+            return Ok((GameFetchResult::UnsupportedAnchorStateRegistry { game_address }, None));
         }
 
         let l2_block = contract.l2BlockNumber().block(pinned_block).call().await?;
@@ -1676,7 +1703,7 @@ where
                 expected_game_type = self.config.game_type,
                 "Invalid game: game type was not respected when created"
             );
-            return Ok(GameFetchResult::InvalidGame { index });
+            return Ok((GameFetchResult::InvalidGame { index }, None));
         }
 
         // Validate output root. If invalid, drop the game, setting the cursor to this index.
@@ -1688,7 +1715,7 @@ where
                 expected_output_root = ?output_root,
                 "Invalid game: root claim does not match computed output root"
             );
-            return Ok(GameFetchResult::InvalidGame { index });
+            return Ok((GameFetchResult::InvalidGame { index }, None));
         }
 
         tracing::info!(
@@ -1722,10 +1749,7 @@ where
             tracing::info!(game_index = %index, "Discovered foreign game (proposer's identity params don't match on-chain params) - tracking for DAG but not proving/resolving/claiming");
         }
 
-        let mut state = self.state.write().await;
-        state.games.insert(index, game);
-
-        Ok(GameFetchResult::ValidGame { game_address, deadline })
+        Ok((GameFetchResult::ValidGame { game_address, deadline }, Some(game)))
     }
 
     /// Handles the creation of a new game if conditions are met.
