@@ -55,6 +55,28 @@ async fn l2_to_l1_message_passer_storage_root(
     }
 }
 
+/// Environment variable for the number of L1 blocks added to a range proof's L1 head.
+const L1_HEAD_BUFFER_ENV: &str = "L1_HEAD_BUFFER";
+
+/// Default for [`L1_HEAD_BUFFER_ENV`], the historical hard-coded buffer.
+const DEFAULT_L1_HEAD_BUFFER: u64 = 20;
+
+/// Parse [`L1_HEAD_BUFFER_ENV`], defaulting to [`DEFAULT_L1_HEAD_BUFFER`] when unset.
+fn l1_head_buffer_from_env() -> Result<u64> {
+    match env::var(L1_HEAD_BUFFER_ENV) {
+        Ok(raw) => raw.trim().parse::<u64>().map_err(|e| {
+            anyhow!(
+                "invalid {L1_HEAD_BUFFER_ENV} value {raw:?}: \
+                 expected non-negative integer ({e})"
+            )
+        }),
+        Err(env::VarError::NotPresent) => Ok(DEFAULT_L1_HEAD_BUFFER),
+        Err(env::VarError::NotUnicode(_)) => {
+            bail!("{L1_HEAD_BUFFER_ENV} is set but is not valid UTF-8")
+        }
+    }
+}
+
 /// JSON-RPC "method not found" error code defined by the JSON-RPC 2.0 spec.
 const JSON_RPC_METHOD_NOT_FOUND: i64 = -32601;
 
@@ -109,6 +131,10 @@ pub struct OPSuccinctDataFetcher {
     /// `finalized` with zero confirmations so existing deployments retain byte-identical
     /// behavior.
     pub l1_selection: L1BlockSelectionConfig,
+    /// L1 blocks added past the batch posting block when computing a range proof's L1 head.
+    /// External aggregation looks back by the same amount from its checkpoint, which keeps
+    /// every range L1 head at or below the checkpoint.
+    pub l1_head_buffer: u64,
 }
 
 impl Default for OPSuccinctDataFetcher {
@@ -185,10 +211,11 @@ pub struct FeeData {
 impl OPSuccinctDataFetcher {
     /// Gets the RPC URL's and saves the rollup config for the chain to the rollup config file.
     ///
-    /// Reads `L1_BLOCK_TAG` / `L1_CONFIRMATIONS` from the environment via
-    /// [`L1BlockSelectionConfig::from_env_or_default`] (panics on malformed values, with a
-    /// message naming the offending env var). Proposer entry points should call
-    /// [`L1BlockSelectionConfig::from_env`] beforehand to surface a clean startup error.
+    /// Reads `L1_BLOCK_TAG` / `L1_CONFIRMATIONS` via
+    /// [`L1BlockSelectionConfig::from_env_or_default`] and `L1_HEAD_BUFFER` from the environment
+    /// (panics on malformed values, with a message naming the offending env var). Proposer entry
+    /// points should call [`L1BlockSelectionConfig::from_env`] and
+    /// [`Self::new_with_rollup_config_and_l1_selection`] to surface a clean startup error.
     pub fn new() -> Self {
         Self::new_with_l1_selection(L1BlockSelectionConfig::from_env_or_default())
     }
@@ -211,6 +238,7 @@ impl OPSuccinctDataFetcher {
             rollup_config_path: None,
             l1_config_path: None,
             l1_selection,
+            l1_head_buffer: l1_head_buffer_from_env().unwrap_or_else(|e| panic!("{e:#}")),
         }
     }
 
@@ -226,6 +254,7 @@ impl OPSuccinctDataFetcher {
     pub async fn new_with_rollup_config_and_l1_selection(
         l1_selection: L1BlockSelectionConfig,
     ) -> Result<Self> {
+        let l1_head_buffer = l1_head_buffer_from_env()?;
         let rpc_config = get_rpcs_from_env();
 
         let l1_provider =
@@ -253,6 +282,7 @@ impl OPSuccinctDataFetcher {
             rollup_config_path: Some(rollup_config_path),
             l1_config_path: Some(l1_config_path),
             l1_selection,
+            l1_head_buffer,
         })
     }
 
@@ -293,7 +323,7 @@ impl OPSuccinctDataFetcher {
 
     /// Calculate the L1 head for a proof ending at `l2_end_block`.
     ///
-    /// Add the existing 20-block buffer to the batch posting block, capped at the selected
+    /// Add the L1 head buffer to the batch posting block, capped at the selected
     /// L1 head. Pass `safe_db_fallback` through to [`Self::get_l1_head`]; propagate errors.
     pub async fn calculate_safe_l1_head(
         &self,
@@ -305,7 +335,7 @@ impl OPSuccinctDataFetcher {
         // Preserve the buffer used by all retained DA backends.
         // FIXME(fakedev9999): Investigate why the L1 head must extend beyond the batch posting
         // block whose safe head already covers the L2 end block.
-        let l1_head_number = l1_head_number + 20;
+        let l1_head_number = l1_head_number.saturating_add(self.l1_head_buffer);
         let selected_l1 = self.resolve_selected_l1_header().await?;
         let safe_l1_head_number = min(l1_head_number, selected_l1.number);
         Ok(self.get_l1_header(safe_l1_head_number.into()).await?.hash_slow())
@@ -1148,6 +1178,7 @@ mod tests {
                 rollup_config_path: None,
                 l1_config_path: None,
                 l1_selection: selection,
+                l1_head_buffer: DEFAULT_L1_HEAD_BUFFER,
             };
             let calls = Arc::new(AtomicUsize::new(0));
             let server_calls = calls.clone();
@@ -1301,12 +1332,13 @@ mod tests {
 
     #[tokio::test]
     async fn safe_l1_head_preserves_the_buffer_and_selection_cap() {
-        for (selection, posting_block, expected_head) in [
-            (L1BlockSelectionConfig::default(), 70, 90),
-            (L1BlockSelectionConfig::default(), 90, 100),
-            (L1BlockSelectionConfig { tag: L1BlockTag::Latest, confirmations: 10 }, 125, 130),
+        for (selection, buffer, posting_block, expected_head) in [
+            (L1BlockSelectionConfig::default(), 20, 70, 90),
+            (L1BlockSelectionConfig::default(), 20, 90, 100),
+            (L1BlockSelectionConfig { tag: L1BlockTag::Latest, confirmations: 10 }, 20, 125, 130),
+            (L1BlockSelectionConfig::default(), 0, 70, 70),
         ] {
-            let rpc = TestRpc::new(selection, move |path, request| {
+            let mut rpc = TestRpc::new(selection, move |path, request| {
                 match (path, request["method"].as_str().unwrap()) {
                     ("/l1", "eth_getBlockByNumber") => {
                         let block = match request["params"][0].as_str().unwrap() {
@@ -1352,11 +1384,27 @@ mod tests {
                 }
             })
             .await;
+            rpc.fetcher.l1_head_buffer = buffer;
             assert_eq!(
                 rpc.fetcher.calculate_safe_l1_head(50, false).await.unwrap(),
                 Header { number: expected_head, ..Default::default() }.hash_slow()
             );
         }
+    }
+
+    #[test]
+    fn l1_head_buffer_from_env_parses_and_defaults() {
+        // Only this test sets `L1_HEAD_BUFFER`, so no env lock is needed.
+        std::env::remove_var(L1_HEAD_BUFFER_ENV);
+        assert_eq!(l1_head_buffer_from_env().unwrap(), DEFAULT_L1_HEAD_BUFFER);
+        std::env::set_var(L1_HEAD_BUFFER_ENV, " 0 ");
+        assert_eq!(l1_head_buffer_from_env().unwrap(), 0);
+        for raw in ["-1", "abc", ""] {
+            std::env::set_var(L1_HEAD_BUFFER_ENV, raw);
+            let err = l1_head_buffer_from_env().unwrap_err().to_string();
+            assert!(err.contains(L1_HEAD_BUFFER_ENV), "{err}");
+        }
+        std::env::remove_var(L1_HEAD_BUFFER_ENV);
     }
 
     fn test_rollup_config(chain_id: u64) -> RollupConfig {
