@@ -47,6 +47,19 @@ pub(crate) fn checked_l2_block_number(l2_block_number: U256) -> Result<u64> {
         .map_err(|_| anyhow!("L2 block number exceeds u64::MAX: {l2_block_number}"))
 }
 
+/// Lowest gas limit sent with `claimCredit`: the fixed limit used before it was estimated.
+pub(crate) const CLAIM_CREDIT_MIN_GAS_LIMIT: u64 = 200_000;
+
+/// Gas limit for a `claimCredit` call, from its gas estimate: 20% headroom, never below
+/// [`CLAIM_CREDIT_MIN_GAS_LIMIT`].
+///
+/// The headroom matters because `closeGame` calls `setAnchorState` inside a try/catch: with a
+/// tight limit that inner call could run out of gas and be swallowed, and the claim would
+/// succeed without updating the anchor state.
+pub(crate) fn claim_credit_gas_limit(estimate: u64) -> u64 {
+    estimate.saturating_add(estimate / 5).max(CLAIM_CREDIT_MIN_GAS_LIMIT)
+}
+
 #[async_trait]
 pub trait L2ProviderTrait {
     /// Get the L2 block by number.
@@ -276,6 +289,23 @@ mod tests {
             }
             .abi_encode(),
         )
+    }
+
+    #[test]
+    fn claim_credit_gas_limit_adds_headroom_to_the_estimate() {
+        assert_eq!(claim_credit_gas_limit(200_000), 240_000);
+        assert_eq!(claim_credit_gas_limit(197_191), 236_629);
+    }
+
+    #[test]
+    fn claim_credit_gas_limit_keeps_the_previous_fixed_limit_as_floor() {
+        assert_eq!(claim_credit_gas_limit(0), CLAIM_CREDIT_MIN_GAS_LIMIT);
+        assert_eq!(claim_credit_gas_limit(147_706), CLAIM_CREDIT_MIN_GAS_LIMIT);
+    }
+
+    #[test]
+    fn claim_credit_gas_limit_saturates() {
+        assert_eq!(claim_credit_gas_limit(u64::MAX), u64::MAX);
     }
 
     #[test]

@@ -36,6 +36,7 @@ use tokio::{
 
 use crate::{
     backup::ProposerBackup,
+    claim_credit_gas_limit,
     config::ProposerConfig,
     contract::{
         AnchorStateRegistry::AnchorStateRegistryInstance,
@@ -1573,8 +1574,10 @@ where
     #[tracing::instrument(name = "[[Claiming Proposer Bonds]]", skip(self, game))]
     pub async fn submit_bond_claim_transaction(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+        let call = contract.claimCredit(self.signer.address()).from(self.signer.address());
+        let estimate = call.estimate_gas().await.context("failed to estimate claimCredit gas")?;
         let transaction_request =
-            contract.claimCredit(self.signer.address()).gas(200_000).into_transaction_request();
+            call.gas(claim_credit_gas_limit(estimate)).into_transaction_request();
         let receipt = self
             .signer
             .send_transaction_request_with_timeout(
