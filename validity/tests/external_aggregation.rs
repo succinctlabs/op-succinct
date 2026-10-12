@@ -81,10 +81,12 @@ impl Fixture {
     async fn request(&self) -> Result<AggProofRequest> {
         wait_for("a safe L1 checkpoint covering the range", || async {
             let header = self.fetcher.get_l1_header(BlockNumberOrTag::Latest.into()).await?;
-            // Match the external API's 20-block safe-head lookback.
+            // Match the external API's safe-head lookback.
             let safe = self
                 .fetcher
-                .get_l2_safe_head_from_l1_block_number(header.number.saturating_sub(20))
+                .get_l2_safe_head_from_l1_block_number(
+                    header.number.saturating_sub(self.fetcher.l1_head_buffer),
+                )
                 .await?;
             Ok((safe >= self.range.end_block as u64).then(|| AggProofRequest {
                 last_proven_block: self.range.start_block as u64,
