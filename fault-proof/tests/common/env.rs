@@ -27,7 +27,6 @@ use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
     fetcher::{get_rpcs_from_env, OPSuccinctDataFetcher, RPCConfig},
     host::OPSuccinctHost,
-    OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH,
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::{Signer, SignerLock};
@@ -36,8 +35,7 @@ use tokio::task::JoinHandle;
 use tracing::{info, Level};
 
 use fault_proof::{
-    challenger::OPSuccinctChallenger, config::FaultDisputeGameConfig, proposer::OPSuccinctProposer,
-    L2ProviderTrait,
+    challenger::OPSuccinctChallenger, proposer::OPSuccinctProposer, L2ProviderTrait,
 };
 use tracing_subscriber::{filter::Targets, fmt, prelude::*, util::SubscriberInitExt};
 
@@ -50,7 +48,7 @@ use crate::common::{
 
 use super::{
     anvil::{setup_anvil_chain, AnvilFork},
-    contracts::{deploy_test_contracts, DeployedContracts},
+    contracts::{deploy_test_contracts, test_config, DeployedContracts},
 };
 
 /// Role for selecting which private key to use when creating providers
@@ -107,40 +105,6 @@ pub async fn compute_vkeys() -> anyhow::Result<(B256, B256)> {
     Ok((aggregation_vkey, range_vkey_commitment))
 }
 
-/// The test configuration, used for integration tests.
-pub fn test_config(
-    starting_l2_block_number: u64,
-    starting_root: String,
-    aggregation_vkey: B256,
-    range_vkey_commitment: B256,
-    rollup_config_hash: B256,
-) -> FaultDisputeGameConfig {
-    FaultDisputeGameConfig {
-        aggregation_vkey: aggregation_vkey.to_string(),
-        challenger_addresses: vec![CHALLENGER_ADDRESS.to_string()],
-        challenger_bond_wei: CHALLENGER_BOND.to::<u64>(),
-        dispute_game_finality_delay_seconds: DISPUTE_GAME_FINALITY_DELAY_SECONDS,
-        // Integration tests deploy their own contracts, so these are not needed.
-        existing_anchor_state_registry: Address::ZERO.to_string(),
-        existing_dispute_game_factory_proxy: Address::ZERO.to_string(),
-        fallback_timeout_fp_secs: FALLBACK_TIMEOUT.to::<u64>(),
-        game_type: TEST_GAME_TYPE,
-        initial_bond_wei: INIT_BOND.to::<u64>(),
-        max_challenge_duration: MAX_CHALLENGE_DURATION,
-        max_prove_duration: MAX_PROVE_DURATION,
-        optimism_portal2_address: Address::ZERO.to_string(),
-        permissionless_mode: false,
-        proposer_addresses: vec![PROPOSER_ADDRESS.to_string()],
-        range_vkey_commitment: range_vkey_commitment.to_string(),
-        rollup_config_hash: rollup_config_hash.to_string(),
-        starting_l2_block_number,
-        starting_root,
-        system_config_address: Address::ZERO.to_string(),
-        use_sp1_mock_verifier: true,
-        verifier_address: Address::ZERO.to_string(),
-    }
-}
-
 impl TestEnvironment {
     /// Create a new test environment with common setup
     pub async fn setup() -> Result<Self> {
@@ -162,16 +126,13 @@ impl TestEnvironment {
         // Setup fresh Anvil chain
         let anvil = setup_anvil_chain().await?;
 
-        // Put the test config into ../contracts/opsuccinctfdgconfig.json
-        let test_config: FaultDisputeGameConfig = test_config(
+        let test_config = test_config(
             anvil.starting_l2_block_number,
             anvil.starting_root.clone(),
             aggregation_vkey,
             range_vkey_commitment,
             rollup_config_hash,
         );
-        let json = serde_json::to_string_pretty(&test_config)?;
-        std::fs::write(OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH.clone(), json)?;
 
         // Update RPC config with Anvil endpoint
         rpc_config.l1_rpc = Url::parse(&anvil.endpoint.clone())?;
@@ -182,7 +143,8 @@ impl TestEnvironment {
 
         // Deploy contracts
         info!("=== Deploying Contracts ===");
-        let deployed = deploy_test_contracts(&anvil.endpoint, private_keys.deployer).await?;
+        let deployed =
+            deploy_test_contracts(&anvil.endpoint, private_keys.deployer, &test_config).await?;
 
         Ok(Self { game_type, private_keys, rpc_config, fetcher, anvil, deployed })
     }
@@ -239,8 +201,6 @@ impl TestEnvironment {
             range_vkey_commitment,
             rollup_config_hash,
         );
-        let json = serde_json::to_string_pretty(&test_config)?;
-        std::fs::write(OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH.clone(), json)?;
 
         // Update RPC config with Anvil endpoint
         rpc_config.l1_rpc = Url::parse(&anvil.endpoint)?;
@@ -250,7 +210,8 @@ impl TestEnvironment {
 
         // Deploy contracts with the offset starting block
         info!("=== Deploying Contracts with starting block offset: {} ===", offset);
-        let deployed = deploy_test_contracts(&anvil.endpoint, private_keys.deployer).await?;
+        let deployed =
+            deploy_test_contracts(&anvil.endpoint, private_keys.deployer, &test_config).await?;
 
         Ok(Self { game_type, private_keys, rpc_config, fetcher, anvil, deployed })
     }

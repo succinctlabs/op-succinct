@@ -1,5 +1,5 @@
-//! Contract deployment utilities for E2E tests.
-use alloy_primitives::{Address, Bytes, TxKind, U256};
+//! Shared contract deployment and configuration for L1 and E2E tests.
+use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use alloy_rpc_types_eth::{transaction::request::TransactionInput, TransactionRequest};
 use alloy_sol_types::SolConstructor;
 use alloy_transport_http::reqwest::Url;
@@ -8,6 +8,13 @@ use op_succinct_bindings::mock_permissioned_dispute_game::MockPermissionedDisput
 use op_succinct_signer_utils::SignerLock;
 use serde::{Deserialize, Serialize};
 use tracing::info;
+
+use fault_proof::config::FaultDisputeGameConfig;
+
+use super::constants::{
+    CHALLENGER_ADDRESS, CHALLENGER_BOND, DISPUTE_GAME_FINALITY_DELAY_SECONDS, FALLBACK_TIMEOUT,
+    INIT_BOND, MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, PROPOSER_ADDRESS, TEST_GAME_TYPE,
+};
 
 /// Container for deployed contracts
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,9 +88,50 @@ fn parse_forge_output(output: &str) -> Result<DeployedContracts> {
     })
 }
 
-/// Deploy all contracts required for E2E testing
-pub async fn deploy_test_contracts(rpc_url: &str, private_key: &str) -> Result<DeployedContracts> {
+/// The test configuration, used for integration tests.
+pub fn test_config(
+    starting_l2_block_number: u64,
+    starting_root: String,
+    aggregation_vkey: B256,
+    range_vkey_commitment: B256,
+    rollup_config_hash: B256,
+) -> FaultDisputeGameConfig {
+    FaultDisputeGameConfig {
+        aggregation_vkey: aggregation_vkey.to_string(),
+        challenger_addresses: vec![CHALLENGER_ADDRESS.to_string()],
+        challenger_bond_wei: CHALLENGER_BOND.to::<u64>(),
+        dispute_game_finality_delay_seconds: DISPUTE_GAME_FINALITY_DELAY_SECONDS,
+        // Integration tests deploy their own contracts, so these are not needed.
+        existing_anchor_state_registry: Address::ZERO.to_string(),
+        existing_dispute_game_factory_proxy: Address::ZERO.to_string(),
+        fallback_timeout_fp_secs: FALLBACK_TIMEOUT.to::<u64>(),
+        game_type: TEST_GAME_TYPE,
+        initial_bond_wei: INIT_BOND.to::<u64>(),
+        max_challenge_duration: MAX_CHALLENGE_DURATION,
+        max_prove_duration: MAX_PROVE_DURATION,
+        optimism_portal2_address: Address::ZERO.to_string(),
+        permissionless_mode: false,
+        proposer_addresses: vec![PROPOSER_ADDRESS.to_string()],
+        range_vkey_commitment: range_vkey_commitment.to_string(),
+        rollup_config_hash: rollup_config_hash.to_string(),
+        starting_l2_block_number,
+        starting_root,
+        system_config_address: Address::ZERO.to_string(),
+        use_sp1_mock_verifier: true,
+        verifier_address: Address::ZERO.to_string(),
+    }
+}
+
+/// Deploy test contracts using a temporary configuration file scoped to this invocation.
+pub async fn deploy_test_contracts(
+    rpc_url: &str,
+    private_key: &str,
+    config: &FaultDisputeGameConfig,
+) -> Result<DeployedContracts> {
     info!("Deploying test contracts using forge script");
+
+    let config_file = tempfile::NamedTempFile::new()?;
+    serde_json::to_writer(config_file.as_file(), config)?;
 
     // Run the forge script to deploy contracts
     let contracts_dir =
@@ -98,6 +146,7 @@ pub async fn deploy_test_contracts(rpc_url: &str, private_key: &str) -> Result<D
         .arg("--private-key")
         .arg(private_key)
         .arg("--json")
+        .env("OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH", config_file.path())
         .env("RUST_LOG", "off")
         .current_dir(&contracts_dir)
         .output()

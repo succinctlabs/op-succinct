@@ -1,12 +1,10 @@
 //! Executes bond claims against local L1 contracts without an L2 node or proof setup.
 
-use std::{fs, path::Path, process::Command};
-
 use alloy_eips::BlockId;
 use alloy_node_bindings::{Anvil, AnvilInstance};
 use alloy_primitives::{address, Address, B256, U256};
 use alloy_provider::{Provider, ProviderBuilder, RootProvider};
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result};
 use op_succinct_bindings::op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame as GameWithClose;
 use op_succinct_signer_utils::Signer;
 use serde_json::{json, Value};
@@ -14,6 +12,7 @@ use serde_json::{json, Value};
 use crate::{
     claim_credit_transaction,
     contract::{AnchorStateRegistry, DisputeGameFactory, GameStatus, OPSuccinctFaultDisputeGame},
+    test_contracts::{deploy_test_contracts, test_config},
 };
 
 #[tokio::test]
@@ -157,64 +156,13 @@ async fn deploy_local_claims(
 ) -> Result<(AnvilInstance, RootProvider, Address, Address)> {
     let rpc = anvil.endpoint_url();
     let provider = ProviderBuilder::new().disable_recommended_fillers().connect_http(rpc.clone());
-    let proposer = anvil.addresses()[0];
-    let challenger = anvil.addresses()[1];
-    let contracts_dir = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("contracts");
-    let config = tempfile::NamedTempFile::new()?;
-    fs::write(
-        config.path(),
-        serde_json::to_vec(&json!({
-            "aggregationVkey": B256::ZERO,
-            "challengerAddresses": [challenger],
-            "challengerBondWei": 1_000_000_000_000_000_000u64,
-            "disputeGameFinalityDelaySeconds": 10,
-            "existingAnchorStateRegistry": Address::ZERO,
-            "existingDisputeGameFactoryProxy": Address::ZERO,
-            "fallbackTimeoutFpSecs": 3600,
-            "gameType": 42,
-            "initialBondWei": 10_000_000_000_000_000u64,
-            "maxChallengeDuration": 3600,
-            "maxProveDuration": 43200,
-            "optimismPortal2Address": Address::ZERO,
-            "permissionlessMode": false,
-            "proposerAddresses": [proposer],
-            "rangeVkeyCommitment": B256::ZERO,
-            "rollupConfigHash": B256::ZERO,
-            "startingL2BlockNumber": 0,
-            "startingRoot": B256::repeat_byte(0x11),
-            "systemConfigAddress": Address::ZERO,
-            "useSp1MockVerifier": true,
-            "verifierAddress": Address::ZERO
-        }))?,
-    )?;
-    let deploy = Command::new("forge")
-        .args(["script", "script/fp/DeployOPSuccinctFDG.s.sol", "--broadcast", "--json"])
-        .arg("--rpc-url")
-        .arg(rpc.as_str())
-        .arg("--private-key")
-        .arg(format!("0x{}", hex::encode(anvil.keys()[0].to_bytes())))
-        .env("OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH", config.path())
-        .env("RUST_LOG", "off")
-        .current_dir(contracts_dir)
-        .output()?;
-    ensure!(
-        deploy.status.success(),
-        "forge deployment failed: {}",
-        String::from_utf8_lossy(&deploy.stderr)
-    );
-    let stdout = String::from_utf8(deploy.stdout)?;
-    let deployment: Value =
-        serde_json::from_str(stdout.lines().next().context("missing forge deployment output")?)?;
-    ensure!(deployment["success"] == true, "forge script failed: {deployment}");
-    let factory_address = deployment["returns"]["factoryProxy"]["value"]
-        .as_str()
-        .context("missing factory address")?
-        .parse()?;
-    let registry_address = deployment["returns"]["anchorStateRegistry"]["value"]
-        .as_str()
-        .context("missing registry address")?
-        .parse()?;
-    Ok((anvil, provider, factory_address, registry_address))
+    let mut config =
+        test_config(0, B256::repeat_byte(0x11).to_string(), B256::ZERO, B256::ZERO, B256::ZERO);
+    config.dispute_game_finality_delay_seconds = 10;
+    config.fallback_timeout_fp_secs = 3600;
+    let private_key = format!("0x{}", hex::encode(anvil.keys()[0].to_bytes()));
+    let deployed = deploy_test_contracts(rpc.as_str(), &private_key, &config).await?;
+    Ok((anvil, provider, deployed.factory, deployed.anchor_state_registry))
 }
 
 #[tokio::test]

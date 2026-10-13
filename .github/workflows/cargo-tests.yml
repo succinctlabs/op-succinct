@@ -70,6 +70,9 @@ jobs:
     - name: Install just
       uses: extractions/setup-just@v3
 
+    - name: Test L1 bond claims
+      run: cargo test -p op-succinct-fp --release --lib --no-default-features --features integration,ethereum claim_credit_ -- --nocapture
+
     - name: Test
       run: just tests
       env:
