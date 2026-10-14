@@ -36,6 +36,7 @@ use tokio::{
 
 use crate::{
     backup::ProposerBackup,
+    claim_credit_transaction,
     config::ProposerConfig,
     contract::{
         AnchorStateRegistry::AnchorStateRegistryInstance,
@@ -1529,7 +1530,7 @@ where
                         game_address = ?game.address,
                         l2_block_end = %game.l2_block,
                         ?error,
-                        "Bond claim tx unconfirmed (may be on-chain), will verify next cycle"
+                        "Bond claim attempt failed before confirmation, will verify next cycle"
                     );
                 }
                 ProposerGauge::BondClaimingError.increment(1.0);
@@ -1574,7 +1575,7 @@ where
     pub async fn submit_bond_claim_transaction(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
         let transaction_request =
-            contract.claimCredit(self.signer.address()).gas(200_000).into_transaction_request();
+            claim_credit_transaction(&contract, self.signer.address()).await?;
         let receipt = self
             .signer
             .send_transaction_request_with_timeout(

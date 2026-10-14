@@ -2,12 +2,17 @@
 
 use std::time::Duration;
 
+use alloy::consensus::Transaction;
+use alloy_network::TransactionResponse;
 use alloy_primitives::{Address, U256};
 use alloy_provider::Provider;
-use anyhow::Result;
+use alloy_rpc_types_eth::BlockNumberOrTag;
+use alloy_rpc_types_trace::geth::CallFrame;
+use alloy_sol_types::SolCall;
+use anyhow::{ensure, Context, Result};
 use fault_proof::contract::{GameStatus, ProposalStatus};
 use op_succinct_bindings::{
-    dispute_game_factory::DisputeGameFactory,
+    anchor_state_registry::AnchorStateRegistry, dispute_game_factory::DisputeGameFactory,
     op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame,
 };
 use tokio::time::{sleep, Instant};
@@ -15,7 +20,135 @@ use tracing::info;
 
 use crate::common::TestEnvironment;
 
+/// Expected payouts and anchor state captured before the finality time warp.
+pub struct BondClaimCheck {
+    start_block: u64,
+    recipient: Address,
+    credits: Vec<(Address, U256)>,
+    /// Anchor game before claiming.
+    pub anchor_before: Address,
+    /// Anchor L2 sequence number before claiming.
+    pub anchor_l2_before: U256,
+}
+
 impl TestEnvironment {
+    /// Capture nonzero claim amounts at one block before the service can claim them.
+    pub async fn capture_bond_claims(
+        &self,
+        tracked_games: &[TrackedGame],
+        recipient: Address,
+    ) -> Result<BondClaimCheck> {
+        ensure!(!tracked_games.is_empty(), "No games to verify");
+        let provider = &self.anvil.provider;
+        let start_block = provider.get_block_number().await?;
+        let block = BlockNumberOrTag::Number(start_block).into();
+        let registry = AnchorStateRegistry::new(self.deployed.anchor_state_registry, provider);
+        let anchor_before = registry.anchorGame().block(block).call().await?;
+        let anchor_l2_before = registry.getAnchorRoot().block(block).call().await?._1;
+        let mut credits = Vec::with_capacity(tracked_games.len());
+        for game in tracked_games {
+            let credit = OPSuccinctFaultDisputeGame::new(game.address, provider)
+                .credit(recipient)
+                .block(block)
+                .call()
+                .await?;
+            ensure!(credit > U256::ZERO, "Game {} has no credit for {recipient}", game.address);
+            credits.push((game.address, credit));
+        }
+        Ok(BondClaimCheck { start_block, recipient, credits, anchor_before, anchor_l2_before })
+    }
+
+    /// Verify service-submitted claims, their ETH transfers and the resulting on-chain anchor.
+    pub async fn verify_bond_claims(
+        &self,
+        checks: &BondClaimCheck,
+        expected_anchor: Address,
+        expected_anchor_l2: U256,
+    ) -> Result<()> {
+        let provider = &self.anvil.provider;
+        let end_block = provider.get_block_number().await?;
+        let expected_input =
+            OPSuccinctFaultDisputeGame::claimCreditCall { _recipient: checks.recipient }
+                .abi_encode();
+        let mut claimed = vec![false; checks.credits.len()];
+        for number in checks.start_block + 1..=end_block {
+            let block = provider
+                .get_block_by_number(BlockNumberOrTag::Number(number))
+                .full()
+                .await?
+                .with_context(|| format!("Missing claim observation block {number}"))?;
+            for tx in block.transactions.as_transactions().context("Full transactions required")? {
+                if tx.from() != checks.recipient || tx.input().as_ref() != expected_input {
+                    continue;
+                }
+                let Some(index) =
+                    checks.credits.iter().position(|(game, _)| Some(*game) == tx.to())
+                else {
+                    continue;
+                };
+                let (game, credit) = checks.credits[index];
+                let hash = tx.tx_hash();
+                let receipt = provider
+                    .get_transaction_receipt(hash)
+                    .await?
+                    .with_context(|| format!("Missing claim receipt {hash} for game {game}"))?;
+                ensure!(receipt.status(), "Claim {hash} reverted for game {game}");
+                let trace: CallFrame = provider
+                    .client()
+                    .request(
+                        "debug_traceTransaction",
+                        (hash, serde_json::json!({"tracer": "callTracer"})),
+                    )
+                    .await
+                    .with_context(|| format!("Cannot trace claim {hash} for game {game}"))?;
+                ensure!(trace.error.is_none(), "Claim {hash} trace failed: {:?}", trace.error);
+                for call in trace.iter() {
+                    ensure!(
+                        !call.error.as_deref().is_some_and(|error| error.contains("out of gas")),
+                        "Claim {hash} for game {game} ran out of gas: {call:?}"
+                    );
+                }
+                ensure!(
+                    trace.iter().any(|call| call.is_call() &&
+                        call.from == game &&
+                        call.to == Some(checks.recipient) &&
+                        call.value == Some(credit) &&
+                        call.error.is_none()),
+                    "Claim {hash} for game {game} did not pay {} wei to {}",
+                    credit,
+                    checks.recipient
+                );
+                ensure!(!claimed[index], "Duplicate successful claim {hash} for game {game}");
+                claimed[index] = true;
+                info!(%hash, %game, recipient = %checks.recipient, %credit,
+                    "Verified claim payout and no internal out-of-gas");
+            }
+        }
+        for (index, (game, _)) in checks.credits.iter().enumerate() {
+            ensure!(claimed[index], "No service claim transaction found for game {game}");
+            let contract = OPSuccinctFaultDisputeGame::new(*game, provider);
+            let block = BlockNumberOrTag::Number(end_block).into();
+            ensure!(
+                contract.normalModeCredit(checks.recipient).block(block).call().await? ==
+                    U256::ZERO &&
+                    contract.refundModeCredit(checks.recipient).block(block).call().await? ==
+                        U256::ZERO,
+                "Credit remains after claim for game {game}"
+            );
+        }
+        let registry = AnchorStateRegistry::new(self.deployed.anchor_state_registry, provider);
+        let block = BlockNumberOrTag::Number(end_block).into();
+        let anchor = registry.anchorGame().block(block).call().await?;
+        let anchor_l2 = registry.getAnchorRoot().block(block).call().await?._1;
+        ensure!(anchor == expected_anchor, "Expected anchor {expected_anchor}, got {anchor}");
+        ensure!(
+            anchor_l2 == expected_anchor_l2,
+            "Expected anchor L2 sequence {expected_anchor_l2}, got {anchor_l2}"
+        );
+        info!(%anchor, %anchor_l2, "Verified on-chain anchor after bond claims");
+        Ok(())
+    }
+
     pub async fn wait_and_track_games(
         &self,
         count: usize,

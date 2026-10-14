@@ -17,9 +17,9 @@ pub mod prover;
 use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_primitives::{address, keccak256, Address, FixedBytes, B256, U256};
 use alloy_provider::{Provider, RootProvider};
-use alloy_rpc_types_eth::{Block, Header};
+use alloy_rpc_types_eth::{Block, Header, TransactionRequest};
 use alloy_sol_types::SolValue;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use op_alloy_network::Optimism;
 use op_alloy_rpc_types::Transaction;
@@ -244,6 +244,17 @@ where
 /// Prefix used for transaction revert errors.
 pub const TX_REVERTED_PREFIX: &str = "transaction reverted:";
 
+/// Builds a bond claim using the node's gas estimate without adjustment.
+/// Returns an error before submission if estimation fails.
+pub(crate) async fn claim_credit_transaction<P: Provider + Clone>(
+    contract: &OPSuccinctFaultDisputeGame::OPSuccinctFaultDisputeGameInstance<P>,
+    claimant: Address,
+) -> Result<TransactionRequest> {
+    let call = contract.claimCredit(claimant).from(claimant);
+    let estimate = call.estimate_gas().await.context("Failed to estimate claimCredit gas")?;
+    Ok(call.gas(estimate).into_transaction_request())
+}
+
 /// Extension trait for checking transaction error types.
 pub trait TxErrorExt {
     /// Returns true if this error indicates a transaction revert (definitive failure).
@@ -276,6 +287,35 @@ mod tests {
             }
             .abi_encode(),
         )
+    }
+
+    #[tokio::test]
+    async fn claim_credit_transaction_uses_estimate_without_adjustment() {
+        let claimant = Address::repeat_byte(0x22);
+        for estimate in [100_000u64, 223_960, 224_251, u64::MAX] {
+            let asserter = Asserter::new();
+            let provider = RootProvider::new(RpcClient::mocked(asserter.clone()));
+            let contract = OPSuccinctFaultDisputeGame::new(Address::repeat_byte(0x11), provider);
+            asserter.push_success(&format!("{estimate:#x}"));
+
+            let request = claim_credit_transaction(&contract, claimant).await.unwrap();
+            assert_eq!(request.from, Some(claimant));
+            assert_eq!(request.gas, Some(estimate));
+            assert!(asserter.read_q().is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn claim_credit_transaction_returns_estimation_errors_without_fallback() {
+        let asserter = Asserter::new();
+        let provider = RootProvider::new(RpcClient::mocked(asserter.clone()));
+        let contract = OPSuccinctFaultDisputeGame::new(Address::repeat_byte(0x11), provider);
+        asserter.push_failure_msg("estimate RPC unavailable");
+
+        let error =
+            claim_credit_transaction(&contract, Address::repeat_byte(0x22)).await.unwrap_err();
+        assert!(format!("{error:#}").contains("estimate RPC unavailable"));
+        assert!(asserter.read_q().is_empty());
     }
 
     #[test]
