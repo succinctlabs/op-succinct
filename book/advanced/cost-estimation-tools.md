@@ -46,6 +46,19 @@ cargo run --bin cost-estimator -- \
 
 For best estimation, use a range bigger than the batcher interval with batch size equal to the range.
 
+To run against a historical range without depending on op-node SafeDB, pass both `--no-safe-head-split` and an explicit `--l1-head`:
+
+```bash
+cargo run --bin cost-estimator -- \
+    --start 2000000 \
+    --end 2001800 \
+    --batch-size 300 \
+    --no-safe-head-split \
+    --l1-head <L1_HEAD_BLOCK_HASH>
+```
+
+`--no-safe-head-split` uses fixed-size batches instead of SafeDB-aligned safe head boundaries. `--l1-head` uses the supplied L1 head hash instead of looking it up through SafeDB, and ignores `L1_BLOCK_TAG` / `L1_CONFIRMATIONS` for the estimator run.
+
 ### Output
 
 Execution report saved to `execution-reports/{chain_id}/{start}-{end}-report.csv` with metrics:

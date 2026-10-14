@@ -94,8 +94,7 @@ RUST_LOG=info cargo run --release --bin preflight
 ```
 
 ```admonish note
-For rollups using alternative DA layers, compile with the matching feature flag:
-`--features celestia` or `--features eigenda` (for example,
+For EigenDA rollups, compile with `--features eigenda` (for example,
 `RUST_LOG=info cargo run --release --features eigenda --bin preflight`).
 ```
 

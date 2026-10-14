@@ -32,9 +32,6 @@ kona-registry.workspace = true
 # Note: kona-rpc is NOT included to avoid rollup-boost dependency chain.
 # RPC types (OutputResponse, SafeHeadResponse) are defined locally in src/rpc_types.rs
 
-# hana
-hana-host.workspace = true
-
 # hokulea
 hokulea-host-bin.workspace = true
 

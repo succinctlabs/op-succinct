@@ -3,6 +3,7 @@ name: SQLx Query Check
 on:
   pull_request:
     paths:
+      - '.cargo/**'
       - '**/*.rs'
       - '**/*.sql'
       - 'sqlx-data.json'

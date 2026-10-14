@@ -3,6 +3,9 @@ package bootstrap
 import (
 	"context"
 	"math"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
@@ -29,9 +32,18 @@ func TestFaultProofProposer_SystemUp(gt *testing.T) {
 // TestFaultProofProposerAndChallenger_SystemUp verifies the proposer+challenger system boots correctly.
 func TestFaultProofProposerAndChallenger_SystemUp(gt *testing.T) {
 	t := devtest.ParallelT(gt)
-	sys := opspresets.NewDefaultFaultProofSystemWithChallenger(t)
+	challengerCfg := opspresets.DefaultFPChallengerConfig()
+	challengerCfg.EnvFilePath = filepath.Join(gt.TempDir(), "challenger.env")
+	sys := opspresets.NewFaultProofSystem(t, opspresets.DefaultFPProposerConfig(), opspresets.DefaultL2ChainConfig(),
+		opspresets.WithChallenger(challengerCfg))
 	require := t.Require()
 	logger := t.Logger()
+
+	envFile, err := os.ReadFile(challengerCfg.EnvFilePath)
+	require.NoError(err, "failed to read challenger environment")
+	l2NodeRPC := strings.ReplaceAll(sys.L2CL.Escape().UserRPC(), "ws://", "http://")
+	require.Contains(strings.Split(string(envFile), "\n"), "L2_NODE_RPC="+l2NodeRPC,
+		"challenger must use this system's op-node RPC")
 
 	dgf := sys.DgfClient(t)
 	logger.Info("Dispute Game Factory Address:", "address", sys.L2Chain.Escape().Deployment().DisputeGameFactoryProxyAddr().Hex())

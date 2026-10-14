@@ -11,9 +11,9 @@
 //! assumption that the chosen L1 block cannot be reorged. Downstream code has a single entry
 //! point that maps the selected L1 block back to an L2 block number
 //! (`optimism_safeHeadAtL1Block`), which requires SafeDB to be activated on the op-node. The
-//! shared `enforce_l1_selection_supported` helper enforces this requirement at startup, and is
-//! invoked by both proposer binaries and the covered operator-facing utility scripts that
-//! initialize a host.
+//! [`OPSuccinctDataFetcher::validate_l1_selection`](crate::fetcher::OPSuccinctDataFetcher::validate_l1_selection)
+//! enforces this requirement at startup in both proposer binaries and the utility scripts
+//! that use the configured L1 selection.
 use alloy_eips::BlockId;
 use anyhow::{anyhow, bail, Context, Result};
 use std::{env, str::FromStr};

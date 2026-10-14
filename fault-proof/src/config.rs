@@ -193,6 +193,7 @@ impl ProposerConfig {
             max_price_per_pgu = self.proof_provider.max_price_per_pgu,
             min_auction_period = self.proof_provider.min_auction_period,
             whitelist = ?self.proof_provider.whitelist,
+            private_stdin = self.proof_provider.private_stdin,
             backup_path = ?self.backup_path,
             sync_l1_confirmations = self.sync_l1_confirmations,
             tx_confirmation_timeout = self.tx_confirmation_timeout,
@@ -245,6 +246,9 @@ pub struct ProofProviderConfig {
 
     /// The list of prover addresses that are allowed to bid on proof requests.
     pub whitelist: Option<Vec<Address>>,
+
+    /// Whether SP1 network proof requests should use private stdin.
+    pub private_stdin: bool,
 }
 
 impl ProofProviderConfig {
@@ -291,6 +295,7 @@ impl ProofProviderConfig {
                 .unwrap_or("1".to_string())
                 .parse()?,
             whitelist: parse_whitelist(&env::var("WHITELIST").unwrap_or("".to_string()))?,
+            private_stdin: env::var("PRIVATE_STDIN").unwrap_or("false".to_string()).parse()?,
         })
     }
 }
@@ -298,7 +303,6 @@ impl ProofProviderConfig {
 #[derive(Debug, Clone)]
 pub struct ChallengerConfig {
     pub l1_rpc: Url,
-    pub l2_rpc: Url,
 
     /// The address of the AnchorStateRegistry contract.
     pub anchor_state_registry_address: Address,
@@ -319,6 +323,10 @@ pub struct ChallengerConfig {
     /// Set to >0.0 for testing defense mechanisms.
     pub malicious_challenge_percentage: f64,
 
+    /// Number of L1 blocks behind `latest` used for pinned challenger state reads.
+    /// Default: 0 (pin the latest block observed at the start of the cycle).
+    pub sync_l1_confirmations: u64,
+
     /// Maximum time (in seconds) to wait for an L1 transaction submitted by the challenger to
     /// reach the required number of confirmations before the watcher gives up. Setting this
     /// too low risks declaring "confirmation timeout" on transactions that actually land on
@@ -332,7 +340,6 @@ impl ChallengerConfig {
     pub fn from_env() -> Result<Self> {
         Ok(Self {
             l1_rpc: env::var("L1_RPC")?.parse().expect("L1_RPC not set"),
-            l2_rpc: env::var("L2_RPC")?.parse().expect("L2_RPC not set"),
             anchor_state_registry_address: env::var("ANCHOR_STATE_REGISTRY_ADDRESS")?
                 .parse()
                 .expect("ANCHOR_STATE_REGISTRY_ADDRESS not set"),
@@ -345,6 +352,9 @@ impl ChallengerConfig {
             malicious_challenge_percentage: env::var("MALICIOUS_CHALLENGE_PERCENTAGE")
                 .unwrap_or("0.0".to_string())
                 .parse()?,
+            sync_l1_confirmations: env::var("SYNC_L1_CONFIRMATIONS")
+                .unwrap_or("0".to_string())
+                .parse()?,
             tx_confirmation_timeout: env::var("TX_CONFIRMATION_TIMEOUT")
                 .unwrap_or("60".to_string())
                 .parse()?,
@@ -355,15 +365,41 @@ impl ChallengerConfig {
     pub fn log(&self) {
         tracing::info!(
             l1_rpc = %self.l1_rpc,
-            l2_rpc = %self.l2_rpc,
             anchor_state_registry_address = %self.anchor_state_registry_address,
             factory_address = %self.factory_address,
             game_type = self.game_type,
             fetch_interval = self.fetch_interval,
             metrics_port = self.metrics_port,
             malicious_challenge_percentage = self.malicious_challenge_percentage,
+            sync_l1_confirmations = self.sync_l1_confirmations,
             tx_confirmation_timeout = self.tx_confirmation_timeout,
             "Challenger configuration loaded"
+        );
+    }
+}
+
+/// RPC configuration owned by the OP Stack claim-validation backend.
+#[derive(Debug, Clone)]
+pub struct OPStackGameValidatorConfig {
+    pub l2_rpc: Url,
+    /// The RPC URL of the single op-node paired with `l2_rpc`.
+    pub l2_node_rpc: Url,
+}
+
+impl OPStackGameValidatorConfig {
+    pub fn from_env() -> Result<Self> {
+        Ok(Self {
+            l2_rpc: env::var("L2_RPC")?.parse().expect("L2_RPC not set"),
+            l2_node_rpc: env::var("L2_NODE_RPC")?.parse().expect("L2_NODE_RPC not set"),
+        })
+    }
+
+    /// Log the OP Stack validator configuration using structured tracing fields.
+    pub fn log(&self) {
+        tracing::info!(
+            l2_rpc = %self.l2_rpc,
+            l2_node_rpc = %self.l2_node_rpc,
+            "OP Stack game validator configuration loaded"
         );
     }
 }

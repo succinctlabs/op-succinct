@@ -31,7 +31,6 @@ canoe-sp1-cc-host.workspace = true
 canoe-verifier-address-fetcher.workspace = true
 
 # alloy
-alloy-eips.workspace = true
 alloy-primitives.workspace = true
 alloy-rpc-client.workspace = true
 
@@ -42,6 +41,7 @@ rkyv.workspace = true
 serde_cbor.workspace = true
 
 [dev-dependencies]
+alloy-eips.workspace = true
 dotenv.workspace = true
 tokio.workspace = true
 tracing.workspace = true

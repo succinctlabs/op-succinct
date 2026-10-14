@@ -23,14 +23,12 @@ use op_succinct_host_utils::{
     get_agg_proof_stdin,
     host::OPSuccinctHost,
     metrics::MetricsGauge,
-    network::{determine_network_mode, get_network_signer},
+    network::{build_network_prover, determine_network_mode, get_network_signer},
     witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{cluster_setup_keys, get_range_elf_embedded, is_cluster_mode};
 use op_succinct_signer_utils::SignerLock;
-use sp1_sdk::{
-    Elf, HashableKey, Prover, ProverClient, ProvingKey, SP1ProofWithPublicValues, SP1Stdin,
-};
+use sp1_sdk::{Elf, HashableKey, Prover, ProvingKey, SP1ProofWithPublicValues, SP1Stdin};
 use tokio::{
     sync::{Mutex, RwLock, Semaphore},
     time,
@@ -38,6 +36,7 @@ use tokio::{
 
 use crate::{
     backup::ProposerBackup,
+    claim_credit_transaction, close_game_transaction,
     config::ProposerConfig,
     contract::{
         AnchorStateRegistry::AnchorStateRegistryInstance,
@@ -92,7 +91,7 @@ pub enum TaskInfo {
 /// compatibility checks during hardfork transitions.
 #[derive(Clone, Debug)]
 pub struct ProposerIdentity {
-    /// Full version string with DA layer suffix (e.g., "3.4.1-celestia")
+    /// Full version string with DA layer suffix (e.g., "3.4.1-eigenda")
     pub version: String,
     /// Aggregation verification key hash
     pub aggregation_vkey: B256,
@@ -105,11 +104,9 @@ pub struct ProposerIdentity {
 impl ProposerIdentity {
     /// Returns the DA layer based on compile-time feature flags.
     fn detect_da_layer() -> &'static str {
-        #[cfg(feature = "celestia")]
-        return "celestia";
-        #[cfg(all(feature = "eigenda", not(feature = "celestia")))]
+        #[cfg(feature = "eigenda")]
         return "eigenda";
-        #[cfg(not(any(feature = "celestia", feature = "eigenda")))]
+        #[cfg(not(feature = "eigenda"))]
         return "ethereum";
     }
 
@@ -229,6 +226,65 @@ impl ProposerState {
             self.games.remove(&index);
         }
     }
+
+    /// Selects the canonical head: the highest-L2-block game on the best valid chain.
+    ///
+    /// With no anchor, the head is simply the highest game in the cache. With an anchor, the head
+    /// is the highest descendant of the anchor, unless a higher chain branches off earlier
+    /// (genesis-rooted, or a lower parent index than the anchor head) — that alternative chain is
+    /// then followed to its own tip.
+    fn select_canonical_head(&self) -> Option<Game> {
+        let Some(anchor_game) = self.anchor_game.as_ref() else {
+            return self.games.values().max_by_key(|g| g.l2_block).cloned();
+        };
+
+        let reachable = self.descendants_of(anchor_game.index);
+
+        // Best among the anchor's descendants.
+        let anchor_head = self
+            .games
+            .values()
+            .filter(|g| reachable.contains(&g.index))
+            .max_by_key(|g| g.l2_block)
+            .cloned();
+
+        // Override with a higher non-descendant chain that branches off earlier than the anchor
+        // head (genesis-rooted, or a lower parent index). Such a chain's root sits outside the
+        // anchor's subtree, so we follow each qualifying root to its own highest-block tip rather
+        // than stopping at the root — otherwise the head would pin to the root of a genesis-rooted
+        // catch-up chain and stall instead of tracking its tip.
+        let override_head = anchor_head.as_ref().and_then(|anchor| {
+            let roots: Vec<U256> = self
+                .games
+                .values()
+                .filter(|g| {
+                    !reachable.contains(&g.index) &&
+                        g.l2_block > anchor.l2_block &&
+                        (g.parent_index == u32::MAX || g.parent_index < anchor.parent_index)
+                })
+                .map(|g| g.index)
+                .collect();
+
+            roots
+                .into_iter()
+                .flat_map(|root| self.descendants_of(root))
+                .filter_map(|idx| self.games.get(&idx))
+                .max_by_key(|g| g.l2_block)
+                .cloned()
+        });
+
+        // Log when the head comes from a catch-up chain so operators can tell the proposer is
+        // recovering along a chain outside the anchor subtree.
+        if let Some(head) = override_head.as_ref() {
+            tracing::debug!(
+                head_index = %head.index,
+                head_l2_block = %head.l2_block,
+                "Canonical head selected from a catch-up chain outside the anchor subtree"
+            );
+        }
+
+        override_head.or(anchor_head)
+    }
 }
 
 /// Snapshot of the proposer's cached state for testing and monitoring.
@@ -307,6 +363,10 @@ where
             !(is_cluster && config.mock_mode),
             "mock and cluster modes are mutually exclusive — set only one of SP1_PROVER=cluster or mock_mode=true"
         );
+        anyhow::ensure!(
+            !config.proof_provider.private_stdin || (!config.mock_mode && !is_cluster),
+            "PRIVATE_STDIN only applies to SP1 network proof requests; disable mock mode and SP1_PROVER=cluster"
+        );
 
         let (range_pk, range_vk, agg_pk, agg_vk, network_prover, network_mode) = if is_cluster {
             let (range_pk, range_vk, agg_pk, agg_vk) = cluster_setup_keys().await?;
@@ -317,9 +377,7 @@ where
                 config.proof_provider.range_proof_strategy,
                 config.proof_provider.agg_proof_strategy,
             )?;
-            let np = Arc::new(
-                ProverClient::builder().network_for(nm).signer(network_signer).build().await,
-            );
+            let np = Arc::new(build_network_prover(nm, network_signer).await?);
             let range_pk = np.setup(Elf::Static(get_range_elf_embedded())).await?;
             let range_vk = range_pk.verifying_key().clone();
             let agg_pk = np.setup(Elf::Static(AGGREGATION_ELF)).await?;
@@ -516,13 +574,7 @@ where
 
         // Fetch and validate anchor L2 block number.
         let anchor_l2_block = self.anchor_state_registry.getAnchorRoot().call().await?._1;
-        Self::validate_anchor_l2_block(
-            anchor_l2_block,
-            &self.config,
-            self.host.as_ref(),
-            self.fetcher.as_ref(),
-        )
-        .await?;
+        Self::validate_anchor_l2_block(anchor_l2_block, self.fetcher.as_ref()).await?;
 
         // Fetch init bond.
         let init_bond = self.factory.fetch_init_bond(self.config.game_type).await?;
@@ -591,25 +643,14 @@ where
 
     async fn validate_anchor_l2_block(
         anchor_l2_block: U256,
-        config: &ProposerConfig,
-        host: &H,
         fetcher: &OPSuccinctDataFetcher,
     ) -> Result<()> {
-        let max_provable_l2_block = host
-            .get_max_provable_l2_block_number(fetcher, anchor_l2_block.to::<u64>())
-            .await?
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Cannot fetch host-resolved max provable L2 block number from L2 RPC: {}\n\
-                     Please check that your L2 node is running and accessible.",
-                    config.l2_rpc
-                )
-            })?;
+        let max_provable_l2_block = fetcher.get_max_provable_l2_block_number().await?;
 
         if anchor_l2_block > U256::from(max_provable_l2_block) {
             return Err(anyhow::anyhow!(
                 "Contract misconfiguration detected: Contract's anchor L2 block ({}) is ahead of \
-                 the host-resolved max provable L2 block ({}). This indicates:\n\
+                 the max provable L2 block ({}). This indicates:\n\
                  1. The contract's startingL2BlockNumber is misconfigured to a future value, OR\n\
                  2. Your L2 node is not fully synced, OR\n\
                  3. Your L2 RPC endpoint is incorrect.\n\n\
@@ -660,13 +701,26 @@ where
             latest_block.header.number.saturating_sub(self.config.sync_l1_confirmations);
 
         // If L1 hasn't advanced past the last synced block, all on-chain state is identical.
+        //
+        // `confirmed_number < prev` indicates backend regression from a load-balanced RPC, or a
+        // deep L1 reorg past `sync_l1_confirmations`. This case should be logged at WARN so
+        // operators can detect unhealthy backends or L1 reorg; the equal case stays at DEBUG since
+        // it's the normal "L1 hasn't ticked" path.
         let prev = self.last_synced_l1_block.load(Ordering::Relaxed);
         if confirmed_number > 0 && confirmed_number <= prev {
-            tracing::debug!(
-                confirmed_number,
-                last_synced = prev,
-                "L1 head unchanged, skipping sync"
-            );
+            if confirmed_number < prev {
+                tracing::warn!(
+                    confirmed_number,
+                    last_synced = prev,
+                    "L1 confirmed head moved backwards (backend regression or deep reorg), skipping sync"
+                );
+            } else {
+                tracing::debug!(
+                    confirmed_number,
+                    last_synced = prev,
+                    "L1 head unchanged, skipping sync"
+                );
+            }
             return Ok(());
         }
 
@@ -742,6 +796,20 @@ where
                 .copied()
                 .collect();
             if !future_games.is_empty() {
+                // Determine if the duplicate-creation guard's tracked game is among the
+                // entries this prune is about to remove. Must be evaluated BEFORE the
+                // removal loop while state.games still holds them. Checking "absent from
+                // post-prune cache" instead would over-clear the guard when the just-
+                // created game has not yet been added to the cache (e.g., right after
+                // creation, or after a backup restore that prunes unrelated entries),
+                // allowing should_create_game to re-submit a duplicate at the same L2
+                // block before the cache catches up.
+                let guarded_addr = *self.last_created_game_address.lock().await;
+                let guard_in_pruned = guarded_addr != Address::ZERO &&
+                    future_games.iter().any(|idx| {
+                        state.games.get(idx).is_some_and(|g| g.address == guarded_addr)
+                    });
+
                 for idx in &future_games {
                     state.games.remove(idx);
                 }
@@ -754,6 +822,14 @@ where
                     state.anchor_game.as_ref().is_some_and(|a| !state.games.contains_key(&a.index));
                 if should_clear_anchor {
                     state.anchor_game = None;
+                }
+                if guard_in_pruned {
+                    self.last_created_game_l2_block.store(0, Ordering::Relaxed);
+                    *self.last_created_game_address.lock().await = Address::ZERO;
+                    tracing::warn!(
+                        ?guarded_addr,
+                        "Reset creation guard: tracked game was among pruned entries"
+                    );
                 }
             }
         }
@@ -859,7 +935,11 @@ where
         // 2. Synchronize the status of all cached games.
         let games = {
             let state = self.state.read().await;
-            state.games.values().map(|game| (game.index, game.address)).collect::<Vec<_>>()
+            state
+                .games
+                .values()
+                .map(|game| (game.index, game.address, game.is_owned(&self.identity)))
+                .collect::<Vec<_>>()
         };
 
         if !games.is_empty() {
@@ -882,7 +962,7 @@ where
 
             let mut actions = Vec::with_capacity(games.len());
 
-            for (index, game_address) in games {
+            for (index, game_address, is_owned) in games {
                 let contract =
                     OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
                 let claim_data = contract.claimData().block(pinned_block).call().await?;
@@ -951,7 +1031,7 @@ where
                         let bond_distribution_mode =
                             contract.bondDistributionMode().block(pinned_block).call().await?;
 
-                        if bond_distribution_mode == BOND_DISTRIBUTION_MODE_UNDECIDED {
+                        if is_owned && bond_distribution_mode == BOND_DISTRIBUTION_MODE_UNDECIDED {
                             actions.push(GameSyncAction::Update {
                                 index,
                                 status,
@@ -1104,44 +1184,11 @@ where
         Ok(())
     }
 
-    /// Computes the canonical head by scanning all cached games.
-    ///
-    /// Canonical head is the game with the highest L2 block number. When an anchor game exists,
-    /// the canonical head is chosen from its descendants, unless a non-descendant has a higher L2
-    /// block number and an earlier lineage (parent is genesis or has a lower parent index than the
-    /// best descendant).
+    /// Computes and stores the canonical head used to schedule new proposals, logging on change.
     async fn compute_canonical_head(&self) {
         let mut state = self.state.write().await;
 
-        let canonical_head = match state.anchor_game.as_ref() {
-            None => state.games.values().max_by_key(|g| g.l2_block).cloned(),
-            Some(anchor_game) => {
-                let reachable = state.descendants_of(anchor_game.index);
-
-                // Best among descendants
-                let anchor_head = state
-                    .games
-                    .values()
-                    .filter(|g| reachable.contains(&g.index))
-                    .max_by_key(|g| g.l2_block);
-
-                // Check non-descendants for override (higher block with genesis or lower parent)
-                let override_head = anchor_head.and_then(|anchor| {
-                    state
-                        .games
-                        .values()
-                        .filter(|g| !reachable.contains(&g.index))
-                        .filter(|g| {
-                            g.l2_block > anchor.l2_block &&
-                                (g.parent_index == u32::MAX ||
-                                    g.parent_index < anchor.parent_index)
-                        })
-                        .max_by_key(|g| g.l2_block)
-                });
-
-                override_head.or(anchor_head).cloned()
-            }
-        };
+        let canonical_head = state.select_canonical_head();
 
         let previous_canonical_index = state.canonical_head_index;
 
@@ -1423,6 +1470,31 @@ where
         };
 
         for game in candidates {
+            // Pre-flight on-chain status check at `latest`. The cached `should_attempt_to_resolve`
+            // is derived from the pinned (lagged) snapshot, so a recently confirmed `resolve()` tx
+            // may not yet be reflected. Querying at `latest` avoids re-submitting a resolution
+            // that would only revert on chain.
+            let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+            match contract.status().call().await {
+                Ok(status) if status != GameStatus::IN_PROGRESS => {
+                    tracing::info!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        ?status,
+                        "Skipping resolve: game already resolved on chain"
+                    );
+                    continue;
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        game_address = ?game.address,
+                        error = ?e,
+                        "Pre-flight status check failed, proceeding with resolve"
+                    );
+                }
+                _ => {}
+            }
+
             if let Err(error) = self.submit_resolution_transaction(&game).await {
                 if error.is_revert() {
                     tracing::error!(
@@ -1465,7 +1537,33 @@ where
                 .collect::<Vec<_>>()
         };
 
+        let signer_address = self.signer.address();
         for game in candidates {
+            // Pre-flight on-chain credit check at `latest`. The cached
+            // `should_attempt_to_claim_bond` is derived from the pinned (lagged)
+            // snapshot, so a recently confirmed `claimCredit()` tx may not yet be
+            // reflected. Querying at `latest` avoids re-submitting a claim that
+            // would only revert on chain.
+            let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+            match contract.credit(signer_address).call().await {
+                Ok(credit) if credit == U256::ZERO => {
+                    tracing::info!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        "Skipping claim: bond already claimed on chain"
+                    );
+                    continue;
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        game_address = ?game.address,
+                        error = ?e,
+                        "Pre-flight credit check failed, proceeding with claim"
+                    );
+                }
+                _ => {}
+            }
+
             if let Err(error) = self.submit_bond_claim_transaction(&game).await {
                 if error.is_revert() {
                     tracing::error!(
@@ -1481,7 +1579,7 @@ where
                         game_address = ?game.address,
                         l2_block_end = %game.l2_block,
                         ?error,
-                        "Bond claim tx unconfirmed (may be on-chain), will verify next cycle"
+                        "Bond claim attempt failed before confirmation, will verify next cycle"
                     );
                 }
                 ProposerGauge::BondClaimingError.increment(1.0);
@@ -1587,7 +1685,7 @@ where
     #[tracing::instrument(name = "[[Closing Proposer Game]]", skip(self, game))]
     pub async fn submit_close_game_transaction(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
-        let transaction_request = contract.closeGame().gas(200_000).into_transaction_request();
+        let transaction_request = close_game_transaction(&contract, self.signer.address()).await?;
         let receipt = self
             .signer
             .send_transaction_request_with_timeout(
@@ -1617,7 +1715,7 @@ where
     pub async fn submit_bond_claim_transaction(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
         let transaction_request =
-            contract.claimCredit(self.signer.address()).gas(200_000).into_transaction_request();
+            claim_credit_transaction(&contract, self.signer.address()).await?;
         let receipt = self
             .signer
             .send_transaction_request_with_timeout(
@@ -1848,21 +1946,11 @@ where
             ProposerGauge::FinalizedL2BlockNumber
                 .set(self.fetcher.get_l2_header(BlockId::finalized()).await?.number as f64);
 
-            // Host-resolved max provable L2 block: matches finalized under default
-            // Ethereum/EigenDA, diverges under non-default (L2 safe head at the configured L1
-            // anchor) and under Celestia (Blobstream-resolved).
-            if let Some(max_provable_l2_block_number) = self
-                .host
-                .get_max_provable_l2_block_number(
-                    &self.fetcher,
-                    canonical_head_l2_block.to::<u64>(),
-                )
-                .await?
-            {
-                ProposerGauge::MaxProvableL2BlockNumber.set(max_provable_l2_block_number as f64);
-            } else {
-                ProposerGauge::MaxProvableL2BlockNumber.set(0.0);
-            }
+            // The configured L1 selection determines the provable L2 bound independently of
+            // the literal finalized metric above.
+            let max_provable_l2_block_number =
+                self.fetcher.get_max_provable_l2_block_number().await?;
+            ProposerGauge::MaxProvableL2BlockNumber.set(max_provable_l2_block_number as f64);
 
             if let Some(anchor_game) = anchor_game {
                 ProposerGauge::AnchorGameL2BlockNumber.set(anchor_game.l2_block.to::<u64>() as f64);
@@ -2041,7 +2129,7 @@ where
             let mut task_counts: HashMap<&str, usize> = HashMap::new();
             let mut proving_games: Vec<String> = Vec::new();
 
-            for (_, (_, info)) in tasks.iter() {
+            for (_, info) in tasks.values() {
                 let task_type = match info {
                     TaskInfo::GameCreation { .. } => "GameCreation",
                     TaskInfo::GameProving { game_address, .. } => {
@@ -2294,17 +2382,10 @@ where
             return Ok((false, U256::ZERO, u32::MAX));
         }
 
-        let max_provable_l2_block_number = self
-            .host
-            .get_max_provable_l2_block_number(&self.fetcher, canonical_head_l2_block.to::<u64>())
-            .await?;
+        let max_provable_l2_block_number = self.fetcher.get_max_provable_l2_block_number().await?;
 
         Ok((
-            max_provable_l2_block_number
-                .map(|max_provable_block| {
-                    U256::from(max_provable_block) >= next_l2_block_number_for_proposal
-                })
-                .unwrap_or(false),
+            U256::from(max_provable_l2_block_number) >= next_l2_block_number_for_proposal,
             next_l2_block_number_for_proposal,
             parent_game_index,
         ))
@@ -2489,6 +2570,7 @@ where
     /// Returns `Ok(true)` if proving should be skipped:
     /// - Game not found in cache
     /// - Game not owned (vkeys don't match)
+    /// - Game is already proven or resolved on chain (pre-flight check at `latest`)
     /// - Deadline has passed
     ///
     /// Returns `Ok(false)` if proving should proceed.
@@ -2514,6 +2596,39 @@ where
                     return Ok(true);
                 }
                 _ => {}
+            }
+        }
+
+        // Pre-flight on-chain status check at `latest`. The cached `proposal_status` is read
+        // from the pinned (lagged) block, so a recently confirmed prove() or resolve() tx may
+        // not yet be reflected. Querying at `latest` avoids expensive proof regeneration that
+        // would only revert on submission. Skip when:
+        // - ProposalStatus is *ValidProofProvided (proof already submitted), or
+        // - ProposalStatus is Resolved (game concluded — set whenever GameStatus moves out of
+        //   IN_PROGRESS, including timeout default-loss).
+        let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+        match contract.claimData().call().await {
+            Ok(claim_data) => {
+                if matches!(
+                    claim_data.status,
+                    ProposalStatus::UnchallengedAndValidProofProvided |
+                        ProposalStatus::ChallengedAndValidProofProvided |
+                        ProposalStatus::Resolved
+                ) {
+                    tracing::info!(
+                        ?game_address,
+                        proposal_status = ?claim_data.status,
+                        "Skipping proving: game already proven or resolved on chain"
+                    );
+                    return Ok(true);
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    ?game_address,
+                    error = ?e,
+                    "Pre-flight proposal status check failed, proceeding with proving"
+                );
             }
         }
 
@@ -2743,6 +2858,114 @@ mod tests {
     use futures::stream::{self, StreamExt, TryStreamExt};
     use rstest::rstest;
     use std::time::Duration;
+
+    mod canonical_head {
+        use super::super::{Game, ProposerState};
+        use crate::contract::{GameStatus, ProposalStatus};
+        use alloy_primitives::{Address, B256, U256};
+
+        fn game_with(index: u64, parent_index: u32, l2_block: u64) -> Game {
+            Game {
+                index: U256::from(index),
+                address: Address::left_padding_from(&[index as u8]),
+                parent_index,
+                l2_block: U256::from(l2_block),
+                status: GameStatus::IN_PROGRESS,
+                proposal_status: ProposalStatus::Unchallenged,
+                deadline: 0,
+                should_attempt_to_resolve: false,
+                should_attempt_to_close_game: false,
+                should_attempt_to_claim_bond: false,
+                aggregation_vkey: B256::ZERO,
+                range_vkey_commitment: B256::ZERO,
+                rollup_config_hash: B256::ZERO,
+            }
+        }
+
+        fn state(games: Vec<Game>, anchor: Option<Game>) -> ProposerState {
+            ProposerState {
+                games: games.into_iter().map(|g| (g.index, g)).collect(),
+                anchor_game: anchor,
+                ..Default::default()
+            }
+        }
+
+        #[test]
+        fn no_anchor_selects_highest_block_game() {
+            let s = state(vec![game_with(0, u32::MAX, 100), game_with(1, 0, 200)], None);
+            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(1));
+        }
+
+        #[test]
+        fn anchor_subtree_selects_its_tip() {
+            let anchor = game_with(5, 4, 100);
+            let s = state(
+                vec![anchor.clone(), game_with(6, 5, 200), game_with(7, 6, 300)],
+                Some(anchor),
+            );
+            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(7));
+        }
+
+        #[test]
+        fn genesis_rooted_catchup_chain_follows_to_tip() {
+            // Anchor 5 was the canonical head; the proposer could not parent on it (the contract
+            // reverts when the parent is the anchor), so it built a fresh genesis-rooted chain
+            // 6 <- 7 above it. The head must track the chain tip (7), not its root (6).
+            let anchor = game_with(5, 4, 100);
+            let s = state(
+                vec![anchor.clone(), game_with(6, u32::MAX, 200), game_with(7, 6, 300)],
+                Some(anchor),
+            );
+            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(7));
+        }
+
+        #[test]
+        fn genesis_rooted_deep_chain_follows_to_tip() {
+            let anchor = game_with(5, 4, 100);
+            let s = state(
+                vec![
+                    anchor.clone(),
+                    game_with(6, u32::MAX, 200),
+                    game_with(7, 6, 300),
+                    game_with(8, 7, 400),
+                ],
+                Some(anchor),
+            );
+            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(8));
+        }
+
+        #[test]
+        fn earlier_lineage_override_follows_to_tip() {
+            // A chain branching off an earlier lineage than the anchor (parent 2 < anchor parent 4)
+            // must also be followed to its tip.
+            let anchor = game_with(5, 4, 100);
+            let s = state(
+                vec![anchor.clone(), game_with(6, 2, 200), game_with(7, 6, 300)],
+                Some(anchor),
+            );
+            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(7));
+        }
+
+        #[test]
+        fn multiple_catchup_chains_select_highest_tip() {
+            // Repeated stall/recovery cycles can leave several genesis-rooted catch-up chains in
+            // the cache at once. The head must be the highest-block tip across all qualifying
+            // chains pooled together (chain B's tip 9), even though chain B's root (block 250)
+            // sits below chain A's tip (block 300).
+            let anchor = game_with(5, 4, 100);
+            let s = state(
+                vec![
+                    anchor.clone(),
+                    game_with(6, u32::MAX, 200),
+                    game_with(7, 6, 300),
+                    game_with(8, u32::MAX, 250),
+                    game_with(9, 8, 400),
+                ],
+                Some(anchor),
+            );
+            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(9));
+        }
+    }
 
     async fn mock_prove(
         idx: usize,

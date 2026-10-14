@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 pub mod common;
 
 mod asr_filtering {
@@ -1544,7 +1546,13 @@ mod proposer_sync {
             "zero-credit unclosed game must not be claimed"
         );
 
-        env.close_game(address).await?;
+        // The old claim-only path reverts and rolls back the implicit close.
+        assert!(env.claim_bond(address, PROPOSER_ADDRESS).await.is_err());
+        assert_eq!(
+            env.get_bond_distribution_mode(address).await?,
+            BOND_DISTRIBUTION_MODE_UNDECIDED
+        );
+        proposer.submit_close_game_transaction(&game).await?;
         proposer.sync_state().await?;
 
         let game = cached_game(&proposer, 0).await?;
@@ -1557,6 +1565,40 @@ mod proposer_sync {
             "closed zero-credit game should not be marked for claim"
         );
 
+        Ok(())
+    }
+
+    /// Foreign unclosed games must not wait for a closer that excludes them.
+    #[tokio::test]
+    async fn test_foreign_zero_bond_game_is_evicted_without_closing() -> Result<()> {
+        let (env, proposer, _) = setup().await?;
+        env.deploy_game_impl_with_vkeys(
+            FixedBytes::repeat_byte(0x11),
+            FixedBytes::repeat_byte(0x22),
+        )
+        .await?;
+        let call = DisputeGameFactory::setInitBondCall {
+            _gameType: TEST_GAME_TYPE,
+            _initBond: U256::ZERO,
+        };
+        env.send_factory_tx(call.abi_encode(), None).await?;
+        let block = env.anvil.starting_l2_block_number + 1;
+        for l2_block in [block, block + 1] {
+            let root = env.compute_output_root_at_block(l2_block).await?;
+            env.create_game(root, l2_block, M, U256::ZERO).await?;
+        }
+        proposer.sync_state().await?;
+        let first = cached_game(&proposer, 0).await?;
+        assert_eq!(proposer.state_snapshot().await.canonical_head_index, Some(U256::from(1)));
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        env.resolve_game(first.address).await?;
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+        proposer.sync_state().await?;
+        assert!(proposer.get_game(U256::ZERO).await.is_none());
+        assert_eq!(
+            env.get_bond_distribution_mode(first.address).await?,
+            BOND_DISTRIBUTION_MODE_UNDECIDED
+        );
         Ok(())
     }
 
@@ -1820,7 +1862,9 @@ mod challenger_sync {
     use alloy_sol_types::{SolCall, SolValue};
     use anyhow::{Context, Result};
     use fault_proof::{
-        challenger::{Game, OPSuccinctChallenger},
+        challenger::{
+            Game, GameValidation, InvalidReason, OPSuccinctChallenger, UnavailableReason,
+        },
         contract::{GameStatus, ProposalStatus, BOND_DISTRIBUTION_MODE_UNDECIDED},
     };
     use op_succinct_bindings::dispute_game_factory::DisputeGameFactory;
@@ -1888,8 +1932,33 @@ mod challenger_sync {
         for i in 0..num_games {
             let game = cached_game(&challenger, i).await?;
             assert_eq!(game.index, U256::from(i));
-            assert!(!game.is_invalid, "Valid output root should not be marked invalid");
+            assert_eq!(game.validation, GameValidation::Valid);
         }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_challenger_discovers_game_only_after_l1_confirmation_depth() -> Result<()> {
+        let env = TestEnvironment::setup().await?;
+        let factory = env.factory()?;
+        let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
+        let mut challenger = env.new_challenger().await?;
+        challenger.config.sync_l1_confirmations = 1;
+        challenger.try_init().await?;
+        let block = env.anvil.starting_l2_block_number + 1;
+        let root = env.compute_output_root_at_block(block).await?;
+
+        env.create_game(root, block, M, init_bond).await?;
+        challenger.sync_state().await?;
+        assert!(
+            challenger.get_game(U256::ZERO).await.is_none(),
+            "The game creation block must be excluded from the pinned snapshot"
+        );
+
+        env.warp_time(0).await?;
+        challenger.sync_state().await?;
+        assert_eq!(cached_game(&challenger, 0).await?.validation, GameValidation::Valid);
 
         Ok(())
     }
@@ -2032,7 +2101,9 @@ mod challenger_sync {
         challenger.sync_state().await?;
 
         let game = cached_game(&challenger, 0).await?;
-        assert_eq!(game.is_invalid, is_invalid);
+        if !already_challenged {
+            assert_eq!(matches!(game.validation, GameValidation::Invalid(_)), is_invalid);
+        }
         assert_eq!(
             game.should_attempt_to_challenge, expected_should_challenge,
             "should_attempt_to_challenge mismatch for is_invalid={is_invalid}, already_challenged={already_challenged}"
@@ -2057,9 +2128,36 @@ mod challenger_sync {
 
         for i in 0..2u64 {
             let game = cached_game(&challenger, i).await?;
-            assert!(game.is_invalid, "Game {i} should be invalid");
+            assert_eq!(
+                game.validation,
+                GameValidation::Invalid(InvalidReason::OutputRootMismatch),
+                "Game {i} should be invalid"
+            );
             assert!(game.should_attempt_to_challenge, "Game {i} should be marked for challenge");
         }
+
+        Ok(())
+    }
+
+    /// An L2 block number that cannot be represented by execution-layer RPCs is deterministically
+    /// invalid and must not abort challenger synchronization.
+    #[tokio::test]
+    async fn test_l2_block_number_above_u64_max_is_marked_for_challenge() -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+        let oversized = U256::from(u64::MAX) + U256::from(1);
+
+        env.create_game_with_l2_block_number(random_invalid_root(), oversized, M, init_bond)
+            .await?;
+
+        challenger.sync_state().await?;
+
+        let game = cached_game(&challenger, 0).await?;
+        assert_eq!(game.l2_block_number, oversized);
+        assert_eq!(game.validation, GameValidation::Invalid(InvalidReason::L2BlockNumberOverflow));
+        assert!(
+            game.should_attempt_to_challenge,
+            "oversized L2 block number must be marked for challenge"
+        );
 
         Ok(())
     }
@@ -2099,9 +2197,15 @@ mod challenger_sync {
         // Child still has ~59 minutes left on its challenge window
         // Sync: child of CHALLENGER_WINS should be marked for challenge
         challenger.sync_state().await?;
+        let child = cached_game(&challenger, 1).await?;
         assert!(
-            cached_game(&challenger, 1).await?.should_attempt_to_challenge,
+            child.should_attempt_to_challenge,
             "Child of CHALLENGER_WINS should be marked for challenge"
+        );
+        assert_eq!(
+            child.validation,
+            GameValidation::Valid,
+            "Parent status must not overwrite the child's output-root validation"
         );
 
         Ok(())
@@ -2158,7 +2262,10 @@ mod challenger_sync {
         challenger.sync_state().await?;
 
         let game = cached_game(&challenger, 0).await?;
-        assert!(game.is_invalid, "Game should be marked invalid");
+        assert_eq!(
+            game.validation,
+            GameValidation::Unavailable(UnavailableReason::ValidationPending)
+        );
         assert!(!game.should_attempt_to_challenge, "Should not challenge after deadline");
 
         Ok(())
@@ -2311,6 +2418,22 @@ mod challenger_sync {
         env.warp_time(MAX_PROVE_DURATION + 1).await?;
         env.resolve_game(game_address).await?;
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+
+        let observer = crate::common::new_challenger(
+            &env.rpc_config,
+            env.private_keys.proposer,
+            &env.deployed.anchor_state_registry,
+            &env.deployed.factory,
+            env.game_type,
+            None,
+        )
+        .await?;
+        observer.try_init().await?;
+        observer.sync_state().await?;
+        assert!(
+            observer.get_game(U256::ZERO).await.is_none(),
+            "A different signer must evict this game without scheduling a paid close"
+        );
 
         challenger.sync_state().await?;
         let game = cached_game(&challenger, 0).await?;

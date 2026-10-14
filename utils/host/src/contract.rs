@@ -131,13 +131,6 @@ sol! {
     }
 }
 
-sol! {
-    #[sol(rpc)]
-    contract SP1Blobstream {
-        uint64 public latestBlock;
-    }
-}
-
 impl PartialEq for GameStatus {
     fn eq(&self, other: &Self) -> bool {
         *self as u8 == *other as u8

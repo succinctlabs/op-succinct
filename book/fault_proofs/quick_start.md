@@ -3,10 +3,8 @@
 This guide provides the fastest path to try out OP Succinct fault dispute games by deploying contracts and running a proposer to create games.
 
 ```admonish note
-If your integration involves alternative data availability solutions like
-Celestia or EigenDA, you may need to configure additional environment variables.
-Refer to the [`Experimental Features`](./experimental/experimental.md) section
-for the required setup steps.
+For EigenDA, configure the additional environment variables in the
+[EigenDA setup guide](./data-availability/eigenda.md).
 ```
 
 ## Prerequisites
@@ -152,6 +150,7 @@ Save the output addresses, particularly `ANCHOR_STATE_REGISTRY_ADDRESS` as "Anch
     # Required Configuration
     L1_RPC=<YOUR_L1_RPC_URL>
     L2_RPC=<YOUR_L2_RPC_URL>
+    L2_NODE_RPC=<YOUR_L2_NODE_RPC_URL>
     ANCHOR_STATE_REGISTRY_ADDRESS=<ANCHOR_STATE_REGISTRY_ADDRESS_FROM_DEPLOYMENT>
     FACTORY_ADDRESS=<FACTORY_ADDRESS_FROM_DEPLOYMENT>
     GAME_TYPE=42

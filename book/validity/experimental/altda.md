@@ -8,7 +8,8 @@ This feature is under active development. Breaking changes to configuration and 
 
 ## Overview
 
-OP Succinct supports OP Stack chains that use the [alt-DA spec](https://specs.optimism.io/experimental/alt-da.html) with a generic op-alt-da server. Specialized DA backends like Celestia and EigenDA also build on the alt-DA pathway but have their own integrations and pages; this page covers the generic-server case only. The most common deployment pattern is a **validium**: an L2 that posts batch data to an off-chain DA layer and only commitments to L1. The underlying transport does not require that trust model. In this codebase the feature is named `altda`; this page uses "AltDA" to refer to the implementation ("Alt-DA Server" in the page title is the OP Stack spec terminology).
+OP Succinct supports OP Stack chains that use the [alt-DA spec](https://specs.optimism.io/experimental/alt-da.html) with a generic op-alt-da server. EigenDA has a separate integration and setup guide.
+This page covers the generic-server case. The most common deployment pattern is a **validium**: an L2 that posts batch data to an off-chain DA layer and only commitments to L1. The underlying transport does not require that trust model. In this codebase the feature is named `altda`; this page uses "AltDA" to refer to the implementation ("Alt-DA Server" in the page title is the OP Stack spec terminology).
 
 In AltDA mode, chain-layer responsibilities (derivation, validity proving, on-chain settlement) are handled by op-succinct. The data availability layer (the alt-DA server that stores batch data and serves it by commitment) is operated separately and is out of scope for this repository.
 
@@ -72,6 +73,19 @@ Create a `.env` file with all base configuration variables from the [Proposer](.
 
 The alt-DA server must implement the OP Stack alt-DA `GET` endpoint shape. Operators are responsible for running this server and consulting their DA provider's documentation for setup.
 
+## Batch Input Size
+
+Set `alt_da.da_max_input_size` in the rollup configuration to limit the size of each resolved Keccak256 batch, in bytes.
+If you omit this field, OP Succinct uses 130,672 bytes, the op-alt-da default.
+An explicit zero causes pipeline setup to fail.
+Inputs at the limit are accepted.
+The derivation pipeline skips larger inputs and continues with the next batch.
+
+Use the same fixed value in OP Succinct, op-node, and op-batcher for the rollup's history.
+Check that all three versions support this field before you configure a custom limit.
+Adding or changing the field changes the rollup config hash, so update the on-chain configuration as described below.
+Validate historical derivation before changing an existing chain's limit.
+
 ## AltDA Contract Configuration
 
 Before deploying or updating contracts, regenerate the range verification key commitment and rollup config hash with the `altda` feature flag so they match the AltDA range ELF. The aggregation verification key is shared across DA variants:
@@ -127,7 +141,7 @@ The AltDA range ELF (`altda-range-elf-embedded`) is embedded into the proposer b
 just build-range-elfs
 ```
 
-This recipe rebuilds all DA-variant range ELFs (Ethereum, Celestia, EigenDA, AltDA).
+This recipe rebuilds all DA-variant range ELFs (Ethereum, EigenDA, AltDA).
 
 ## Limitations
 
@@ -135,7 +149,7 @@ This recipe rebuilds all DA-variant range ELFs (Ethereum, Celestia, EigenDA, Alt
 - **DA server availability assumption.** Proving stalls if the alt-DA server cannot return data for a referenced commitment.
 - **DA server is outside the op-succinct trust boundary.** Data availability and censorship resistance depend on the alt-DA server operator. op-succinct verifies that retrieved data matches its commitment but cannot force the server to serve data.
 - **Hardcoded HTTP timeout.** Requests to the alt-DA server use a fixed 30s timeout.
-- **Standard L1 head logic.** AltDA uses the same L1 head selection as Ethereum DA. There is no Blobstream-style finality tracking.
+- **Standard L1 head logic.** AltDA uses the same L1 head selection as Ethereum DA.
 
 ## Where to Go Next
 

@@ -33,7 +33,7 @@ jobs:
       - name: Install SP1 toolchain
         run: |
           curl -L https://sp1.succinct.xyz | bash
-          ~/.sp1/bin/sp1up -v 6.1.0
+          ~/.sp1/bin/sp1up -v 6.8.1
           ~/.sp1/bin/cargo-prove prove --version
           source ~/.bashrc
 
@@ -57,6 +57,7 @@ jobs:
           submodules: recursive
 
       - name: Run Test On New Branch
+        timeout-minutes: 30
         run: |
           RUST_LOG=info NEW_BRANCH=true cargo test test_cycle_count_diff --release -- --exact --nocapture
         working-directory: ./new_code
@@ -72,6 +73,7 @@ jobs:
           cp "$STATS_FILE" ${{ github.workspace }}/old_code/scripts/prove/new_cycle_stats.json
 
       - name: Run Test On Old Branch
+        timeout-minutes: 30
         run: |
           RUST_LOG=info NEW_BRANCH=false cargo test test_cycle_count_diff --release -- --exact --nocapture
         working-directory: ./old_code

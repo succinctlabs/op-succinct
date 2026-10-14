@@ -159,6 +159,7 @@ impl NetworkProofProvider {
             .max_price_per_pgu(self.config.max_price_per_pgu)
             .cycle_limit(self.config.range_cycle_limit)
             .gas_limit(self.config.range_gas_limit)
+            .private_stdin(self.config.private_stdin)
             .whitelist(self.config.whitelist.clone())
             .request()
             .await?;
@@ -179,6 +180,7 @@ impl NetworkProofProvider {
             .max_price_per_pgu(self.config.max_price_per_pgu)
             .cycle_limit(self.config.agg_cycle_limit)
             .gas_limit(self.config.agg_gas_limit)
+            .private_stdin(self.config.private_stdin)
             .whitelist(self.config.whitelist.clone())
             .request()
             .await?;

@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 pub mod common;
 
 #[cfg(feature = "integration")]
@@ -18,16 +20,11 @@ mod integration {
         monitor::{verify_all_resolved_correctly, TrackedGame},
         new_proposer, TestEnvironment,
     };
-    use fault_proof::{
-        challenger::Game,
-        contract::{GameStatus, ProposalStatus},
-    };
+    use fault_proof::contract::GameStatus;
     use op_succinct_bindings::dispute_game_factory::DisputeGameFactory;
     use rand::Rng;
     use tokio::time::{sleep, Duration};
     use tracing::info;
-
-    use crate::common::new_challenger;
 
     alloy_sol_types::sol! {
         #[sol(rpc)]
@@ -38,11 +35,21 @@ mod integration {
 
     // Covers the proposer happy path from creation through resolution to bond claim.
     // Ensures the proposer keeps running and completes every stage cleanly.
+    #[rstest::rstest]
+    #[case::bonded(false)]
+    #[case::zero_bond(true)]
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_honest_proposer_native() -> Result<()> {
+    async fn test_honest_proposer_native(#[case] zero_bond: bool) -> Result<()> {
         info!("=== Test: Honest Proposer Full Lifecycle (Create → Resolve → Claim) ===");
 
         let env = TestEnvironment::setup().await?;
+        if zero_bond {
+            let call = DisputeGameFactory::setInitBondCall {
+                _gameType: TEST_GAME_TYPE,
+                _initBond: U256::ZERO,
+            };
+            env.send_factory_tx(call.abi_encode(), None).await?;
+        }
 
         let proposer_handle = env.start_proposer().await?;
 
@@ -80,7 +87,23 @@ mod integration {
         // Verify all games resolved correctly (proposer wins)
         verify_all_resolved_correctly(&resolutions)?;
 
-        // Warp past DISPUTE_GAME_FINALITY_DELAY_SECONDS
+        for game in &tracked_games {
+            let credit =
+                env.fault_dispute_game(game.address).await?.credit(PROPOSER_ADDRESS).call().await?;
+            assert_eq!(
+                credit == U256::ZERO,
+                zero_bond,
+                "Unexpected credit for game {}",
+                game.address
+            );
+        }
+        let claim_checks = env.capture_bond_claims(&tracked_games, PROPOSER_ADDRESS).await?;
+        let expected_anchor = tracked_games
+            .iter()
+            .max_by_key(|game| game.l2_block_number)
+            .context("No proposer games to verify")?;
+        assert!(expected_anchor.l2_block_number > claim_checks.anchor_l2_before);
+
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
         info!("✓ Warped time by DISPUTE_GAME_FINALITY_DELAY_SECONDS ({DISPUTE_GAME_FINALITY_DELAY_SECONDS} seconds) to trigger bond claims");
 
@@ -93,6 +116,12 @@ mod integration {
 
         // Wait for proposer to claim bonds
         env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, WAIT_TIMEOUT).await?;
+        env.verify_bond_claims(
+            &claim_checks,
+            expected_anchor.address,
+            expected_anchor.l2_block_number,
+        )
+        .await?;
 
         env.stop_proposer(proposer_handle);
 
@@ -338,6 +367,17 @@ mod integration {
         )
         .await?;
 
+        let tracked_games: Vec<_> = invalid_games
+            .iter()
+            .map(|&address| TrackedGame {
+                index: U256::ZERO, // Not needed for bond claim check
+                address,
+                parent_index: u32::MAX,      // Not needed for bond claim check
+                l2_block_number: U256::ZERO, // Not needed for bond claim check
+            })
+            .collect();
+        let claim_checks = env.capture_bond_claims(&tracked_games, CHALLENGER_ADDRESS).await?;
+
         // Warp DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1 for bond claims
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
         info!(
@@ -353,17 +393,13 @@ mod integration {
         info!("=== Phase 4: Bond Claims ===");
 
         // Wait for challenger to claim bonds
-        let tracked_games: Vec<_> = invalid_games
-            .iter()
-            .map(|&address| TrackedGame {
-                index: U256::ZERO, // Not needed for bond claim check
-                address,
-                parent_index: u32::MAX,      // Not needed for bond claim check
-                l2_block_number: U256::ZERO, // Not needed for bond claim check
-            })
-            .collect();
-
         env.wait_for_bond_claims(&tracked_games, CHALLENGER_ADDRESS, WAIT_TIMEOUT).await?;
+        env.verify_bond_claims(
+            &claim_checks,
+            claim_checks.anchor_before,
+            claim_checks.anchor_l2_before,
+        )
+        .await?;
 
         // Stop challenger
         info!("=== Stopping Challenger ===");
@@ -807,32 +843,7 @@ mod integration {
 
         // === PHASE 2: Challenge Game 3 =================================
         info!("=== Phase 2: Challenge Game 3 ===");
-        let challenger = new_challenger(
-            &env.rpc_config,
-            env.private_keys.challenger,
-            &env.deployed.anchor_state_registry,
-            &env.deployed.factory,
-            env.game_type,
-            Some(100.0),
-        )
-        .await?;
-        challenger.try_init().await?;
-        info!("✓ Challenger initialized");
-
-        let game_to_challenge = Game {
-            index: U256::from(2),
-            address: tracked_games[2].address,
-            parent_index: 1,
-            l2_block_number: tracked_games[2].l2_block_number,
-            is_invalid: false,
-            status: GameStatus::IN_PROGRESS,
-            proposal_status: ProposalStatus::Unchallenged,
-            should_attempt_to_challenge: true,
-            should_attempt_to_resolve: false,
-            should_attempt_to_close_game: false,
-            should_attempt_to_claim_bond: false,
-        };
-        challenger.submit_challenge_transaction(&game_to_challenge).await?;
+        env.challenge_game(tracked_games[2].address).await?;
         info!("✓ Challenged game 3");
 
         // === PHASE 3: Resolve all 3 games and finalize the first 2 games ===
@@ -851,7 +862,7 @@ mod integration {
 
         // Warp time to allow challenged game 3 to be resolved as CHALLENGER_WINS
         env.warp_time(MAX_PROVE_DURATION).await?;
-        challenger.submit_resolution_transaction(&game_to_challenge).await?;
+        env.resolve_game(tracked_games[2].address).await?;
         info!("✓ Challenger resolved game 3 as CHALLENGER_WINS");
 
         assert!(!proposer_handle.is_finished(), "Proposer should still be running");
@@ -920,9 +931,22 @@ mod integration {
         let resolutions = env.wait_for_resolutions(&tracked_games, WAIT_TIMEOUT).await?;
         verify_all_resolved_correctly(&resolutions)?;
 
+        let claim_checks = env.capture_bond_claims(&tracked_games, PROPOSER_ADDRESS).await?;
+        let expected_anchor = tracked_games
+            .iter()
+            .max_by_key(|game| game.l2_block_number)
+            .context("No proposer games to verify")?;
+        assert!(expected_anchor.l2_block_number > claim_checks.anchor_l2_before);
+
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
 
         env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, WAIT_TIMEOUT).await?;
+        env.verify_bond_claims(
+            &claim_checks,
+            expected_anchor.address,
+            expected_anchor.l2_block_number,
+        )
+        .await?;
 
         // Allow the proposer loop to observe the finalized games and update its cache.
         let settle_delay = Duration::from_secs(proposer.config.fetch_interval + 5);
@@ -935,11 +959,13 @@ mod integration {
         assert_eq!(snapshot.anchor_index, Some(expected_anchor_index));
 
         // Verify the anchor game is present in the games cache.
-        let _snapshot_anchor_game = snapshot
+        let snapshot_anchor_game = snapshot
             .games
             .iter()
             .find(|(index, _)| *index == expected_anchor_index)
             .expect("anchor game not found in snapshot");
+
+        assert_eq!(snapshot_anchor_game.1, expected_anchor.address);
 
         env.stop_proposer(proposer_handle);
 

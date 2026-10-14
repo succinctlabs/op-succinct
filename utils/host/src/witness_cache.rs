@@ -5,8 +5,7 @@
 //! (`host.run()`) on subsequent runs.
 //!
 //! Note: While SP1Stdin is the same type across all DA implementations, the serialized contents
-//! (WitnessData) are DA-specific. Cache files are compatible between Ethereum DA and Celestia DA
-//! (both use DefaultWitnessData), but NOT compatible with EigenDA (uses EigenDAWitnessData).
+//! (WitnessData) are DA-specific. Reuse cache files with the same DA backend that produced them.
 
 use std::{fs, path::PathBuf};
 
@@ -26,7 +25,7 @@ pub fn get_stdin_cache_path(chain_id: u64, start_block: u64, end_block: u64) -> 
 /// Save SP1Stdin to cache using bincode.
 ///
 /// Creates the cache directory if it doesn't exist and serializes the stdin using bincode.
-/// Note: Cache files are only compatible within the same DA type family (see module docs).
+/// Note: Reuse cache files only with the same DA backend (see module docs).
 pub fn save_stdin_to_cache(
     chain_id: u64,
     start_block: u64,

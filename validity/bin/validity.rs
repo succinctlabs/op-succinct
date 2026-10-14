@@ -4,7 +4,6 @@ use alloy_provider::{Provider, ProviderBuilder};
 use anyhow::Result;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
-    host::enforce_l1_selection_supported,
     l1_selection::L1BlockSelectionConfig,
     metrics::{init_metrics, MetricsGauge},
     setup_logger,
@@ -97,6 +96,7 @@ async fn main() -> Result<()> {
         agg_cycle_limit: env_config.agg_cycle_limit,
         agg_gas_limit: env_config.agg_gas_limit,
         whitelist: env_config.whitelist,
+        private_stdin: env_config.private_stdin,
         min_auction_period: env_config.min_auction_period,
         auction_timeout: env_config.auction_timeout,
         tx_confirmation_timeout: env_config.tx_confirmation_timeout,
@@ -107,40 +107,35 @@ async fn main() -> Result<()> {
 
     let host = initialize_host(fetcher.clone().into());
 
-    enforce_l1_selection_supported(host.as_ref(), &fetcher, l1_selection).await?;
+    fetcher.validate_l1_selection().await?;
 
-    let proposer = Proposer::new(
-        l1_provider,
-        db_client.clone(),
-        fetcher.into(),
-        proposer_config,
-        env_config.signer,
-        env_config.loop_interval,
-        host,
-    )
-    .await?;
-
-    // Spawn a thread for the proposer.
-    info!("Starting proposer.");
-    let proposer_handle = tokio::spawn(async move {
-        if let Err(e) = proposer.run().await {
-            tracing::error!("Proposer error: {}", e);
-            return Err(e);
-        }
-        Ok(())
-    });
-
+    let proposer = Arc::new(
+        Proposer::new(
+            l1_provider,
+            db_client.clone(),
+            fetcher.into(),
+            proposer_config,
+            env_config.signer,
+            env_config.loop_interval,
+            host,
+        )
+        .await?,
+    );
     // Initialize metrics exporter.
     info!("Initializing metrics on port {}", env_config.metrics_port);
-    ValidityGauge::register_all();
     init_metrics(&env_config.metrics_port);
+    ValidityGauge::register_all();
 
-    // Wait for all tasks to complete.
-    let proposer_res = proposer_handle.await?;
-    if let Err(e) = proposer_res {
-        tracing::error!("Proposer task failed: {}", e);
-        return Err(e);
-    }
+    proposer.initialize().await?;
 
-    Ok(())
+    info!("Starting proposer.");
+
+    #[cfg(feature = "agglayer")]
+    return tokio::select! {
+        result = proposer.clone().run() => result,
+        result = op_succinct_validity::grpc::serve(env_config.grpc_addr, proposer) => result,
+    };
+
+    #[cfg(not(feature = "agglayer"))]
+    proposer.run().await
 }

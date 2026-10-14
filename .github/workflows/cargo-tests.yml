@@ -5,7 +5,9 @@ on:
     branches:
       - main
     paths:
+      - '.cargo/**'
       - '.github/workflows/cargo-tests.yml'
+      - '.github/workflows/integration-tests.yml'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'justfile'
@@ -47,7 +49,7 @@ jobs:
     - name: Install Foundry
       uses: foundry-rs/foundry-toolchain@v1
       with:
-        version: nightly
+        version: nightly-d592b3e0f142d694c3be539702704a4a73238773
     - run: rustup toolchain install stable --profile minimal
     - name: Install protobuf compiler
       run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
@@ -61,7 +63,7 @@ jobs:
     - name: Install SP1 toolchain
       run: |
           curl -L https://sp1.succinct.xyz | bash
-          ~/.sp1/bin/sp1up -v 6.1.0
+          ~/.sp1/bin/sp1up -v 6.8.1
           ~/.sp1/bin/cargo-prove prove --version
           source ~/.bashrc
 
@@ -80,3 +82,6 @@ jobs:
         PR_NUMBER: ${{ github.event.pull_request.number }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         POST_TO_GITHUB: ${{ github.event_name == 'pull_request' }}
+
+    - name: Test AggLayer validity
+      run: cargo test -p op-succinct-validity --release --features agglayer --lib

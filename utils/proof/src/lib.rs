@@ -1,3 +1,8 @@
+// The SP1 cluster proof types produce a deeply nested async future in
+// `cluster_proof_blocking`, whose layout exceeds the default
+// recursion limit of 128. Raise it so the layout query can complete.
+#![recursion_limit = "256"]
+
 use std::{
     sync::Arc,
     time::{Instant, SystemTime},
@@ -27,11 +32,7 @@ use sp1_sdk::{
 /// Get the range ELF depending on the feature flag.
 pub fn get_range_elf_embedded() -> &'static [u8] {
     cfg_if::cfg_if! {
-        if #[cfg(feature = "celestia")] {
-            use op_succinct_elfs::CELESTIA_RANGE_ELF_EMBEDDED;
-
-            CELESTIA_RANGE_ELF_EMBEDDED
-        } else if #[cfg(feature = "eigenda")] {
+        if #[cfg(feature = "eigenda")] {
             use op_succinct_elfs::EIGENDA_RANGE_ELF_EMBEDDED;
 
             EIGENDA_RANGE_ELF_EMBEDDED
@@ -48,17 +49,7 @@ pub fn get_range_elf_embedded() -> &'static [u8] {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "celestia")] {
-        use op_succinct_celestia_host_utils::host::CelestiaOPSuccinctHost;
-
-        /// Initialize the Celestia host.
-        pub fn initialize_host(
-            fetcher: Arc<OPSuccinctDataFetcher>,
-        ) -> Arc<CelestiaOPSuccinctHost> {
-            tracing::info!("Initializing host with Celestia DA");
-            Arc::new(CelestiaOPSuccinctHost::new(fetcher))
-        }
-    } else if #[cfg(feature = "eigenda")] {
+    if #[cfg(feature = "eigenda")] {
         use op_succinct_eigenda_host_utils::host::EigenDAOPSuccinctHost;
 
         /// Initialize the EigenDA host.

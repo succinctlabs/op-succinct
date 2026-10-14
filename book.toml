@@ -15,9 +15,7 @@ additional-js = ["book/mermaid/mermaid.min.js", "book/mermaid/mermaid-init.js"]
 additional-css = ["./mdbook-admonish.css"]
 
 [output.html.redirect]
-"/validity/experimental/celestia.html" = "../data-availability/celestia.html"
 "/validity/experimental/eigenda.html" = "../data-availability/eigenda.html"
-"/fault_proofs/experimental/celestia.html" = "../data-availability/celestia.html"
 "/fault_proofs/experimental/eigenda.html" = "../data-availability/eigenda.html"
 
 [preprocessor.template]

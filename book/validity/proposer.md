@@ -40,13 +40,14 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 |-----------|-------------|
 | `L1_BEACON_RPC` | L1 Consensus (Beacon) Node. Could be required for integrations that access consensus-layer data. |
 | `NETWORK_RPC_URL` | Default: `https://rpc.production.succinct.xyz`. RPC URL for the Succinct Prover Network. |
+| `NETWORK_MTLS_CERT_PATH`, `NETWORK_MTLS_KEY_PATH` | Client identity paths for an mTLS endpoint. See [Prover Network Connection](../advanced/prover-network.md#mutual-tls-client-authentication). |
 | `DATABASE_URL` | Default: `postgres://op-succinct@postgres:5432/op-succinct`. The address of a Postgres database for storing the intermediate proposer state. |
 | `L1_CONFIG_DIR` | Default: `<project-root>/configs/L1`. The directory containing the L1 chain configuration files. |
 | `L2_CONFIG_DIR` | Default: `<project-root>/configs/L2`. Directory containing L2 chain configuration files. On first run, the rollup config is fetched from the node RPC and cached here. On subsequent runs, the cached file is used. Delete the cached file and restart to force a refresh (e.g., after a hardfork activates). |
 | `DGF_ADDRESS` | Address of the `DisputeGameFactory` contract. Note: If set, the proposer will create a dispute game with the DisputeGameFactory, rather than the `OPSuccinctL2OutputOracle`. Compatible with `OptimismPortal2`. |
 | `RANGE_PROOF_STRATEGY` | Default: `reserved`. Set to `hosted` to use hosted proof strategy. |
 | `AGG_PROOF_STRATEGY` | Default: `reserved`. Set to `hosted` to use hosted proof strategy. |
-| `AGG_PROOF_MODE` | Default: `plonk`. Set to `groth16` to use Groth16 proof type. **Note:** Changing the proof mode requires updating the verifier gateway contract address in your L2OutputOracle contract deployment. See [SP1 Contract Addresses](https://docs.succinct.xyz/docs/sp1/verification/contract-addresses) for verifier addresses. |
+| `AGG_PROOF_MODE` | Default: `plonk`. Use `groth16` for Groth16 proofs. Builds with `agglayer` also accept `compressed` for proofs consumed by another proof. For on-chain proof modes, update the verifier gateway address in the L2OutputOracle deployment as needed. See [SP1 Contract Addresses](https://docs.succinct.xyz/docs/sp1/verification/contract-addresses) for verifier addresses. |
 | `SUBMISSION_INTERVAL` | Default: `1800`. The number of L2 blocks that must be proven before a proof is submitted to the L1. Note: The interval used by the validity service is always >= to the `submissionInterval` configured on the L2OO contract. To allow for the validity service to configure this parameter entirely, set the `submissionInterval` in the contract to `1`. |
 | `RANGE_PROOF_INTERVAL` | Default: `1800`. The number of blocks to include in each range proof. For chains with high throughput, you need to decrease this value. |
 | `RANGE_PROOF_EVM_GAS_LIMIT` | Default: `0`. The total amount of ethereum gas allowed to be in each range proof. If 0, uses the `RANGE_PROOF_INTERVAL` instead to do a fixed number of blocks interval. NOTE: if both `RANGE_PROOF_INTERVAL` and `RANGE_PROOF_EVM_GAS_LIMIT` are set, the number of blocks to include in each range proof is determined either when the cumulative gas reaches `RANGE_PROOF_EVM_GAS_LIMIT` or the number of blocks reaches `RANGE_PROOF_INTERVAL`, whichever occurs first. |
@@ -73,9 +74,40 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 | `AGG_CYCLE_LIMIT` | Default: `1,000,000,000,000`. The cycle limit to use for aggregation proofs. |
 | `AGG_GAS_LIMIT` | Default: `1,000,000,000,000`. The gas limit to use for aggregation proofs. |
 | `WHITELIST` | Default: ``. The list of prover addresses that are allowed to bid on proof requests. |
+| `PRIVATE_STDIN` | Default: `false`. Gated Succinct Prover Network feature. Keeps program inputs private from bidders; [contact us](https://partner.succinct.xyz/) to enable it for your requester account. |
 | `MIN_AUCTION_PERIOD` | Default: `1`. The minimum auction period (in seconds). |
 | `AUCTION_TIMEOUT` | Default: `60` (1 minute). How long to wait before canceling a proof request that hasn't been assigned (in seconds). |
 | `TX_CONFIRMATION_TIMEOUT` | Default: `60`. Maximum time (in seconds) to wait for an L1 transaction to reach the required number of confirmations. Raise on congested L1s to avoid timeout-triggered retries. |
+| `GRPC_ADDRESS` | Required in builds with the `agglayer` feature, ignored by all others. Address the aggregation gRPC server listens on (e.g. `[::1]:50051`). See [Externally driven aggregation](#externally-driven-aggregation). |
+
+## Externally driven aggregation
+
+By default the proposer runs the whole validity pipeline: it produces range proofs, aggregates them on a schedule, and submits the aggregation proof to L1.
+
+Builds with the optional `agglayer` cargo feature can instead let an external coordinator decide *when* to aggregate. When `GRPC_ADDRESS` is set, the proposer serves the `proofs.Proofs` service defined in `validity/proto/proofs.proto`.
+
+The proposer still validates the range, generates the witness, and requests the proof from the prover network.
+It does this when the coordinator calls `RequestAggProof`, not on the loop's schedule.
+In real mode, the response contains the prover network request ID and the actual block range.
+In mock mode, the response contains the database row ID that the coordinator can pass to `GetMockProof`.
+The loop stops queueing and submitting aggregation proofs, but range proof production continues.
+
+External aggregation shares `MAX_CONCURRENT_WITNESS_GEN` and `MAX_CONCURRENT_PROOF_REQUESTS` with scheduled range proofs.
+Active requests consume proof capacity until their status is `Complete`, `Failed`, `Cancelled`, or `Invalidated`.
+When capacity is full, `RequestAggProof` returns `RESOURCE_EXHAUSTED`; the coordinator must retry later.
+Accepted work continues if the coordinator disconnects, and the proposer tracks it through the existing request lifecycle.
+The proposer does not apply `AUCTION_TIMEOUT` to external aggregation requests.
+The external API supports network and mock proving; startup rejects `SP1_PROVER=cluster`, which cannot return network request IDs.
+
+Enabling the feature switches the proposer into this mode, so `GRPC_ADDRESS` is required and startup fails without it. Default builds are unaffected and ignore the variable. Because a proposer in this mode never submits transactions itself, it only needs an address to attribute proof requests to — `SIGNER_URL` plus `SIGNER_ADDRESS` is sufficient, and the signer endpoint is never contacted.
+
+Prebuilt images are published as `op-succinct-agglayer` and `op-succinct-agglayer-altda` from `validity/Dockerfile.agglayer`.
+The AltDA image sets `VALIDITY_FEATURES=agglayer,altda` at build time.
+Both images default `GRPC_ADDRESS` to `[::1]:50051`.
+Set `[::]:50051` to accept connections from outside the pod.
+The gRPC server does not provide authentication or Transport Layer Security.
+Expose it only through a trusted private network or a protected proxy.
+Building this feature from source requires `protoc`.
 
 ## Build the Proposer Service
 
@@ -123,13 +155,8 @@ The proposer decides which L1 block to anchor each proof against using the `L1_B
 
 For Ethereum and EigenDA backends, any non-default selection (tag != `finalized` or `confirmations != 0`) resolves the max provable L2 block via `optimism_safeHeadAtL1Block(resolved_l1_number)`. This RPC requires SafeDB to be activated on the op-node. The proposer hard-fails at startup if SafeDB is unavailable under a non-default selection on these backends. `SAFE_DB_FALLBACK` only applies to the default selection; it does not provide a fallback for the non-default L1 -> L2 resolution path.
 
-### Celestia backend: non-default selection is rejected at startup
-
-Celestia's proving path is driven by Blobstream commitments and the op-celestia-indexer, not by an L1 block tag. `CelestiaOPSuccinctHost::calculate_safe_l1_head` and `CelestiaOPSuccinctHost::get_max_provable_l2_block_number` do not read `L1_BLOCK_TAG` / `L1_CONFIRMATIONS`. To avoid silently accepting a knob that would not actually change those decisions, the production proposer binaries and the covered operator-facing utility scripts under `scripts/` hard-fail at startup when Celestia is configured together with a non-default selection.
-
-On Celestia, only the default selection (`finalized`, `0`) is allowed for those entrypoints. Some operator-facing scripts whose proof path does not consult the L1 selection (notably `scripts/utils/bin/preflight.rs`), as well as test harnesses and internal tools that construct a fetcher/host directly, do not invoke the shared enforcement helper and are out of scope for this policy. They will silently ignore `L1_BLOCK_TAG` / `L1_CONFIRMATIONS` rather than rejecting them.
-
 ### Operational notes
 
-- The existing `succinct_l2_finalized_block` gauge keeps its literal meaning — the L2 block returned by `eth_getBlockByNumber("finalized")` — regardless of `L1_BLOCK_TAG`. A separate `succinct_l2_max_provable_block` gauge reports the L2 block the host is actually willing to anchor a proof against under the current backend + L1 selection (matches `succinct_l2_finalized_block` under default Ethereum/EigenDA; reflects the L2 safe head at the configured L1 anchor under non-default Ethereum/EigenDA; reflects the Blobstream-resolved max provable L2 block under Celestia).
+- The existing `succinct_l2_finalized_block` gauge reports the L2 block returned by `eth_getBlockByNumber("finalized")`, regardless of `L1_BLOCK_TAG`.
+  A separate `succinct_l2_max_provable_block` gauge reports the L2 block the host is actually willing to anchor a proof against under the current backend + L1 selection (matches `succinct_l2_finalized_block` under default Ethereum/EigenDA; reflects the L2 safe head at the configured L1 anchor under non-default Ethereum/EigenDA).
 - Invalid values for `L1_BLOCK_TAG` or `L1_CONFIRMATIONS` cause the proposer and covered utility scripts (which parse via `from_env()?`) to exit cleanly at startup with an error naming the offending env var and value. Non-covered scripts that build a fetcher via the default constructors (e.g. `agg.rs`, `block_data.rs`, `config.rs`, `preflight.rs`) parse via `from_env_or_default()` and will instead panic with the same env var name and value in the message. Double-check env values before running scripts.

@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use alloy_eips::BlockId;
 use alloy_primitives::B256;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -34,9 +33,7 @@ impl OPSuccinctHost for EigenDAOPSuccinctHost {
         // If l1_head_hash is not provided, calculate a safe L1 head
         let l1_head = match l1_head_hash {
             Some(hash) => hash,
-            None => {
-                self.calculate_safe_l1_head(&self.fetcher, l2_end_block, safe_db_fallback).await?
-            }
+            None => self.fetcher.calculate_safe_l1_head(l2_end_block, safe_db_fallback).await?,
         };
 
         let host = self.fetcher.get_host_args(l2_start_block, l2_end_block, l1_head).await?;
@@ -47,50 +44,6 @@ impl OPSuccinctHost for EigenDAOPSuccinctHost {
 
     fn get_l1_head_hash(&self, args: &Self::Args) -> Option<B256> {
         Some(args.kona_cfg.l1_head)
-    }
-
-    async fn get_max_provable_l2_block_number(
-        &self,
-        fetcher: &OPSuccinctDataFetcher,
-        _: u64,
-    ) -> Result<Option<u64>> {
-        if fetcher.l1_selection.is_default() {
-            // Default path: max provable == L2 finalized. Preserve the historical direct L2
-            // finalized lookup byte-for-byte.
-            let finalized_l2_block_number = fetcher.get_l2_header(BlockId::finalized()).await?;
-            Ok(Some(finalized_l2_block_number.number))
-        } else {
-            // Non-default path: max provable == L2 safe head at the configured L1 anchor,
-            // resolved via SafeDB.
-            let resolved_l1 = fetcher.resolve_selected_l1_header().await?;
-            let l2_safe = fetcher.get_l2_safe_head_from_l1_block_number(resolved_l1.number).await?;
-            Ok(Some(l2_safe))
-        }
-    }
-
-    async fn calculate_safe_l1_head(
-        &self,
-        fetcher: &OPSuccinctDataFetcher,
-        l2_end_block: u64,
-        safe_db_fallback: bool,
-    ) -> Result<B256> {
-        // For EigenDA, use a similar approach to Ethereum DA with a conservative offset.
-        let (_, l1_head_number) = fetcher.get_l1_head(l2_end_block, safe_db_fallback).await?;
-
-        // Add a buffer for EigenDA similar to Ethereum DA.
-        let l1_head_number = l1_head_number + 20;
-
-        if fetcher.l1_selection.is_default() {
-            // Default path: cap at finalized using the original direct call.
-            let finalized_l1_header = fetcher.get_l1_header(BlockId::finalized()).await?;
-            let safe_l1_head_number = std::cmp::min(l1_head_number, finalized_l1_header.number);
-            return Ok(fetcher.get_l1_header(safe_l1_head_number.into()).await?.hash_slow());
-        }
-
-        // Non-default path: cap at the resolved L1 selection.
-        let resolved_l1 = fetcher.resolve_selected_l1_header().await?;
-        let safe_l1_head_number = std::cmp::min(l1_head_number, resolved_l1.number);
-        Ok(fetcher.get_l1_header(safe_l1_head_number.into()).await?.hash_slow())
     }
 }
 

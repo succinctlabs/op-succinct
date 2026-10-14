@@ -4,7 +4,7 @@ pragma solidity 0.8.15;
 import {ISuperchainConfig} from "interfaces/L1/ISuperchainConfig.sol";
 import {SuperchainConfig} from "src/L1/SuperchainConfig.sol";
 
-/// @notice Minimal mock SystemConfig for testing AnchorStateRegistry with v5.0.0
+/// @notice Minimal mock SystemConfig for AnchorStateRegistry tests.
 contract MockSystemConfig {
     ISuperchainConfig private _superchainConfig;
     address private _guardian;

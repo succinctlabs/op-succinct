@@ -1,0 +1,4 @@
+[env]
+# Keep the default proxy first, with a fallback for unavailable pinned modules.
+# Go's module checksums and checksum database verification remain enabled.
+GOPROXY = "https://proxy.golang.org,https://goproxy.cn,direct"

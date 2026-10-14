@@ -7,6 +7,8 @@ use std::{
 use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
 use anyhow::{Context, Result};
+#[cfg(feature = "agglayer")]
+use bincode::Options;
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, host::OPSuccinctHost,
@@ -50,6 +52,7 @@ pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
     pub agg_cycle_limit: u64,
     pub agg_gas_limit: u64,
     pub whitelist: Option<Vec<Address>>,
+    pub private_stdin: bool,
     pub min_auction_period: u64,
     pub auction_timeout: u64,
 }
@@ -77,6 +80,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         agg_cycle_limit: u64,
         agg_gas_limit: u64,
         whitelist: Option<Vec<Address>>,
+        private_stdin: bool,
         min_auction_period: u64,
         auction_timeout: u64,
     ) -> Result<Self> {
@@ -109,6 +113,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             agg_cycle_limit,
             agg_gas_limit,
             whitelist,
+            private_stdin,
             min_auction_period,
             auction_timeout,
         })
@@ -170,9 +175,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
         if let Some(l1_head) = self.host.get_l1_head_hash(&host_args) {
             let l1_head_block_number = self.fetcher.get_l1_header(l1_head.into()).await?.number;
-            self.db_client
-                .update_l1_head_block_number(request.id, l1_head_block_number as i64)
-                .await?;
+            self.db_client.update_l1_head(request.id, l1_head_block_number as i64, l1_head).await?;
         }
 
         let witness = self.host.run(&host_args).await?;
@@ -191,10 +194,10 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         l2_chain_id: i64,
         prover_address: Address,
     ) -> Result<SP1Stdin> {
-        // Fetch consecutive range proofs from the database.
+        // Recheck coverage because ranges can be invalidated after request selection.
         let range_proofs = self
             .db_client
-            .get_consecutive_complete_range_proofs(
+            .get_complete_aggregation_range_proofs(
                 start_block,
                 end_block,
                 &self.program_config.commitments,
@@ -270,6 +273,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .max_price_per_pgu(self.max_price_per_pgu)
             .cycle_limit(self.range_cycle_limit)
             .gas_limit(self.range_gas_limit)
+            .private_stdin(self.private_stdin)
             .whitelist(self.whitelist.clone())
             .request()
             .await
@@ -300,6 +304,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .max_price_per_pgu(self.max_price_per_pgu)
             .cycle_limit(self.agg_cycle_limit)
             .gas_limit(self.agg_gas_limit)
+            .private_stdin(self.private_stdin)
             .whitelist(self.whitelist.clone())
             .request()
             .await
@@ -446,6 +451,12 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         request: OPSuccinctRequest,
         execution_status: i32,
     ) -> Result<()> {
+        if self.db_client.is_request_invalidated(request.id).await? {
+            self.db_client.finish_invalidated_request(request.id).await?;
+            info!(request_id = request.id, "Discarded invalidated proof request");
+            return Ok(());
+        }
+
         warn!(
             id = request.id,
             start_block = request.start_block,
@@ -523,7 +534,10 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
     }
 
     /// Generates the stdin needed for a proof.
-    async fn generate_proof_stdin(&self, request: &OPSuccinctRequest) -> Result<SP1Stdin> {
+    pub(crate) async fn generate_proof_stdin(
+        &self,
+        request: &OPSuccinctRequest,
+    ) -> Result<SP1Stdin> {
         let stdin = match request.req_type {
             RequestType::Range => self.range_proof_witnessgen(request).await?,
             RequestType::Aggregation => {
@@ -546,13 +560,40 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         Ok(stdin)
     }
 
+    /// Store a proof unless the request was invalidated while work was in flight.
+    async fn store_completed_proof(&self, request_id: i64, proof: &[u8]) -> Result<()> {
+        if self.db_client.update_proof_to_complete(request_id, proof).await? {
+            return Ok(());
+        }
+        if self.db_client.finish_invalidated_request(request_id).await? {
+            info!(request_id, "Discarded proof completed after invalidation");
+            return Ok(());
+        }
+        anyhow::bail!("Request {request_id} could not transition to Complete")
+    }
+
     /// Makes a proof request by updating statuses, generating witnesses, and then either requesting
     /// or mocking the proof depending on configuration.
     ///
-    /// Note: Any error from this function will cause the proof to be retried.
+    /// The caller tracks failures. Requests without capacity remain queued.
     #[tracing::instrument(name = "proof_requester.make_proof_request", skip(self, request))]
-    pub async fn make_proof_request(&self, request: OPSuccinctRequest) -> Result<()> {
-        self.db_client.update_request_status(request.id, RequestStatus::WitnessGeneration).await?;
+    pub async fn make_proof_request(
+        &self,
+        request: OPSuccinctRequest,
+        max_witnesses: u64,
+        max_proofs: u64,
+    ) -> Result<()> {
+        if !self
+            .db_client
+            .try_start_witness_generation(request.id, max_witnesses, max_proofs)
+            .await?
+        {
+            info!(
+                request_id = request.id,
+                "Skipped request without capacity or valid queued state"
+            );
+            return Ok(());
+        }
 
         info!(
             request_id = request.id,
@@ -584,6 +625,12 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             "Completed witness generation"
         );
 
+        if self.db_client.is_request_invalidated(request.id).await? {
+            self.db_client.finish_invalidated_request(request.id).await?;
+            info!(request_id = request.id, "Discarded invalidated witness");
+            return Ok(());
+        }
+
         if self.mock {
             self.db_client.update_request_status(request.id, RequestStatus::Execution).await?;
         }
@@ -593,7 +640,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                 if self.mock {
                     let proof = self.generate_mock_range_proof(&request, stdin).await?;
                     let proof_bytes = bincode::serialize(&proof)?;
-                    self.db_client.update_proof_to_complete(request.id, &proof_bytes).await?;
+                    self.store_completed_proof(request.id, &proof_bytes).await?;
                 } else if self.cluster {
                     let cluster_config = self
                         .cluster_config
@@ -632,7 +679,14 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             RequestType::Aggregation => {
                 if self.mock {
                     let proof = self.generate_mock_agg_proof(&request, stdin).await?;
-                    self.db_client.update_proof_to_complete(request.id, &proof.bytes()).await?;
+                    #[cfg(feature = "agglayer")]
+                    let proof_bytes = bincode::DefaultOptions::new()
+                        .with_big_endian()
+                        .with_fixint_encoding()
+                        .serialize(&proof)?;
+                    #[cfg(not(feature = "agglayer"))]
+                    let proof_bytes = proof.bytes();
+                    self.store_completed_proof(request.id, &proof_bytes).await?;
                 } else if self.cluster {
                     let cluster_config = self
                         .cluster_config

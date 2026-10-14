@@ -5,7 +5,7 @@ use log::info;
 use op_succinct_host_utils::{
     block_range::{get_validated_block_range, split_range_basic},
     fetcher::OPSuccinctDataFetcher,
-    host::{enforce_l1_selection_supported, OPSuccinctHost},
+    host::OPSuccinctHost,
     l1_selection::L1BlockSelectionConfig,
     witness_generation::WitnessGenerator,
 };
@@ -32,16 +32,10 @@ async fn main() -> Result<()> {
 
     let host = initialize_host(Arc::new(data_fetcher.clone()));
 
-    enforce_l1_selection_supported(host.as_ref(), &data_fetcher, l1_selection).await?;
+    data_fetcher.validate_l1_selection().await?;
 
-    let (l2_start_block, l2_end_block) = get_validated_block_range(
-        host.as_ref(),
-        &data_fetcher,
-        args.start,
-        args.end,
-        args.default_range,
-    )
-    .await?;
+    let (l2_start_block, l2_end_block) =
+        get_validated_block_range(&data_fetcher, args.start, args.end, args.default_range).await?;
 
     let split_ranges = split_range_basic(l2_start_block, l2_end_block, args.effective_batch_size());
 
@@ -67,7 +61,7 @@ async fn main() -> Result<()> {
 
     // Now, write the successful ranges to
     // /sp1-testing-suite-artifacts/op-succinct-chain-{l2_chain_id}-{start}-{end} The folders
-    // should each have the RANGE_ELF_EMBEDDED/CELESTIA_RANGE_ELF_EMBEDDED as program.bin, and the
+    // should each have the selected range ELF as program.bin, and the
     // serialized stdin should be written to stdin.bin.
     let cargo_metadata = cargo_metadata::MetadataCommand::new().exec().unwrap();
     let root_dir = PathBuf::from(cargo_metadata.workspace_root).join("sp1-testing-suite-artifacts");

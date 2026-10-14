@@ -3,6 +3,7 @@ ROOT := parent_directory(SOURCE)
 
 test-e2e-sysgo PKG="" FILTER="" TIMEOUT="90m": build-contracts unzip-contract-artifacts
     #!/bin/bash
+    set -e
 
     if ! [ -z "{{FILTER}}" ]; then
         export FILTER="-run {{FILTER}}"
@@ -20,6 +21,7 @@ test-e2e-sysgo PKG="" FILTER="" TIMEOUT="90m": build-contracts unzip-contract-ar
 
     TEST_PATH="{{PKG}}"
     BUILD_ARGS=""
+    GO_TAGS=""
 
     if [ -z "$TEST_PATH" ]; then
         TEST_PATH="./e2e/..."
@@ -30,6 +32,10 @@ test-e2e-sysgo PKG="" FILTER="" TIMEOUT="90m": build-contracts unzip-contract-ar
     elif [[ "$TEST_PATH" == *"validity"* ]]; then
         BUILD_ARGS="--bin validity"
         export VALIDITY_PROPOSER_EXEC_PATH="{{ROOT}}/target/release/validity"
+        if [[ "$TEST_PATH" == *"/agglayer/"* ]]; then
+            BUILD_ARGS="-p op-succinct-validity $BUILD_ARGS --features agglayer"
+            GO_TAGS="-tags agglayer"
+        fi
     elif [[ "$TEST_PATH" == *"faultproof"* ]]; then
         BUILD_ARGS="--bin proposer --bin challenger"
         export FAULT_PROOF_PROPOSER_EXEC_PATH="{{ROOT}}/target/release/proposer"
@@ -41,10 +47,13 @@ test-e2e-sysgo PKG="" FILTER="" TIMEOUT="90m": build-contracts unzip-contract-ar
 
     echo "Building binaries: $BUILD_ARGS ..."
     cd .. && cargo build --release $BUILD_ARGS
+    if [ -n "$GO_TAGS" ]; then
+        cargo test --release -p op-succinct-validity --features agglayer --test external_aggregation --no-run
+    fi
 
     # Run the test with count=1 to avoid caching the test results.
     echo "Running go test $TEST_PATH $FILTER"
-    cd {{SOURCE}} && go test -p 1 -count=1 -timeout {{TIMEOUT}} -v "$TEST_PATH" $FILTER
+    cd {{SOURCE}} && go test $GO_TAGS -p 1 -count=1 -timeout {{TIMEOUT}} -v "$TEST_PATH" $FILTER
 
 # AltDA e2e tests - builds validity binary with altda feature
 test-e2e-sysgo-altda FILTER="" TIMEOUT="90m": build-contracts unzip-contract-artifacts

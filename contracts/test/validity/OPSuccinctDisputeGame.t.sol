@@ -77,7 +77,7 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
         // Deploy L2OutputOracle using Utils helper functions.
         (l2OutputOracle,) = deployL2OutputOracleWithStandardParams(proposer, address(0), address(this));
 
-        // Deploy anchor state registry for v5.0.0 compatibility.
+        // Deploy the anchor state registry.
         MockSystemConfig mockSystemConfig = new MockSystemConfig(address(this));
         uint256 disputeGameFinalityDelaySeconds = 604800; // 7 days
         Proposal memory startingAnchorRoot = Proposal({root: Hash.wrap(keccak256("genesis")), l2SequenceNumber: 0});
@@ -143,6 +143,7 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
 
         // Check the game fields.
         assertEq(game.gameType().raw(), gameType.raw());
+        assertEq(game.version(), "v4.1.0");
         assertEq(game.gameCreator(), address(l2OutputOracle));
         assertEq(game.rootClaim().raw(), rootClaim);
         assertEq(game.l2SequenceNumber(), l2BlockNumber);
@@ -151,6 +152,10 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
         assertEq(game.configName(), l2OutputOracle.GENESIS_CONFIG_NAME());
         assertEq(keccak256(game.proof()), keccak256(bytes("")));
         assertEq(uint8(game.status()), uint8(GameStatus.DEFENDER_WINS));
+    }
+
+    function testRootClaimByChainId() public view {
+        assertEq(game.rootClaimByChainId(block.chainid).raw(), rootClaim);
     }
 
     // =========================================

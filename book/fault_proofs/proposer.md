@@ -92,11 +92,12 @@ Depending on the one you choose, you must provide the corresponding environment 
 | `L1_BEACON_RPC` | L1 Beacon RPC endpoint URL | (Only used if `FAST_FINALITY_MODE` is `true`) |
 | `L2_NODE_RPC` | L2 Node RPC endpoint URL | (Only used if `FAST_FINALITY_MODE` is `true`) |
 | `SAFE_DB_FALLBACK` | Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not activated for op-node. When `false`, proposer will return an error if SafeDB is not available. It is by default `false` since using the fallback mechanism will result in higher proving cost. | `false` |
-| `L1_BLOCK_TAG` | Which L1 block to anchor proof generation against. One of `finalized`, `safe`, `latest`. Non-default values trade finality for latency. On Ethereum/EigenDA backends they require SafeDB to be activated on op-node (the proposer hard-fails at startup otherwise). On Celestia backends non-default values are rejected at startup — both by the proposer binary and by the covered operator-facing utility scripts under `scripts/` that initialize a host — because the Blobstream-driven proving path does not honor them. See the Validity proposer docs for the full risk table. | `finalized` |
+| `L1_BLOCK_TAG` | Which L1 block to anchor proof generation against. One of `finalized`, `safe`, `latest`. Non-default values trade finality for latency. On Ethereum/EigenDA backends they require SafeDB to be activated on op-node (the proposer hard-fails at startup otherwise). See the Validity proposer docs for the full risk table. | `finalized` |
 | `L1_CONFIRMATIONS` | Number of additional L1 block confirmations to subtract from the block returned by `L1_BLOCK_TAG`. Subject to the same backend restrictions as `L1_BLOCK_TAG`. | `0` |
 | `PROPOSER_METRICS_PORT` | The port to expose metrics on. Update prometheus.yml to use this port, if using docker compose. | `9000` |
 | `FAST_FINALITY_PROVING_LIMIT` | Maximum number of concurrent proving tasks allowed in fast finality mode. | `1` |
 | `USE_KMS_REQUESTER` | Whether to expect NETWORK_PRIVATE_KEY to be an AWS KMS key ARN instead of a plaintext private key. | `false` |
+| `NETWORK_MTLS_CERT_PATH`, `NETWORK_MTLS_KEY_PATH` | Client identity paths for an mTLS endpoint. See [Prover Network Connection](../advanced/prover-network.md#mutual-tls-client-authentication). | (disabled) |
 | `MAX_PRICE_PER_PGU` | The maximum price per pgu for proving. | `300,000,000` |
 | `MIN_AUCTION_PERIOD` | The minimum auction period (in seconds). | `1` |
 | `TIMEOUT` | The proving timeout (in seconds). Used as the server-side deadline for proof requests and as the client-side maximum wait time when polling for proof completion. | `14,400` (4 hours) |
@@ -109,6 +110,7 @@ Depending on the one you choose, you must provide the corresponding environment 
 | `AGG_CYCLE_LIMIT` | The cycle limit to use for aggregation proofs. | `1,000,000,000,000` |
 | `AGG_GAS_LIMIT` | The gas limit to use for aggregation proofs. | `1,000,000,000,000` |
 | `WHITELIST` | The list of prover addresses that are allowed to bid on proof requests. | `` |
+| `PRIVATE_STDIN` | Gated Succinct Prover Network feature. Keeps program inputs private from bidders; [contact us](https://partner.succinct.xyz/) to enable it for your requester account. | `false` |
 | `BACKUP_PATH` | Path to backup file for persisting proposer state across restarts. Enables faster recovery by restoring cached state instead of re-syncing from the factory. | (disabled) |
 | `TX_CONFIRMATION_TIMEOUT` | Maximum time (in seconds) to wait for an L1 transaction to reach the required number of confirmations. Setting this too low risks timeout-triggered retries that can produce duplicate sibling games. | `60` |
 
@@ -132,6 +134,7 @@ MOCK_MODE=false                  # Whether to use mock mode
 FAST_FINALITY_MODE=false         # Whether to use fast finality mode
 RANGE_PROOF_STRATEGY=reserved    # Set to hosted to use hosted proof strategy
 AGG_PROOF_STRATEGY=reserved      # Set to hosted to use hosted proof strategy
+PRIVATE_STDIN=false              # Use private stdin for network proof requests
 PROPOSAL_INTERVAL_IN_BLOCKS=1800 # Number of L2 blocks between proposals
 FETCH_INTERVAL=30                # Polling interval in seconds
 PROPOSER_METRICS_PORT=9000       # The port to expose metrics on

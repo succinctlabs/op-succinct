@@ -47,7 +47,7 @@ where
     type B = B;
     type L1 = OracleL1ChainProvider<Self::O>;
     type L2 = OracleL2ChainProvider<Self::O>;
-    type DA = EigenDADataSource<Self::L1, Self::B, E>;
+    type DA = EigenDADataSource<EthereumDataSource<Self::L1, Self::B>, E>;
 
     async fn create_pipeline(
         &self,
@@ -73,6 +73,8 @@ where
             da_provider,
             l1_provider,
             l2_provider,
+            // No interop dependency set: OP Succinct chains are non-interop.
+            None,
         )
         .await?)
     }
