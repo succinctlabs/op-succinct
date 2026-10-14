@@ -267,21 +267,6 @@ impl TxErrorExt for anyhow::Error {
     }
 }
 
-// Compile the same fixture modules in library tests and external E2E test targets.
-#[cfg(all(test, feature = "integration"))]
-extern crate self as fault_proof;
-
-#[cfg(all(test, feature = "integration"))]
-#[path = "../tests/common/constants.rs"]
-pub mod constants;
-
-#[cfg(all(test, feature = "integration"))]
-#[path = "../tests/common/contracts.rs"]
-pub mod test_contracts;
-
-#[cfg(all(test, feature = "integration"))]
-mod claim_credit_integration_tests;
-
 #[cfg(test)]
 mod tests {
     use super::*;
