@@ -77,7 +77,13 @@ mod integration {
         // Verify all games resolved correctly (proposer wins)
         verify_all_resolved_correctly(&resolutions)?;
 
-        // Warp past DISPUTE_GAME_FINALITY_DELAY_SECONDS
+        let claim_checks = env.capture_bond_claims(&tracked_games, PROPOSER_ADDRESS).await?;
+        let expected_anchor = tracked_games
+            .iter()
+            .max_by_key(|game| game.l2_block_number)
+            .context("No proposer games to verify")?;
+        assert!(expected_anchor.l2_block_number > claim_checks.anchor_l2_before);
+
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
         info!("✓ Warped time by DISPUTE_GAME_FINALITY_DELAY_SECONDS ({DISPUTE_GAME_FINALITY_DELAY_SECONDS} seconds) to trigger bond claims");
 
@@ -90,6 +96,12 @@ mod integration {
 
         // Wait for proposer to claim bonds
         env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, WAIT_TIMEOUT).await?;
+        env.verify_bond_claims(
+            &claim_checks,
+            expected_anchor.address,
+            expected_anchor.l2_block_number,
+        )
+        .await?;
 
         env.stop_proposer(proposer_handle);
 
@@ -335,6 +347,17 @@ mod integration {
         )
         .await?;
 
+        let tracked_games: Vec<_> = invalid_games
+            .iter()
+            .map(|&address| TrackedGame {
+                index: U256::ZERO, // Not needed for bond claim check
+                address,
+                parent_index: u32::MAX,      // Not needed for bond claim check
+                l2_block_number: U256::ZERO, // Not needed for bond claim check
+            })
+            .collect();
+        let claim_checks = env.capture_bond_claims(&tracked_games, CHALLENGER_ADDRESS).await?;
+
         // Warp DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1 for bond claims
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
         info!(
@@ -350,17 +373,13 @@ mod integration {
         info!("=== Phase 4: Bond Claims ===");
 
         // Wait for challenger to claim bonds
-        let tracked_games: Vec<_> = invalid_games
-            .iter()
-            .map(|&address| TrackedGame {
-                index: U256::ZERO, // Not needed for bond claim check
-                address,
-                parent_index: u32::MAX,      // Not needed for bond claim check
-                l2_block_number: U256::ZERO, // Not needed for bond claim check
-            })
-            .collect();
-
         env.wait_for_bond_claims(&tracked_games, CHALLENGER_ADDRESS, WAIT_TIMEOUT).await?;
+        env.verify_bond_claims(
+            &claim_checks,
+            claim_checks.anchor_before,
+            claim_checks.anchor_l2_before,
+        )
+        .await?;
 
         // Stop challenger
         info!("=== Stopping Challenger ===");
@@ -892,9 +911,22 @@ mod integration {
         let resolutions = env.wait_for_resolutions(&tracked_games, WAIT_TIMEOUT).await?;
         verify_all_resolved_correctly(&resolutions)?;
 
+        let claim_checks = env.capture_bond_claims(&tracked_games, PROPOSER_ADDRESS).await?;
+        let expected_anchor = tracked_games
+            .iter()
+            .max_by_key(|game| game.l2_block_number)
+            .context("No proposer games to verify")?;
+        assert!(expected_anchor.l2_block_number > claim_checks.anchor_l2_before);
+
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
 
         env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, WAIT_TIMEOUT).await?;
+        env.verify_bond_claims(
+            &claim_checks,
+            expected_anchor.address,
+            expected_anchor.l2_block_number,
+        )
+        .await?;
 
         // Allow the proposer loop to observe the finalized games and update its cache.
         let settle_delay = Duration::from_secs(proposer.config.fetch_interval + 5);
@@ -907,11 +939,13 @@ mod integration {
         assert_eq!(snapshot.anchor_index, Some(expected_anchor_index));
 
         // Verify the anchor game is present in the games cache.
-        let _snapshot_anchor_game = snapshot
+        let snapshot_anchor_game = snapshot
             .games
             .iter()
             .find(|(index, _)| *index == expected_anchor_index)
             .expect("anchor game not found in snapshot");
+
+        assert_eq!(snapshot_anchor_game.1, expected_anchor.address);
 
         env.stop_proposer(proposer_handle);
 
