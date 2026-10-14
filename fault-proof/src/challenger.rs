@@ -430,13 +430,13 @@ where
                 if !is_finalized {
                     return Ok(GameSyncAction::Update(game));
                 }
-                // Only pay to close games this signer challenged.
-                if claim_data.counteredBy != signer_address {
-                    self.close_game_failures.lock().await.remove(&game.address);
-                    return Ok(GameSyncAction::Remove(game.index));
-                }
                 let mode = contract.bondDistributionMode().block(pinned_block).call().await?;
                 if mode == BOND_DISTRIBUTION_MODE_UNDECIDED {
+                    // Closing costs gas even when this signer has no claim.
+                    if claim_data.counteredBy != signer_address {
+                        self.close_game_failures.lock().await.remove(&game.address);
+                        return Ok(GameSyncAction::Remove(game.index));
+                    }
                     game.should_attempt_to_close_game = true;
                     return Ok(GameSyncAction::Update(game));
                 }
@@ -1352,9 +1352,7 @@ mod tests {
                 .abi_encode(),
             );
             asserter.push_success(&true.abi_encode());
-            if own {
-                asserter.push_success(&U256::from(BOND_DISTRIBUTION_MODE_UNDECIDED).abi_encode());
-            }
+            asserter.push_success(&U256::from(BOND_DISTRIBUTION_MODE_UNDECIDED).abi_encode());
             let action = challenger
                 .sync_game(test_game(GameValidation::Valid), BlockId::latest(), 200, signer)
                 .await
@@ -1369,6 +1367,42 @@ mod tests {
             }
             assert!(asserter.read_q().is_empty());
         }
+    }
+
+    #[tokio::test]
+    async fn closed_game_can_claim_refund_without_being_the_challenger() {
+        let asserter = Asserter::new();
+        let challenger = test_challenger(&asserter);
+        asserter.push_success(&GameStatus::CHALLENGER_WINS.abi_encode());
+        asserter.push_success(
+            &ClaimData {
+                parentIndex: u32::MAX,
+                counteredBy: Address::repeat_byte(0x33),
+                prover: Address::ZERO,
+                claim: B256::ZERO,
+                status: ProposalStatus::Resolved,
+                deadline: 100,
+            }
+            .abi_encode(),
+        );
+        asserter.push_success(&true.abi_encode());
+        asserter.push_success(&U256::from(1).abi_encode()); // REFUND.
+        asserter.push_success(&U256::from(7).abi_encode());
+        let action = challenger
+            .sync_game(
+                test_game(GameValidation::Valid),
+                BlockId::latest(),
+                200,
+                challenger.signer.address(),
+            )
+            .await
+            .unwrap();
+        let GameSyncAction::Update(game) = action else {
+            panic!("A game with refundable credit must remain queued for claiming");
+        };
+        assert!(!game.should_attempt_to_close_game);
+        assert!(game.should_attempt_to_claim_bond);
+        assert!(asserter.read_q().is_empty());
     }
 
     fn push_active_unchallenged_game(asserter: &Asserter, deadline: u64) {
