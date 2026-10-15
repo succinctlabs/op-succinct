@@ -32,7 +32,7 @@ pub struct BondClaimCheck {
 }
 
 impl TestEnvironment {
-    /// Capture nonzero claim amounts at one block before the service can claim them.
+    /// Capture claim amounts and unclosed games before the service can close them.
     pub async fn capture_bond_claims(
         &self,
         tracked_games: &[TrackedGame],
@@ -52,13 +52,22 @@ impl TestEnvironment {
                 .block(block)
                 .call()
                 .await?;
-            ensure!(credit > U256::ZERO, "Game {} has no credit for {recipient}", game.address);
+            ensure!(
+                OPSuccinctFaultDisputeGame::new(game.address, provider)
+                    .bondDistributionMode()
+                    .block(block)
+                    .call()
+                    .await? ==
+                    0,
+                "Game {} was closed before observation started",
+                game.address
+            );
             credits.push((game.address, credit));
         }
         Ok(BondClaimCheck { start_block, recipient, credits, anchor_before, anchor_l2_before })
     }
 
-    /// Verify service-submitted claims, their ETH transfers and the resulting on-chain anchor.
+    /// Verify service-submitted closes and claims, ETH transfers and the on-chain anchor.
     pub async fn verify_bond_claims(
         &self,
         checks: &BondClaimCheck,
@@ -70,15 +79,20 @@ impl TestEnvironment {
         let expected_input =
             OPSuccinctFaultDisputeGame::claimCreditCall { _recipient: checks.recipient }
                 .abi_encode();
+        let close_input = OPSuccinctFaultDisputeGame::closeGameCall {}.abi_encode();
+        let mut closed = vec![false; checks.credits.len()];
         let mut claimed = vec![false; checks.credits.len()];
         for number in checks.start_block + 1..=end_block {
             let block = provider
                 .get_block_by_number(BlockNumberOrTag::Number(number))
                 .full()
                 .await?
-                .with_context(|| format!("Missing claim observation block {number}"))?;
+                .with_context(|| format!("Missing lifecycle observation block {number}"))?;
             for tx in block.transactions.as_transactions().context("Full transactions required")? {
-                if tx.from() != checks.recipient || tx.input().as_ref() != expected_input {
+                let is_close = tx.input().as_ref() == close_input;
+                if tx.from() != checks.recipient ||
+                    (!is_close && tx.input().as_ref() != expected_input)
+                {
                     continue;
                 }
                 let Some(index) =
@@ -91,8 +105,8 @@ impl TestEnvironment {
                 let receipt = provider
                     .get_transaction_receipt(hash)
                     .await?
-                    .with_context(|| format!("Missing claim receipt {hash} for game {game}"))?;
-                ensure!(receipt.status(), "Claim {hash} reverted for game {game}");
+                    .with_context(|| format!("Missing lifecycle receipt {hash} for game {game}"))?;
+                ensure!(receipt.status(), "Lifecycle transaction {hash} reverted for game {game}");
                 let trace: CallFrame = provider
                     .client()
                     .request(
@@ -100,14 +114,41 @@ impl TestEnvironment {
                         (hash, serde_json::json!({"tracer": "callTracer"})),
                     )
                     .await
-                    .with_context(|| format!("Cannot trace claim {hash} for game {game}"))?;
-                ensure!(trace.error.is_none(), "Claim {hash} trace failed: {:?}", trace.error);
+                    .with_context(|| {
+                        format!("Cannot trace lifecycle transaction {hash} for game {game}")
+                    })?;
+                ensure!(
+                    trace.error.is_none(),
+                    "Lifecycle transaction {hash} trace failed: {:?}",
+                    trace.error
+                );
                 for call in trace.iter() {
                     ensure!(
                         !call.error.as_deref().is_some_and(|error| error.contains("out of gas")),
-                        "Claim {hash} for game {game} ran out of gas: {call:?}"
+                        "Lifecycle transaction {hash} for game {game} ran out of gas: {call:?}"
                     );
                 }
+                if is_close {
+                    let contract = OPSuccinctFaultDisputeGame::new(game, provider);
+                    ensure!(
+                        contract
+                            .bondDistributionMode()
+                            .block(BlockNumberOrTag::Number(number).into())
+                            .call()
+                            .await? !=
+                            0,
+                        "Service close {hash} left game {game} undecided"
+                    );
+                    closed[index] = true;
+                    info!(%hash, %game, sender = %checks.recipient,
+                        "Verified service close and no internal out-of-gas");
+                    continue;
+                }
+                ensure!(closed[index], "Claim {hash} preceded service close for game {game}");
+                ensure!(
+                    credit > U256::ZERO,
+                    "Service submitted a claim for zero-credit game {game}"
+                );
                 ensure!(
                     trace.iter().any(|call| call.is_call() &&
                         call.from == game &&
@@ -124,8 +165,12 @@ impl TestEnvironment {
                     "Verified claim payout and no internal out-of-gas");
             }
         }
-        for (index, (game, _)) in checks.credits.iter().enumerate() {
-            ensure!(claimed[index], "No service claim transaction found for game {game}");
+        for (index, (game, credit)) in checks.credits.iter().enumerate() {
+            ensure!(closed[index], "No service close transaction found for game {game}");
+            ensure!(
+                claimed[index] == (*credit > U256::ZERO),
+                "Unexpected service claim presence for game {game} with credit {credit}"
+            );
             let contract = OPSuccinctFaultDisputeGame::new(*game, provider);
             let block = BlockNumberOrTag::Number(end_block).into();
             ensure!(
@@ -406,8 +451,9 @@ pub async fn wait_for_bond_claims<P: Provider>(
             let normal_credit = game_contract.normalModeCredit(recipient_address).call().await?;
             let refund_credit = game_contract.refundModeCredit(recipient_address).call().await?;
 
-            // If both credits are zero, the claim has been made
-            if normal_credit == U256::ZERO && refund_credit == U256::ZERO {
+            // Zero-bond games must still be closed before the lifecycle is complete.
+            let closed = game_contract.bondDistributionMode().call().await? != 0;
+            if closed && normal_credit == U256::ZERO && refund_credit == U256::ZERO {
                 claims[i] = true;
                 info!("Bonds claimed for game {}", game.address);
             } else {
