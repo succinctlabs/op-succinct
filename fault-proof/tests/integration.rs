@@ -376,6 +376,17 @@ mod integration {
                 l2_block_number: U256::ZERO, // Not needed for bond claim check
             })
             .collect();
+        for game in &tracked_games {
+            let contract = env.fault_dispute_game(game.address).await?;
+            let expected_credit = init_bond + contract.challengerBond().call().await?;
+            assert!(expected_credit > U256::ZERO, "Challenger payout must be nonzero");
+            assert_eq!(
+                contract.credit(CHALLENGER_ADDRESS).call().await?,
+                expected_credit,
+                "Challenger must receive both bonds for game {}",
+                game.address
+            );
+        }
         let claim_checks = env.capture_bond_claims(&tracked_games, CHALLENGER_ADDRESS).await?;
 
         // Warp DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1 for bond claims

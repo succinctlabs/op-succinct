@@ -282,6 +282,7 @@ mod tests {
     use super::*;
     use alloy::{rpc::client::RpcClient, transports::mock::Asserter};
     use alloy_rpc_types_eth::EIP1186AccountProofResponse;
+    use alloy_sol_types::SolCall;
 
     fn mock_l2_provider(asserter: Asserter) -> L2Provider {
         RootProvider::new(RpcClient::mocked(asserter))
@@ -330,10 +331,33 @@ mod tests {
 
     #[tokio::test]
     async fn close_game_transaction_uses_estimate_and_propagates_failure() {
+        use alloy::transports::mock::MockTransport;
+        use alloy_json_rpc::RequestPacket;
+        use tower::Service;
+
         let asserter = Asserter::new();
-        let provider = RootProvider::new(RpcClient::mocked(asserter.clone()));
-        let contract = OPSuccinctFaultDisputeGame::new(Address::repeat_byte(0x11), provider);
         let sender = Address::repeat_byte(0x22);
+        let target = Address::repeat_byte(0x11);
+        let mut mock = MockTransport::new(asserter.clone());
+        let transport = tower::service_fn(move |packet: RequestPacket| {
+            let RequestPacket::Single(request) = &packet else {
+                panic!("Expected one gas estimation request");
+            };
+            assert_eq!(request.method(), "eth_estimateGas");
+            let params: serde_json::Value =
+                serde_json::from_str(request.params().unwrap().get()).unwrap();
+            let tx: TransactionRequest = serde_json::from_value(params[0].clone()).unwrap();
+            assert_eq!(tx.from, Some(sender));
+            assert_eq!(tx.to, Some(target.into()));
+            assert_eq!(
+                tx.input.input().unwrap().as_ref(),
+                OPSuccinctFaultDisputeGame::closeGameCall {}.abi_encode()
+            );
+            assert_eq!(tx.gas, None, "Estimate without a preset gas cap");
+            mock.call(packet)
+        });
+        let provider = RootProvider::new(RpcClient::new(transport, true));
+        let contract = OPSuccinctFaultDisputeGame::new(target, provider);
         for estimate in [100_000u64, 250_000] {
             asserter.push_success(&format!("{estimate:#x}"));
             let tx = close_game_transaction(&contract, sender).await.unwrap();

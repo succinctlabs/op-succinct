@@ -75,7 +75,7 @@ mod proposer_sync {
     };
     use alloy_eips::BlockId;
     use alloy_primitives::{Bytes, FixedBytes, Uint, U256};
-    use alloy_sol_types::{SolCall, SolValue};
+    use alloy_sol_types::{SolCall, SolError, SolValue};
     use anyhow::{Context, Result};
     use fault_proof::{
         contract::{ProposalStatus, BOND_DISTRIBUTION_MODE_UNDECIDED},
@@ -83,7 +83,10 @@ mod proposer_sync {
             Game, GameFetchResult, OPSuccinctProposer, ProposerStateSnapshot, MAX_GAME_DEADLINE_LAG,
         },
     };
-    use op_succinct_bindings::dispute_game_factory::DisputeGameFactory;
+    use op_succinct_bindings::{
+        dispute_game_factory::DisputeGameFactory,
+        op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame::NoCreditToClaim,
+    };
     use op_succinct_host_utils::host::OPSuccinctHost;
     use rand::Rng;
     use rstest::rstest;
@@ -1547,7 +1550,15 @@ mod proposer_sync {
         );
 
         // The old claim-only path reverts and rolls back the implicit close.
-        assert!(env.claim_bond(address, PROPOSER_ADDRESS).await.is_err());
+        let error = env.claim_bond(address, PROPOSER_ADDRESS).await.unwrap_err();
+        let revert = error
+            .downcast_ref::<alloy::contract::Error>()
+            .and_then(alloy::contract::Error::as_revert_data);
+        assert_eq!(
+            revert.as_ref().map(|data| data.as_ref()),
+            Some(NoCreditToClaim::SELECTOR.as_slice()),
+            "Expected NoCreditToClaim, got {error:#}"
+        );
         assert_eq!(
             env.get_bond_distribution_mode(address).await?,
             BOND_DISTRIBUTION_MODE_UNDECIDED
