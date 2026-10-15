@@ -35,11 +35,21 @@ mod integration {
 
     // Covers the proposer happy path from creation through resolution to bond claim.
     // Ensures the proposer keeps running and completes every stage cleanly.
+    #[rstest::rstest]
+    #[case::bonded(false)]
+    #[case::zero_bond(true)]
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_honest_proposer_native() -> Result<()> {
+    async fn test_honest_proposer_native(#[case] zero_bond: bool) -> Result<()> {
         info!("=== Test: Honest Proposer Full Lifecycle (Create → Resolve → Claim) ===");
 
         let env = TestEnvironment::setup().await?;
+        if zero_bond {
+            let call = DisputeGameFactory::setInitBondCall {
+                _gameType: TEST_GAME_TYPE,
+                _initBond: U256::ZERO,
+            };
+            env.send_factory_tx(call.abi_encode(), None).await?;
+        }
 
         let proposer_handle = env.start_proposer().await?;
 
@@ -77,6 +87,16 @@ mod integration {
         // Verify all games resolved correctly (proposer wins)
         verify_all_resolved_correctly(&resolutions)?;
 
+        for game in &tracked_games {
+            let credit =
+                env.fault_dispute_game(game.address).await?.credit(PROPOSER_ADDRESS).call().await?;
+            assert_eq!(
+                credit == U256::ZERO,
+                zero_bond,
+                "Unexpected credit for game {}",
+                game.address
+            );
+        }
         let claim_checks = env.capture_bond_claims(&tracked_games, PROPOSER_ADDRESS).await?;
         let expected_anchor = tracked_games
             .iter()
@@ -356,6 +376,17 @@ mod integration {
                 l2_block_number: U256::ZERO, // Not needed for bond claim check
             })
             .collect();
+        for game in &tracked_games {
+            let contract = env.fault_dispute_game(game.address).await?;
+            let expected_credit = init_bond + contract.challengerBond().call().await?;
+            assert!(expected_credit > U256::ZERO, "Challenger payout must be nonzero");
+            assert_eq!(
+                contract.credit(CHALLENGER_ADDRESS).call().await?,
+                expected_credit,
+                "Challenger must receive both bonds for game {}",
+                game.address
+            );
+        }
         let claim_checks = env.capture_bond_claims(&tracked_games, CHALLENGER_ADDRESS).await?;
 
         // Warp DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1 for bond claims
