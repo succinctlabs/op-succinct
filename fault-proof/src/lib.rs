@@ -255,6 +255,16 @@ pub(crate) async fn claim_credit_transaction<P: Provider + Clone>(
     Ok(call.gas(estimate).into_transaction_request())
 }
 
+/// Builds a close transaction using the sender's unadjusted gas estimate.
+pub(crate) async fn close_game_transaction<P: Provider + Clone>(
+    contract: &OPSuccinctFaultDisputeGame::OPSuccinctFaultDisputeGameInstance<P>,
+    sender: Address,
+) -> Result<TransactionRequest> {
+    let call = contract.closeGame().from(sender);
+    let estimate = call.estimate_gas().await.context("Failed to estimate closeGame gas")?;
+    Ok(call.gas(estimate).into_transaction_request())
+}
+
 /// Extension trait for checking transaction error types.
 pub trait TxErrorExt {
     /// Returns true if this error indicates a transaction revert (definitive failure).
@@ -272,6 +282,7 @@ mod tests {
     use super::*;
     use alloy::{rpc::client::RpcClient, transports::mock::Asserter};
     use alloy_rpc_types_eth::EIP1186AccountProofResponse;
+    use alloy_sol_types::SolCall;
 
     fn mock_l2_provider(asserter: Asserter) -> L2Provider {
         RootProvider::new(RpcClient::mocked(asserter))
@@ -314,6 +325,47 @@ mod tests {
 
         let error =
             claim_credit_transaction(&contract, Address::repeat_byte(0x22)).await.unwrap_err();
+        assert!(format!("{error:#}").contains("estimate RPC unavailable"));
+        assert!(asserter.read_q().is_empty());
+    }
+
+    #[tokio::test]
+    async fn close_game_transaction_uses_estimate_and_propagates_failure() {
+        use alloy::transports::mock::MockTransport;
+        use alloy_json_rpc::RequestPacket;
+        use tower::Service;
+
+        let asserter = Asserter::new();
+        let sender = Address::repeat_byte(0x22);
+        let target = Address::repeat_byte(0x11);
+        let mut mock = MockTransport::new(asserter.clone());
+        let transport = tower::service_fn(move |packet: RequestPacket| {
+            let RequestPacket::Single(request) = &packet else {
+                panic!("Expected one gas estimation request");
+            };
+            assert_eq!(request.method(), "eth_estimateGas");
+            let params: serde_json::Value =
+                serde_json::from_str(request.params().unwrap().get()).unwrap();
+            let tx: TransactionRequest = serde_json::from_value(params[0].clone()).unwrap();
+            assert_eq!(tx.from, Some(sender));
+            assert_eq!(tx.to, Some(target.into()));
+            assert_eq!(
+                tx.input.input().unwrap().as_ref(),
+                OPSuccinctFaultDisputeGame::closeGameCall {}.abi_encode()
+            );
+            assert_eq!(tx.gas, None, "Estimate without a preset gas cap");
+            mock.call(packet)
+        });
+        let provider = RootProvider::new(RpcClient::new(transport, true));
+        let contract = OPSuccinctFaultDisputeGame::new(target, provider);
+        for estimate in [100_000u64, 250_000] {
+            asserter.push_success(&format!("{estimate:#x}"));
+            let tx = close_game_transaction(&contract, sender).await.unwrap();
+            assert_eq!(tx.from, Some(sender));
+            assert_eq!(tx.gas, Some(estimate));
+        }
+        asserter.push_failure_msg("estimate RPC unavailable");
+        let error = close_game_transaction(&contract, sender).await.unwrap_err();
         assert!(format!("{error:#}").contains("estimate RPC unavailable"));
         assert!(asserter.read_q().is_empty());
     }
