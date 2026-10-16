@@ -94,6 +94,7 @@ mod proposer_sync {
         op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame::NoCreditToClaim,
     };
     use op_succinct_host_utils::host::OPSuccinctHost;
+    use op_succinct_signer_utils::NUM_CONFIRMATIONS;
     use rand::Rng;
     use rstest::rstest;
     use tower::ServiceExt;
@@ -120,6 +121,31 @@ mod proposer_sync {
             .get_game(U256::from(index))
             .await
             .with_context(|| format!("game {index} missing from cache"))
+    }
+
+    /// Service transactions need confirmation blocks while interval mining is disabled.
+    async fn create_and_confirm<H: OPSuccinctHost + Clone>(
+        proposer: &OPSuccinctProposer<fault_proof::L1Provider, H>,
+        block: U256,
+        parent: u32,
+    ) -> Result<()> {
+        let expected_count = proposer.factory.gameCount().call().await? + U256::from(1);
+        tokio::time::timeout(std::time::Duration::from_secs(60), async {
+            let mine_confirmations = async {
+                while proposer.factory.gameCount().call().await? < expected_count {
+                    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                }
+                for _ in 1..NUM_CONFIRMATIONS {
+                    let _: serde_json::Value =
+                        proposer.l1_provider.raw_request("evm_mine".into(), ()).await?;
+                }
+                Ok::<_, anyhow::Error>(())
+            };
+            tokio::try_join!(proposer.handle_game_creation(block, parent), mine_confirmations)?;
+            Ok::<_, anyhow::Error>(())
+        })
+        .await
+        .context("Service creation did not complete after mining confirmations")?
     }
 
     trait Assertion {
@@ -270,7 +296,7 @@ mod proposer_sync {
         let _: serde_json::Value = provider.raw_request("evm_setAutomine".into(), [true]).await?;
         let snapshot: String = provider.raw_request("evm_snapshot".into(), ()).await?;
         let block = env.anvil.starting_l2_block_number + 1;
-        proposer.handle_game_creation(U256::from(block + 1), M).await?;
+        create_and_confirm(&proposer, U256::from(block + 1), M).await?;
         proposer.sync_state().await?;
 
         assert!(provider.raw_request::<_, bool>("evm_revert".into(), [snapshot]).await?);
@@ -279,6 +305,9 @@ mod proposer_sync {
         let root = env.compute_output_root_at_block(block).await?;
         env.create_game(root, block, M, init_bond).await?;
         let replacement = env.last_game_info().await?.1;
+        for _ in 1..NUM_CONFIRMATIONS {
+            let _: serde_json::Value = provider.raw_request("evm_mine".into(), ()).await?;
+        }
         proposer.sync_state().await?;
         assert_eq!(proposer.state_snapshot().await.games, vec![(U256::ZERO, replacement)]);
         proposer.state_snapshot().await.assert_canonical_head(
@@ -290,19 +319,30 @@ mod proposer_sync {
         Ok(())
     }
 
-    /// A reorg above the confirmed snapshot must release an unseen game's creation guard.
+    /// Reconcile an unseen creation after L1 either removes it or includes it again.
+    #[rstest]
+    #[case::removed(false)]
+    #[case::recreated(true)]
     #[tokio::test]
-    async fn test_sync_state_reorg_clears_pending_creation_guard() -> Result<()> {
-        let (env, mut proposer, _) = setup().await?;
+    async fn test_sync_state_reorg_clears_pending_creation_guard(
+        #[case] recreate: bool,
+    ) -> Result<()> {
+        let (env, mut proposer, init_bond) = setup().await?;
         proposer.config.proposal_interval_in_blocks = 1;
-        proposer.config.sync_l1_confirmations = 1;
+        proposer.config.sync_l1_confirmations = NUM_CONFIRMATIONS + 1;
         let provider = &env.anvil.provider;
         let _: serde_json::Value =
             provider.raw_request("evm_setIntervalMining".into(), [0u64]).await?;
         let _: serde_json::Value = provider.raw_request("evm_setAutomine".into(), [true]).await?;
         let snapshot: String = provider.raw_request("evm_snapshot".into(), ()).await?;
+        let _: serde_json::Value = provider.raw_request("evm_mine".into(), ()).await?;
+        let old_parent = provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await?
+            .context("missing original parent")?
+            .header;
         let block = env.anvil.starting_l2_block_number + 1;
-        proposer.handle_game_creation(U256::from(block), M).await?;
+        create_and_confirm(&proposer, U256::from(block), M).await?;
         let old_address = env.last_game_info().await?.1;
         proposer.sync_state().await?;
         proposer.state_snapshot().await.assert_game_len(0);
@@ -311,11 +351,58 @@ mod proposer_sync {
         assert!(provider.raw_request::<_, bool>("evm_revert".into(), [snapshot]).await?);
         let _: serde_json::Value =
             provider.raw_request("anvil_dropAllTransactions".into(), ()).await?;
+        let _: serde_json::Value = provider
+            .raw_request("evm_setNextBlockTimestamp".into(), [old_parent.timestamp + 1])
+            .await?;
         let _: serde_json::Value = provider.raw_request("evm_mine".into(), ()).await?;
-        assert!(provider.get_code_at(old_address).await?.is_empty());
+        let new_parent = provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await?
+            .context("missing replacement parent")?
+            .header;
+        assert_eq!(old_parent.number, new_parent.number);
+        assert_ne!(old_parent.hash, new_parent.hash);
+        for _ in 0..NUM_CONFIRMATIONS {
+            let _: serde_json::Value = provider.raw_request("evm_mine".into(), ()).await?;
+        }
+        let mut before_reinclusion = None;
+        if recreate {
+            // Include the same proposal later, with a different parent block hash.
+            before_reinclusion =
+                Some(provider.raw_request::<_, String>("evm_snapshot".into(), ()).await?);
+            let root = env.compute_output_root_at_block(block).await?;
+            env.create_game(root, block, M, init_bond).await?;
+        } else {
+            assert!(provider.get_code_at(old_address).await?.is_empty());
+        }
         proposer.sync_state().await?;
         proposer.state_snapshot().await.assert_game_len(0);
-        assert_eq!(proposer.should_create_game().await?, (true, U256::from(block), M));
+        if recreate {
+            assert!(
+                !proposer.should_create_game().await?.0,
+                "A re-included proposal must retain its guard even if its address changes"
+            );
+            assert!(
+                provider
+                    .raw_request::<_, bool>(
+                        "evm_revert".into(),
+                        [before_reinclusion.context("missing pre-inclusion snapshot")?]
+                    )
+                    .await?
+            );
+            let _: serde_json::Value =
+                provider.raw_request("anvil_dropAllTransactions".into(), ()).await?;
+            proposer.sync_state().await?;
+            assert!(
+                !proposer.should_create_game().await?.0,
+                "A tip below the last existence observation must retain the guard"
+            );
+            let _: serde_json::Value = provider.raw_request("evm_mine".into(), ()).await?;
+            proposer.sync_state().await?;
+            assert_eq!(proposer.should_create_game().await?, (true, U256::from(block), M));
+        } else {
+            assert_eq!(proposer.should_create_game().await?, (true, U256::from(block), M));
+        }
         Ok(())
     }
 
@@ -341,7 +428,7 @@ mod proposer_sync {
             .number;
         let block = U256::from(env.anvil.starting_l2_block_number + 1);
         if !create_during_sync {
-            proposer.handle_game_creation(block, M).await?;
+            create_and_confirm(&proposer, block, M).await?;
         }
         let original_provider = proposer.l1_provider.clone();
         let creator = proposer.clone();
@@ -377,7 +464,7 @@ mod proposer_sync {
             let pending = pending.clone();
             Box::pin(async move {
                 if old_tip_requested && pending.swap(false, std::sync::atomic::Ordering::Relaxed) {
-                    creator.handle_game_creation(block, M).await.unwrap();
+                    create_and_confirm(&creator, block, M).await.unwrap();
                 }
                 transport.oneshot(packet).await
             })
