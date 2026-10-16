@@ -58,8 +58,8 @@ async fn l2_to_l1_message_passer_storage_root(
 /// Environment variable for the number of L1 blocks added to a range proof's L1 head.
 const L1_HEAD_BUFFER_ENV: &str = "L1_HEAD_BUFFER";
 
-/// Default for [`L1_HEAD_BUFFER_ENV`], the historical hard-coded buffer.
-const DEFAULT_L1_HEAD_BUFFER: u64 = 20;
+/// Default for [`L1_HEAD_BUFFER_ENV`], using the batch posting block without extra headroom.
+const DEFAULT_L1_HEAD_BUFFER: u64 = 0;
 
 /// Parse [`L1_HEAD_BUFFER_ENV`], defaulting to [`DEFAULT_L1_HEAD_BUFFER`] when unset.
 fn l1_head_buffer_from_env() -> Result<u64> {
@@ -332,9 +332,7 @@ impl OPSuccinctDataFetcher {
     ) -> Result<B256> {
         let (_, l1_head_number) = self.get_l1_head(l2_end_block, safe_db_fallback).await?;
 
-        // Preserve the buffer used by all retained DA backends.
-        // FIXME(fakedev9999): Investigate why the L1 head must extend beyond the batch posting
-        // block whose safe head already covers the L2 end block.
+        // Keep optional derivation headroom within the configured L1 selection.
         let l1_head_number = l1_head_number.saturating_add(self.l1_head_buffer);
         let selected_l1 = self.resolve_selected_l1_header().await?;
         let safe_l1_head_number = min(l1_head_number, selected_l1.number);
@@ -1333,10 +1331,16 @@ mod tests {
     #[tokio::test]
     async fn safe_l1_head_preserves_the_buffer_and_selection_cap() {
         for (selection, buffer, posting_block, expected_head) in [
-            (L1BlockSelectionConfig::default(), 20, 70, 90),
-            (L1BlockSelectionConfig::default(), 20, 90, 100),
-            (L1BlockSelectionConfig { tag: L1BlockTag::Latest, confirmations: 10 }, 20, 125, 130),
-            (L1BlockSelectionConfig::default(), 0, 70, 70),
+            (L1BlockSelectionConfig::default(), None, 70, 70),
+            (L1BlockSelectionConfig::default(), Some(20), 70, 90),
+            (L1BlockSelectionConfig::default(), Some(20), 90, 100),
+            (
+                L1BlockSelectionConfig { tag: L1BlockTag::Latest, confirmations: 10 },
+                Some(20),
+                125,
+                130,
+            ),
+            (L1BlockSelectionConfig::default(), Some(0), 70, 70),
         ] {
             let mut rpc = TestRpc::new(selection, move |path, request| {
                 match (path, request["method"].as_str().unwrap()) {
@@ -1384,7 +1388,9 @@ mod tests {
                 }
             })
             .await;
-            rpc.fetcher.l1_head_buffer = buffer;
+            if let Some(buffer) = buffer {
+                rpc.fetcher.l1_head_buffer = buffer;
+            }
             assert_eq!(
                 rpc.fetcher.calculate_safe_l1_head(50, false).await.unwrap(),
                 Header { number: expected_head, ..Default::default() }.hash_slow()
@@ -1396,9 +1402,11 @@ mod tests {
     fn l1_head_buffer_from_env_parses_and_defaults() {
         // Only this test sets `L1_HEAD_BUFFER`, so no env lock is needed.
         std::env::remove_var(L1_HEAD_BUFFER_ENV);
-        assert_eq!(l1_head_buffer_from_env().unwrap(), DEFAULT_L1_HEAD_BUFFER);
+        assert_eq!(l1_head_buffer_from_env().unwrap(), 0);
         std::env::set_var(L1_HEAD_BUFFER_ENV, " 0 ");
         assert_eq!(l1_head_buffer_from_env().unwrap(), 0);
+        std::env::set_var(L1_HEAD_BUFFER_ENV, " 20 ");
+        assert_eq!(l1_head_buffer_from_env().unwrap(), 20);
         for raw in ["-1", "abc", ""] {
             std::env::set_var(L1_HEAD_BUFFER_ENV, raw);
             let err = l1_head_buffer_from_env().unwrap_err().to_string();
