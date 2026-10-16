@@ -7,7 +7,7 @@ use std::{io::Write, path::Path};
 
 use tempfile::NamedTempFile;
 
-use alloy_primitives::{Address, U256};
+use alloy_primitives::{Address, Bytes, B256, U256};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +15,14 @@ use crate::proposer::Game;
 
 /// Current backup format version. Increment when making breaking changes.
 pub const BACKUP_VERSION: u32 = 1;
+
+/// Receipt height and factory identity needed to check a created game after an L1 reorg.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GameCreation {
+    pub l1_block: u64,
+    pub output_root: B256,
+    pub extra_data: Bytes,
+}
 
 /// Serializable backup of the proposer state.
 #[derive(Serialize, Deserialize)]
@@ -32,6 +40,9 @@ pub struct ProposerBackup {
     /// guard reset. Defaults to Address::ZERO (no guard) for old backups.
     #[serde(default)]
     pub last_created_game_address: Address,
+    /// Missing in older backups; without a receipt height, preserve the restored guard.
+    #[serde(default)]
+    pub last_created_game_receipt: Option<GameCreation>,
 }
 
 impl ProposerBackup {
@@ -44,6 +55,7 @@ impl ProposerBackup {
             anchor_game_index,
             last_created_game_l2_block: 0,
             last_created_game_address: Address::ZERO,
+            last_created_game_receipt: None,
         }
     }
 
@@ -188,9 +200,10 @@ mod tests {
                 "games",
                 "last_created_game_address",
                 "last_created_game_l2_block",
+                "last_created_game_receipt",
                 "version"
             ],
-            "ProposerBackup schema changed! Bump BACKUP_VERSION in backup.rs"
+            "ProposerBackup schema changed! Check compatibility and bump BACKUP_VERSION for breaking changes"
         );
     }
 }
