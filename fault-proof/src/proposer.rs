@@ -294,12 +294,12 @@ struct L1SyncState {
     complete: bool,
 }
 
-/// One creation guard, updated atomically with the receipt that establishes its L1 height.
+/// One creation guard, updated atomically with its observed L1 height and factory identity.
 #[derive(Clone, Default, PartialEq, Eq)]
 struct CreationGuard {
     l2_block: u64,
     address: Address,
-    receipt: Option<GameCreation>,
+    observation: Option<GameCreation>,
 }
 
 /// Snapshot of the proposer's cached state for testing and monitoring.
@@ -628,14 +628,14 @@ where
                 .with_context(|| format!("backup path is not writable: {:?}", path))?;
 
             // Restore state from backup if available.
-            if let Some((restored, last_created_l2, last_created_addr, receipt)) =
+            if let Some((restored, last_created_l2, last_created_addr, observation)) =
                 ProposerState::try_restore(path)
             {
                 // Restore the creation guard so duplicate-sibling protection survives restart.
                 *self.creation_guard.lock().await = CreationGuard {
                     l2_block: last_created_l2,
                     address: last_created_addr,
-                    receipt,
+                    observation,
                 };
 
                 let mut state = self.state.write().await;
@@ -701,8 +701,8 @@ where
     /// 3. `compute_canonical_head` recomputes the head game used for proposal selection.
     pub async fn sync_state(&self) -> Result<()> {
         let mut sync = self.l1_sync.lock().await;
-        // Capture the guard before selecting a tip. A concurrent creation must not be
-        // checked against a snapshot that predates its receipt.
+        // Capture the guard before selecting a tip so a concurrent creation cannot be
+        // checked against an older snapshot.
         let created = self.creation_guard.lock().await.clone();
         let latest_header = self
             .l1_provider
@@ -752,21 +752,37 @@ where
             rebuild = true;
         }
 
-        // A game can disappear before entering the confirmed cache. Query its factory
-        // identity at an exact tip, but never clear a guard using a node behind its receipt.
-        if let Some(receipt) = &created.receipt {
-            if latest_header.number >= receipt.l1_block &&
-                self.factory
-                    .games(self.config.game_type, receipt.output_root, receipt.extra_data.clone())
+        // A game can disappear before entering the confirmed cache. Never clear its
+        // guard using a tip older than the last snapshot where it was known to exist.
+        if let Some(observation) = &created.observation {
+            if latest_header.number >= observation.observed_l1_block {
+                let address = self
+                    .factory
+                    .games(
+                        self.config.game_type,
+                        observation.output_root,
+                        observation.extra_data.clone(),
+                    )
                     .block(BlockId::hash_canonical(latest_header.hash))
                     .call()
                     .await?
-                    .proxy !=
-                    created.address
-            {
+                    .proxy;
+                let reconciled = if address == Address::ZERO {
+                    CreationGuard::default()
+                } else {
+                    // Re-inclusion can change a CREATE2 address without changing proposal identity.
+                    CreationGuard {
+                        address,
+                        observation: Some(GameCreation {
+                            observed_l1_block: latest_header.number,
+                            ..observation.clone()
+                        }),
+                        ..created.clone()
+                    }
+                };
                 let mut guard = self.creation_guard.lock().await;
                 if *guard == created {
-                    *guard = CreationGuard::default();
+                    *guard = reconciled;
                 }
             }
         }
@@ -2023,7 +2039,11 @@ where
         *self.creation_guard.lock().await = CreationGuard {
             l2_block: next_l2_block_number_for_proposal.to::<u64>(),
             address: game_address,
-            receipt: Some(GameCreation { l1_block, output_root, extra_data: extra_data.into() }),
+            observation: Some(GameCreation {
+                observed_l1_block: l1_block,
+                output_root,
+                extra_data: extra_data.into(),
+            }),
         };
 
         Ok(())
@@ -2508,7 +2528,7 @@ where
         let guard = self.creation_guard.lock().await.clone();
         backup.last_created_game_l2_block = guard.l2_block;
         backup.last_created_game_address = guard.address;
-        backup.last_created_game_receipt = guard.receipt;
+        backup.last_created_game_observation = guard.observation;
         let path = path.clone();
         tokio::task::spawn_blocking(move || {
             if let Err(e) = backup.save(&path) {
@@ -2944,7 +2964,7 @@ impl ProposerState {
         let backup = ProposerBackup::load(path)?;
         let last_created_l2 = backup.last_created_game_l2_block;
         let last_created_addr = backup.last_created_game_address;
-        let receipt = backup.last_created_game_receipt.clone();
+        let observation = backup.last_created_game_observation.clone();
         let state = Self::from_backup(backup);
         tracing::info!(
             ?path,
@@ -2954,7 +2974,7 @@ impl ProposerState {
             ?last_created_addr,
             "Proposer state restored from backup"
         );
-        Some((state, last_created_l2, last_created_addr, receipt))
+        Some((state, last_created_l2, last_created_addr, observation))
     }
 }
 

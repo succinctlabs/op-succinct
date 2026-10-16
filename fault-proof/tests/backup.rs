@@ -90,8 +90,8 @@ mod persistence {
 
         original.last_created_game_l2_block = 103;
         original.last_created_game_address = Address::repeat_byte(1);
-        original.last_created_game_receipt = Some(GameCreation {
-            l1_block: 42,
+        original.last_created_game_observation = Some(GameCreation {
+            observed_l1_block: 42,
             output_root: B256::repeat_byte(2),
             extra_data: vec![3; 36].into(),
         });
@@ -104,21 +104,21 @@ mod persistence {
         assert_eq!(loaded.anchor_game_index, original.anchor_game_index);
         assert_eq!(loaded.last_created_game_l2_block, original.last_created_game_l2_block);
         assert_eq!(loaded.last_created_game_address, original.last_created_game_address);
-        assert_eq!(loaded.last_created_game_receipt, original.last_created_game_receipt);
+        assert_eq!(loaded.last_created_game_observation, original.last_created_game_observation);
     }
 
     #[test]
-    fn old_backup_preserves_guard_without_inventing_receipt_height() {
+    fn old_backup_preserves_guard_without_inventing_observed_height() {
         let (_dir, path) = temp_backup_path();
         let mut backup = serde_json::to_value(ProposerBackup::new(None, vec![], None)).unwrap();
-        backup.as_object_mut().unwrap().remove("last_created_game_receipt");
+        backup.as_object_mut().unwrap().remove("last_created_game_observation");
         backup["last_created_game_l2_block"] = serde_json::json!(103);
         backup["last_created_game_address"] = serde_json::json!(Address::repeat_byte(1));
         std::fs::write(&path, backup.to_string()).unwrap();
         let loaded = ProposerBackup::load(&path).unwrap();
         assert_eq!(loaded.last_created_game_l2_block, 103);
         assert_eq!(loaded.last_created_game_address, Address::repeat_byte(1));
-        assert_eq!(loaded.last_created_game_receipt, None);
+        assert_eq!(loaded.last_created_game_observation, None);
     }
 
     #[test]
