@@ -73,8 +73,14 @@ mod proposer_sync {
         },
         TestEnvironment,
     };
+    use alloy::{
+        rpc::client::RpcClient,
+        transports::{TransportErrorKind, TransportFut},
+    };
     use alloy_eips::BlockId;
+    use alloy_json_rpc::RequestPacket;
     use alloy_primitives::{Bytes, FixedBytes, Uint, U256};
+    use alloy_provider::Provider;
     use alloy_sol_types::{SolCall, SolError, SolValue};
     use anyhow::{Context, Result};
     use fault_proof::{
@@ -90,6 +96,7 @@ mod proposer_sync {
     use op_succinct_host_utils::host::OPSuccinctHost;
     use rand::Rng;
     use rstest::rstest;
+    use tower::ServiceExt;
 
     const M: u32 = u32::MAX;
 
@@ -381,16 +388,21 @@ mod proposer_sync {
         Ok(())
     }
 
+    #[rstest]
+    #[case::clean(false)]
+    #[case::retry_after_rpc_failure(true)]
     #[tokio::test]
-    async fn test_sync_state_with_max_game_deadline_gap() -> Result<()> {
-        let (env, proposer, init_bond) = setup().await?;
+    async fn test_sync_state_with_max_game_deadline_gap(
+        #[case] retry_after_rpc_failure: bool,
+    ) -> Result<()> {
+        let (env, mut proposer, init_bond) = setup().await?;
 
         let starting_l2_block = env.anvil.starting_l2_block_number;
 
         // Phase 1: Create all games with time gaps between creations. The contract requires
         // parent.l2SeqNum > anchor.l2SeqNum, so all games must exist before anchors are set.
-        // The time gaps ensure game 0 and 1 exceed MAX_GAME_DEADLINE_LAG from the anchor
-        // (game 2), so the deadline filter drops them during sync.
+        // Game 1 exceeds MAX_GAME_DEADLINE_LAG from the anchor (game 2). Discovery
+        // retains this boundary game and stops before game 0.
         let mut parent_id = M;
         let mut block = starting_l2_block;
         let mut game_addresses = Vec::new();
@@ -426,10 +438,47 @@ mod proposer_sync {
             tracing::info!("Anchor game set to index {i}");
         }
 
+        if retry_after_rpc_failure {
+            // Fail on game 1, after discovery has already loaded the anchor (game 2).
+            // Forward every other request to the existing L2 node.
+            let l2_provider = proposer.l2_provider.clone();
+            let transport = l2_provider.client().transport().clone();
+            let failing_block = format!("0x{:x}", starting_l2_block + 2);
+            let transport =
+                tower::service_fn(move |packet: RequestPacket| -> TransportFut<'static> {
+                    let transport = transport.clone();
+                    let should_fail = match &packet {
+                        RequestPacket::Single(request)
+                            if request.method() == "eth_getHeaderByNumber" =>
+                        {
+                            let params: serde_json::Value =
+                                serde_json::from_str(request.params().unwrap().get()).unwrap();
+                            params[0].as_str() == Some(failing_block.as_str())
+                        }
+                        _ => false,
+                    };
+                    Box::pin(async move {
+                        if should_fail {
+                            return Err(TransportErrorKind::custom_str("game 1 L2 RPC unavailable"));
+                        }
+                        transport.oneshot(packet).await
+                    })
+                });
+            proposer.l2_provider = fault_proof::L2Provider::new(RpcClient::new(transport, true));
+
+            let error = proposer.sync_state().await.unwrap_err();
+            assert!(error.to_string().contains("game 1 L2 RPC unavailable"), "{error:#}");
+            proposer.state_snapshot().await.assert_game_len(0);
+            proposer.l2_provider = l2_provider;
+        }
+
         proposer.sync_state().await?;
 
         let snapshot = proposer.state_snapshot().await;
         snapshot.assert_game_len(2);
+        let mut indices: Vec<_> = snapshot.games.iter().map(|game| game.0).collect();
+        indices.sort();
+        assert_eq!(indices, vec![U256::from(1), U256::from(2)]);
         snapshot.assert_anchor_index(Some(2));
         snapshot.assert_canonical_head(Some(2), 3, starting_l2_block);
 
