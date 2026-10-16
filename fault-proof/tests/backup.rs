@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use alloy_primitives::{Address, B256, U256};
 use fault_proof::{
-    backup::{ProposerBackup, BACKUP_VERSION},
+    backup::{GameCreation, ProposerBackup, BACKUP_VERSION},
     contract::{GameStatus, ProposalStatus},
     proposer::Game,
 };
@@ -82,12 +82,19 @@ mod persistence {
     fn save_and_load_roundtrip() {
         let (_dir, path) = temp_backup_path();
 
-        let original = ProposerBackup::new(
+        let mut original = ProposerBackup::new(
             Some(U256::from(5)),
             vec![test_game(0, u32::MAX), test_game(1, 0), test_game(2, 1)],
             Some(U256::from(2)),
         );
 
+        original.last_created_game_l2_block = 103;
+        original.last_created_game_address = Address::repeat_byte(1);
+        original.last_created_game_receipt = Some(GameCreation {
+            l1_block: 42,
+            output_root: B256::repeat_byte(2),
+            extra_data: vec![3; 36].into(),
+        });
         original.save(&path).unwrap();
         let loaded = ProposerBackup::load(&path).unwrap();
 
@@ -95,6 +102,23 @@ mod persistence {
         assert_eq!(loaded.cursor, original.cursor);
         assert_eq!(loaded.games.len(), 3);
         assert_eq!(loaded.anchor_game_index, original.anchor_game_index);
+        assert_eq!(loaded.last_created_game_l2_block, original.last_created_game_l2_block);
+        assert_eq!(loaded.last_created_game_address, original.last_created_game_address);
+        assert_eq!(loaded.last_created_game_receipt, original.last_created_game_receipt);
+    }
+
+    #[test]
+    fn old_backup_preserves_guard_without_inventing_receipt_height() {
+        let (_dir, path) = temp_backup_path();
+        let mut backup = serde_json::to_value(ProposerBackup::new(None, vec![], None)).unwrap();
+        backup.as_object_mut().unwrap().remove("last_created_game_receipt");
+        backup["last_created_game_l2_block"] = serde_json::json!(103);
+        backup["last_created_game_address"] = serde_json::json!(Address::repeat_byte(1));
+        std::fs::write(&path, backup.to_string()).unwrap();
+        let loaded = ProposerBackup::load(&path).unwrap();
+        assert_eq!(loaded.last_created_game_l2_block, 103);
+        assert_eq!(loaded.last_created_game_address, Address::repeat_byte(1));
+        assert_eq!(loaded.last_created_game_receipt, None);
     }
 
     #[test]
