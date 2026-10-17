@@ -8,7 +8,7 @@
 //!
 //! This mirrors the Go implementation at `op-node/rollup/derive/altda_data_source.go`.
 
-use alloy_primitives::{Address, Bytes};
+use alloy_primitives::{keccak256, Address, Bytes};
 use anyhow::{ensure, Result};
 use async_trait::async_trait;
 use kona_derive::{
@@ -64,8 +64,8 @@ const DEFAULT_MAX_INPUT_SIZE: u64 = 130_672;
 /// 5. Reads the resolved batch data from the preimage oracle keyed by the commitment hash
 /// 6. Returns the resolved batch data to the pipeline
 ///
-/// For Keccak256 commitments, the preimage oracle automatically verifies data integrity:
-/// `keccak256(data) == commitment_hash` is enforced by `PreimageStore::check_preimages()`.
+/// For Keccak256 commitments, this source verifies the complete commitment hash before returning
+/// the resolved batch data.
 ///
 /// Follows the same pattern as hokulea's `EigenDADataSource` and the Go `AltDADataSource`.
 #[derive(Debug, Clone)]
@@ -266,10 +266,8 @@ where
     ///    keccak256 preimage key
     ///
     /// The commitment data is exactly 32 bytes: the keccak256 hash of the original batch data.
-    /// The preimage oracle naturally stores data keyed by `keccak256(data)`, so the commitment
-    /// hash directly serves as the preimage key. `PreimageStore::check_preimages()` in the
-    /// zkVM witness validation automatically verifies `keccak256(resolved_data) == key` for
-    /// all Keccak256 preimages, providing data integrity verification within the ZK proof.
+    /// The preimage key identifies the data in the oracle, and the explicit hash comparison below
+    /// binds all 32 commitment bytes within the ZK proof.
     async fn resolve_keccak256_commitment(
         &self,
         commitment: &PendingCommitment,
@@ -302,6 +300,13 @@ where
             .get(PreimageKey::new_keccak256(commitment_hash))
             .await
             .map_err(|e| PipelineError::Provider(e.to_string()).temp())?;
+
+        if keccak256(&resolved_data).0 != commitment_hash {
+            return Err(PipelineError::Provider(
+                "AltDA input does not match Keccak256 commitment".to_string(),
+            )
+            .crit())
+        }
 
         info!(
             target: "altda",
@@ -419,6 +424,22 @@ mod tests {
             source.next(&BlockInfo::default(), Address::ZERO).await.unwrap(),
             Bytes::from(second)
         );
+    }
+
+    #[tokio::test]
+    async fn first_commitment_byte_mismatch_is_rejected() {
+        let mut source = source_with_batches(&[vec![42; 8]], Some(8)).unwrap();
+        let mut commitment =
+            source.ethereum_source.calldata_source.calldata.pop_front().unwrap().to_vec();
+        commitment[2] ^= 0xff;
+        source.ethereum_source.calldata_source.calldata.push_back(commitment.into());
+
+        assert!(matches!(
+            source.next(&BlockInfo::default(), Address::ZERO).await,
+            Err(PipelineErrorKind::Critical(PipelineError::Provider(message)))
+                if message == "AltDA input does not match Keccak256 commitment"
+        ));
+        assert!(source.pending_commitment.is_none());
     }
 
     #[tokio::test]

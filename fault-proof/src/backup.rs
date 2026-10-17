@@ -143,6 +143,7 @@ mod tests {
             proposal_status: ProposalStatus::Unchallenged,
             deadline: 0,
             should_attempt_to_resolve: false,
+            should_attempt_to_close_game: false,
             should_attempt_to_claim_bond: false,
             aggregation_vkey: B256::ZERO,
             range_vkey_commitment: B256::ZERO,

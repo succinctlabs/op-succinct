@@ -22,7 +22,7 @@ use op_succinct_bindings::{
         self, OPSuccinctFaultDisputeGameInstance,
     },
 };
-use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
+use op_succinct_client_utils::boot::hash_rollup_config;
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
     fetcher::{get_rpcs_from_env, OPSuccinctDataFetcher, RPCConfig},
@@ -102,7 +102,7 @@ pub async fn compute_vkeys() -> anyhow::Result<(B256, B256)> {
 
     let range_pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
     let range_vk = range_pk.verifying_key();
-    let range_vkey_commitment = B256::from(u32_to_u8(range_vk.hash_u32()));
+    let range_vkey_commitment = B256::from(range_vk.hash_bytes());
 
     Ok((aggregation_vkey, range_vkey_commitment))
 }
@@ -529,8 +529,19 @@ impl TestEnvironment {
         parent_id: u32,
         init_bond: Uint<256, 4>,
     ) -> Result<TransactionReceipt> {
+        self.create_game_with_l2_block_number(root_claim, U256::from(block), parent_id, init_bond)
+            .await
+    }
+
+    pub async fn create_game_with_l2_block_number(
+        &self,
+        root_claim: FixedBytes<32>,
+        l2_block_number: U256,
+        parent_id: u32,
+        init_bond: Uint<256, 4>,
+    ) -> Result<TransactionReceipt> {
         let factory = self.factory()?;
-        let extra_data = (U256::from(block), parent_id).abi_encode_packed();
+        let extra_data = (l2_block_number, parent_id).abi_encode_packed();
         let receipt = factory
             .create(self.game_type, root_claim, extra_data.into())
             .value(init_bond)
@@ -563,6 +574,18 @@ impl TestEnvironment {
             .get_receipt()
             .await?;
         Ok(receipt)
+    }
+
+    pub async fn close_game(&self, game_address: Address) -> Result<TransactionReceipt> {
+        let game = self.fault_dispute_game(game_address).await?;
+        let receipt =
+            game.closeGame().send().await?.with_required_confirmations(1).get_receipt().await?;
+        Ok(receipt)
+    }
+
+    pub async fn get_bond_distribution_mode(&self, game_address: Address) -> Result<u8> {
+        let game = self.fault_dispute_game(game_address).await?;
+        Ok(game.bondDistributionMode().call().await?)
     }
 
     pub async fn get_credit(&self, game_address: Address, recipient: Address) -> Result<U256> {

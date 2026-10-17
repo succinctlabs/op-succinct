@@ -20,6 +20,7 @@ mod asr_filtering {
             proposal_status: ProposalStatus::Unchallenged,
             deadline: 0,
             should_attempt_to_resolve: false,
+            should_attempt_to_close_game: false,
             should_attempt_to_claim_bond: false,
             aggregation_vkey: B256::ZERO,
             range_vkey_commitment: B256::ZERO,
@@ -72,20 +73,30 @@ mod proposer_sync {
         },
         TestEnvironment,
     };
+    use alloy::{
+        rpc::client::RpcClient,
+        transports::{TransportErrorKind, TransportFut},
+    };
     use alloy_eips::BlockId;
+    use alloy_json_rpc::RequestPacket;
     use alloy_primitives::{Bytes, FixedBytes, Uint, U256};
-    use alloy_sol_types::{SolCall, SolValue};
+    use alloy_provider::Provider;
+    use alloy_sol_types::{SolCall, SolError, SolValue};
     use anyhow::{Context, Result};
     use fault_proof::{
-        contract::ProposalStatus,
+        contract::{ProposalStatus, BOND_DISTRIBUTION_MODE_UNDECIDED},
         proposer::{
             Game, GameFetchResult, OPSuccinctProposer, ProposerStateSnapshot, MAX_GAME_DEADLINE_LAG,
         },
     };
-    use op_succinct_bindings::dispute_game_factory::DisputeGameFactory;
+    use op_succinct_bindings::{
+        dispute_game_factory::DisputeGameFactory,
+        op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame::NoCreditToClaim,
+    };
     use op_succinct_host_utils::host::OPSuccinctHost;
     use rand::Rng;
     use rstest::rstest;
+    use tower::ServiceExt;
 
     const M: u32 = u32::MAX;
 
@@ -377,16 +388,21 @@ mod proposer_sync {
         Ok(())
     }
 
+    #[rstest]
+    #[case::clean(false)]
+    #[case::retry_after_rpc_failure(true)]
     #[tokio::test]
-    async fn test_sync_state_with_max_game_deadline_gap() -> Result<()> {
-        let (env, proposer, init_bond) = setup().await?;
+    async fn test_sync_state_with_max_game_deadline_gap(
+        #[case] retry_after_rpc_failure: bool,
+    ) -> Result<()> {
+        let (env, mut proposer, init_bond) = setup().await?;
 
         let starting_l2_block = env.anvil.starting_l2_block_number;
 
         // Phase 1: Create all games with time gaps between creations. The contract requires
         // parent.l2SeqNum > anchor.l2SeqNum, so all games must exist before anchors are set.
-        // The time gaps ensure game 0 and 1 exceed MAX_GAME_DEADLINE_LAG from the anchor
-        // (game 2), so the deadline filter drops them during sync.
+        // Game 1 exceeds MAX_GAME_DEADLINE_LAG from the anchor (game 2). Discovery
+        // retains this boundary game and stops before game 0.
         let mut parent_id = M;
         let mut block = starting_l2_block;
         let mut game_addresses = Vec::new();
@@ -422,10 +438,47 @@ mod proposer_sync {
             tracing::info!("Anchor game set to index {i}");
         }
 
+        if retry_after_rpc_failure {
+            // Fail on game 1, after discovery has already loaded the anchor (game 2).
+            // Forward every other request to the existing L2 node.
+            let l2_provider = proposer.l2_provider.clone();
+            let transport = l2_provider.client().transport().clone();
+            let failing_block = format!("0x{:x}", starting_l2_block + 2);
+            let transport =
+                tower::service_fn(move |packet: RequestPacket| -> TransportFut<'static> {
+                    let transport = transport.clone();
+                    let should_fail = match &packet {
+                        RequestPacket::Single(request)
+                            if request.method() == "eth_getHeaderByNumber" =>
+                        {
+                            let params: serde_json::Value =
+                                serde_json::from_str(request.params().unwrap().get()).unwrap();
+                            params[0].as_str() == Some(failing_block.as_str())
+                        }
+                        _ => false,
+                    };
+                    Box::pin(async move {
+                        if should_fail {
+                            return Err(TransportErrorKind::custom_str("game 1 L2 RPC unavailable"));
+                        }
+                        transport.oneshot(packet).await
+                    })
+                });
+            proposer.l2_provider = fault_proof::L2Provider::new(RpcClient::new(transport, true));
+
+            let error = proposer.sync_state().await.unwrap_err();
+            assert!(error.to_string().contains("game 1 L2 RPC unavailable"), "{error:#}");
+            proposer.state_snapshot().await.assert_game_len(0);
+            proposer.l2_provider = l2_provider;
+        }
+
         proposer.sync_state().await?;
 
         let snapshot = proposer.state_snapshot().await;
         snapshot.assert_game_len(2);
+        let mut indices: Vec<_> = snapshot.games.iter().map(|game| game.0).collect();
+        indices.sort();
+        assert_eq!(indices, vec![U256::from(1), U256::from(2)]);
         snapshot.assert_anchor_index(Some(2));
         snapshot.assert_canonical_head(Some(2), 3, starting_l2_block);
 
@@ -1410,13 +1463,12 @@ mod proposer_sync {
         Ok(())
     }
 
-    /// Tests the `should_attempt_to_claim_bond` flag logic for finalized games.
+    /// Tests close-before-claim flag logic for finalized games.
     ///
-    /// Verifies that the flag is correctly set based on:
-    /// - Finality (finalized vs not finalized)
-    /// - Credit availability (credit > 0 vs credit = 0)
+    /// A finalized game is not necessarily closed. The proposer must close an UNDECIDED
+    /// DEFENDER_WINS game before using credit to decide claim or eviction.
     #[tokio::test]
-    async fn test_bond_claim_marking() -> Result<()> {
+    async fn test_close_and_bond_claim_marking() -> Result<()> {
         let (env, proposer, init_bond) = setup().await?;
 
         let starting_l2_block = env.anvil.starting_l2_block_number;
@@ -1437,6 +1489,10 @@ mod proposer_sync {
         // === Case 1: DEFENDER_WINS + not finalized ===
         let game_0 = cached_game(&proposer, 0).await?;
         assert!(
+            !game_0.should_attempt_to_close_game,
+            "Game 0: should_attempt_to_close_game should be false (not finalized)"
+        );
+        assert!(
             !game_0.should_attempt_to_claim_bond,
             "Game 0: should_attempt_to_claim_bond should be false (not finalized)"
         );
@@ -1448,26 +1504,161 @@ mod proposer_sync {
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
         proposer.sync_state().await?;
 
-        // === Case 2: DEFENDER_WINS + finalized + credit > 0 ===
+        // === Case 2: DEFENDER_WINS + finalized + UNDECIDED ===
+        let game_0 = cached_game(&proposer, 0).await?;
+        assert_eq!(
+            env.get_bond_distribution_mode(address).await?,
+            BOND_DISTRIBUTION_MODE_UNDECIDED,
+            "Game 0 should not be closed before closeGame"
+        );
+        assert!(
+            game_0.should_attempt_to_close_game,
+            "Game 0: should_attempt_to_close_game should be true (finalized + UNDECIDED)"
+        );
+        assert!(
+            !game_0.should_attempt_to_claim_bond,
+            "Game 0: should_attempt_to_claim_bond should be false before close"
+        );
+        tracing::info!("✓ Case 2: DEFENDER_WINS + finalized + UNDECIDED → close, not claim");
+
+        // Close game before claiming. Once closed, the proposer may claim credit.
+        env.close_game(address).await?;
+        proposer.sync_state().await?;
+
+        // === Case 3: DEFENDER_WINS + closed + credit > 0 ===
         let game_0 = cached_game(&proposer, 0).await?;
         assert!(
-            game_0.should_attempt_to_claim_bond,
-            "Game 0: should_attempt_to_claim_bond should be true (finalized + credit > 0)"
+            !game_0.should_attempt_to_close_game,
+            "Game 0: should_attempt_to_close_game should be false after close"
         );
-        tracing::info!("✓ Case 2: DEFENDER_WINS + finalized + credit > 0 → should_attempt_to_claim_bond = true");
+        assert!(
+            game_0.should_attempt_to_claim_bond,
+            "Game 0: should_attempt_to_claim_bond should be true (closed + credit > 0)"
+        );
+        tracing::info!("✓ Case 3: DEFENDER_WINS + closed + credit > 0 → claim");
 
         // Claim bond for game 0 to set credit = 0
         env.claim_bond(address, PROPOSER_ADDRESS).await?;
         proposer.sync_state().await?;
 
-        // === Case 3: DEFENDER_WINS + finalized + credit = 0 ===
+        // === Case 4: DEFENDER_WINS + closed + credit = 0 ===
         let game_0 = cached_game(&proposer, 0).await?;
         assert!(
-            !game_0.should_attempt_to_claim_bond,
-            "Game 0: should_attempt_to_claim_bond should be false (credit = 0)"
+            !game_0.should_attempt_to_close_game,
+            "Game 0: should_attempt_to_close_game should be false (closed + credit = 0)"
         );
-        tracing::info!("✓ Case 3: DEFENDER_WINS + finalized + credit = 0 → should_attempt_to_claim_bond = false");
+        assert!(
+            !game_0.should_attempt_to_claim_bond,
+            "Game 0: should_attempt_to_claim_bond should be false (closed + credit = 0)"
+        );
+        tracing::info!("✓ Case 4: DEFENDER_WINS + closed + credit = 0 → no claim");
 
+        Ok(())
+    }
+
+    /// Verifies zero-init-bond games are closed before eviction.
+    #[tokio::test]
+    async fn test_zero_init_bond_finalized_game_closes_before_eviction() -> Result<()> {
+        let (env, proposer, _init_bond) = setup().await?;
+
+        let set_init_call = DisputeGameFactory::setInitBondCall {
+            _gameType: TEST_GAME_TYPE,
+            _initBond: U256::ZERO,
+        };
+        env.send_factory_tx(set_init_call.abi_encode(), None).await?;
+
+        let block = env.anvil.starting_l2_block_number + 1;
+        let root_claim = env.compute_output_root_at_block(block).await?;
+        env.create_game(root_claim, block, M, U256::ZERO).await?;
+        let (_, address) = env.last_game_info().await?;
+
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        env.resolve_game(address).await?;
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+
+        proposer.sync_state().await?;
+
+        let game = cached_game(&proposer, 0).await?;
+        assert_eq!(
+            env.get_credit(address, PROPOSER_ADDRESS).await?,
+            U256::ZERO,
+            "zero init bond should leave proposer credit at zero"
+        );
+        assert_eq!(
+            env.get_bond_distribution_mode(address).await?,
+            BOND_DISTRIBUTION_MODE_UNDECIDED,
+            "zero-bond game should still be unclosed"
+        );
+        assert!(
+            game.should_attempt_to_close_game,
+            "zero-credit finalized game should be marked for close"
+        );
+        assert!(
+            !game.should_attempt_to_claim_bond,
+            "zero-credit unclosed game must not be claimed"
+        );
+
+        // The old claim-only path reverts and rolls back the implicit close.
+        let error = env.claim_bond(address, PROPOSER_ADDRESS).await.unwrap_err();
+        let revert = error
+            .downcast_ref::<alloy::contract::Error>()
+            .and_then(alloy::contract::Error::as_revert_data);
+        assert_eq!(
+            revert.as_ref().map(|data| data.as_ref()),
+            Some(NoCreditToClaim::SELECTOR.as_slice()),
+            "Expected NoCreditToClaim, got {error:#}"
+        );
+        assert_eq!(
+            env.get_bond_distribution_mode(address).await?,
+            BOND_DISTRIBUTION_MODE_UNDECIDED
+        );
+        proposer.submit_close_game_transaction(&game).await?;
+        proposer.sync_state().await?;
+
+        let game = cached_game(&proposer, 0).await?;
+        assert!(
+            !game.should_attempt_to_close_game,
+            "already closed zero-credit game should not be marked for close after restart/sync"
+        );
+        assert!(
+            !game.should_attempt_to_claim_bond,
+            "closed zero-credit game should not be marked for claim"
+        );
+
+        Ok(())
+    }
+
+    /// Foreign unclosed games must not wait for a closer that excludes them.
+    #[tokio::test]
+    async fn test_foreign_zero_bond_game_is_evicted_without_closing() -> Result<()> {
+        let (env, proposer, _) = setup().await?;
+        env.deploy_game_impl_with_vkeys(
+            FixedBytes::repeat_byte(0x11),
+            FixedBytes::repeat_byte(0x22),
+        )
+        .await?;
+        let call = DisputeGameFactory::setInitBondCall {
+            _gameType: TEST_GAME_TYPE,
+            _initBond: U256::ZERO,
+        };
+        env.send_factory_tx(call.abi_encode(), None).await?;
+        let block = env.anvil.starting_l2_block_number + 1;
+        for l2_block in [block, block + 1] {
+            let root = env.compute_output_root_at_block(l2_block).await?;
+            env.create_game(root, l2_block, M, U256::ZERO).await?;
+        }
+        proposer.sync_state().await?;
+        let first = cached_game(&proposer, 0).await?;
+        assert_eq!(proposer.state_snapshot().await.canonical_head_index, Some(U256::from(1)));
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        env.resolve_game(first.address).await?;
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+        proposer.sync_state().await?;
+        assert!(proposer.get_game(U256::ZERO).await.is_none());
+        assert_eq!(
+            env.get_bond_distribution_mode(first.address).await?,
+            BOND_DISTRIBUTION_MODE_UNDECIDED
+        );
         Ok(())
     }
 
@@ -1731,8 +1922,10 @@ mod challenger_sync {
     use alloy_sol_types::{SolCall, SolValue};
     use anyhow::{Context, Result};
     use fault_proof::{
-        challenger::{Game, OPSuccinctChallenger},
-        contract::{GameStatus, ProposalStatus},
+        challenger::{
+            Game, GameValidation, InvalidReason, OPSuccinctChallenger, UnavailableReason,
+        },
+        contract::{GameStatus, ProposalStatus, BOND_DISTRIBUTION_MODE_UNDECIDED},
     };
     use op_succinct_bindings::dispute_game_factory::DisputeGameFactory;
     use rand::Rng;
@@ -1799,8 +1992,33 @@ mod challenger_sync {
         for i in 0..num_games {
             let game = cached_game(&challenger, i).await?;
             assert_eq!(game.index, U256::from(i));
-            assert!(!game.is_invalid, "Valid output root should not be marked invalid");
+            assert_eq!(game.validation, GameValidation::Valid);
         }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_challenger_discovers_game_only_after_l1_confirmation_depth() -> Result<()> {
+        let env = TestEnvironment::setup().await?;
+        let factory = env.factory()?;
+        let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
+        let mut challenger = env.new_challenger().await?;
+        challenger.config.sync_l1_confirmations = 1;
+        challenger.try_init().await?;
+        let block = env.anvil.starting_l2_block_number + 1;
+        let root = env.compute_output_root_at_block(block).await?;
+
+        env.create_game(root, block, M, init_bond).await?;
+        challenger.sync_state().await?;
+        assert!(
+            challenger.get_game(U256::ZERO).await.is_none(),
+            "The game creation block must be excluded from the pinned snapshot"
+        );
+
+        env.warp_time(0).await?;
+        challenger.sync_state().await?;
+        assert_eq!(cached_game(&challenger, 0).await?.validation, GameValidation::Valid);
 
         Ok(())
     }
@@ -1943,7 +2161,9 @@ mod challenger_sync {
         challenger.sync_state().await?;
 
         let game = cached_game(&challenger, 0).await?;
-        assert_eq!(game.is_invalid, is_invalid);
+        if !already_challenged {
+            assert_eq!(matches!(game.validation, GameValidation::Invalid(_)), is_invalid);
+        }
         assert_eq!(
             game.should_attempt_to_challenge, expected_should_challenge,
             "should_attempt_to_challenge mismatch for is_invalid={is_invalid}, already_challenged={already_challenged}"
@@ -1968,9 +2188,36 @@ mod challenger_sync {
 
         for i in 0..2u64 {
             let game = cached_game(&challenger, i).await?;
-            assert!(game.is_invalid, "Game {i} should be invalid");
+            assert_eq!(
+                game.validation,
+                GameValidation::Invalid(InvalidReason::OutputRootMismatch),
+                "Game {i} should be invalid"
+            );
             assert!(game.should_attempt_to_challenge, "Game {i} should be marked for challenge");
         }
+
+        Ok(())
+    }
+
+    /// An L2 block number that cannot be represented by execution-layer RPCs is deterministically
+    /// invalid and must not abort challenger synchronization.
+    #[tokio::test]
+    async fn test_l2_block_number_above_u64_max_is_marked_for_challenge() -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+        let oversized = U256::from(u64::MAX) + U256::from(1);
+
+        env.create_game_with_l2_block_number(random_invalid_root(), oversized, M, init_bond)
+            .await?;
+
+        challenger.sync_state().await?;
+
+        let game = cached_game(&challenger, 0).await?;
+        assert_eq!(game.l2_block_number, oversized);
+        assert_eq!(game.validation, GameValidation::Invalid(InvalidReason::L2BlockNumberOverflow));
+        assert!(
+            game.should_attempt_to_challenge,
+            "oversized L2 block number must be marked for challenge"
+        );
 
         Ok(())
     }
@@ -2010,9 +2257,15 @@ mod challenger_sync {
         // Child still has ~59 minutes left on its challenge window
         // Sync: child of CHALLENGER_WINS should be marked for challenge
         challenger.sync_state().await?;
+        let child = cached_game(&challenger, 1).await?;
         assert!(
-            cached_game(&challenger, 1).await?.should_attempt_to_challenge,
+            child.should_attempt_to_challenge,
             "Child of CHALLENGER_WINS should be marked for challenge"
+        );
+        assert_eq!(
+            child.validation,
+            GameValidation::Valid,
+            "Parent status must not overwrite the child's output-root validation"
         );
 
         Ok(())
@@ -2069,7 +2322,10 @@ mod challenger_sync {
         challenger.sync_state().await?;
 
         let game = cached_game(&challenger, 0).await?;
-        assert!(game.is_invalid, "Game should be marked invalid");
+        assert_eq!(
+            game.validation,
+            GameValidation::Unavailable(UnavailableReason::ValidationPending)
+        );
         assert!(!game.should_attempt_to_challenge, "Should not challenge after deadline");
 
         Ok(())
@@ -2148,20 +2404,22 @@ mod challenger_sync {
 
     // ==================== Bond Claim Marking Tests ====================
 
-    /// Verifies `should_attempt_to_claim_bond` flag across different states.
+    /// Verifies close-before-claim flags across different challenger states.
     ///
     /// Conditions for bond claim:
     /// - Game status is CHALLENGER_WINS
     /// - Game is finalized (past finality delay)
+    /// - Game has been closed
     /// - Credit > 0
     #[rstest]
-    #[case::finalized_with_credit(true, false, true)]
-    #[case::not_finalized(false, false, false)]
-    #[case::finalized_no_credit(true, true, false)]
+    #[case::not_finalized(false, false, false, false)]
+    #[case::finalized_unclosed(true, false, true, false)]
+    #[case::finalized_closed_no_credit(true, true, false, false)]
     #[tokio::test]
-    async fn test_bond_claim_marking(
+    async fn test_close_and_bond_claim_marking(
         #[case] finalized: bool,
         #[case] claim_bond: bool,
+        #[case] expected_should_close: bool,
         #[case] expected_should_claim: bool,
     ) -> Result<()> {
         let (env, challenger, init_bond) = setup().await?;
@@ -2196,10 +2454,65 @@ mod challenger_sync {
             let game = cached_game(&challenger, 0).await?;
             assert_eq!(game.status, GameStatus::CHALLENGER_WINS);
             assert_eq!(
+                game.should_attempt_to_close_game, expected_should_close,
+                "should_attempt_to_close_game mismatch"
+            );
+            assert_eq!(
                 game.should_attempt_to_claim_bond, expected_should_claim,
                 "should_attempt_to_claim_bond mismatch"
             );
         }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_challenger_claims_only_after_close() -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+
+        let block = env.anvil.starting_l2_block_number + 1;
+        env.create_game(random_invalid_root(), block, M, init_bond).await?;
+        let (_, game_address) = env.last_game_info().await?;
+
+        env.challenge_game(game_address).await?;
+        env.warp_time(MAX_PROVE_DURATION + 1).await?;
+        env.resolve_game(game_address).await?;
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+
+        let observer = crate::common::new_challenger(
+            &env.rpc_config,
+            env.private_keys.proposer,
+            &env.deployed.anchor_state_registry,
+            &env.deployed.factory,
+            env.game_type,
+            None,
+        )
+        .await?;
+        observer.try_init().await?;
+        observer.sync_state().await?;
+        assert!(
+            observer.get_game(U256::ZERO).await.is_none(),
+            "A different signer must evict this game without scheduling a paid close"
+        );
+
+        challenger.sync_state().await?;
+        let game = cached_game(&challenger, 0).await?;
+        assert_eq!(
+            env.get_bond_distribution_mode(game_address).await?,
+            BOND_DISTRIBUTION_MODE_UNDECIDED,
+            "challenger-won game should be unclosed before closeGame"
+        );
+        assert!(game.should_attempt_to_close_game, "unclosed finalized game should close first");
+        assert!(
+            !game.should_attempt_to_claim_bond,
+            "unclosed finalized game should not claim before close"
+        );
+
+        env.close_game(game_address).await?;
+        challenger.sync_state().await?;
+        let game = cached_game(&challenger, 0).await?;
+        assert!(!game.should_attempt_to_close_game, "closed game should not close again");
+        assert!(game.should_attempt_to_claim_bond, "closed game with credit should claim");
 
         Ok(())
     }
