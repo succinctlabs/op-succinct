@@ -451,7 +451,9 @@ tests:
    cd tests && just rust-tests workspace
 
 # Run workspace tests against RPCs supplied through the environment.
+# The bundle build script otherwise reuses an archive from before a version change.
 tests-rpc:
+   cargo clean --release -p postgresql_embedded
    cargo t --release \
     -- \
     --skip test_cycle_count_diff \
