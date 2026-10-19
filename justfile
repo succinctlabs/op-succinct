@@ -453,10 +453,14 @@ tests:
     --skip test_cycle_count_diff \
     --skip test_post_to_github
 
-# Run fault-proof integration tests
+# Run fault-proof integration tests against local Sysgo nodes.
 # target: test file (integration, sync, etc.)
-# da: DA feature (ethereum, eigenda). DA-agnostic tests like sync work with any.
+# da selects the Rust feature; local nodes use Ethereum DA.
 fp-integration-tests target="integration" da="ethereum":
+  cd tests && just fp-rust-tests {{target}} {{da}}
+
+# Run the same Rust tests against RPCs supplied through the environment.
+fp-integration-tests-rpc target="integration" da="ethereum":
   cd fault-proof && cargo t --test {{target}} --release --features integration,{{da}} -- --test-threads=1 --nocapture
 
 # Run DA-specific host utility tests
