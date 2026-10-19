@@ -2034,6 +2034,14 @@ where
 
         let (game_address, l1_block) = self.create_game(output_root, extra_data.clone()).await?;
 
+        // Sync may have evicted this game while its receipt awaited confirmations.
+        // Revisit discovery so subtree removal can reconcile the guard registered below.
+        let mut sync = self.l1_sync.lock().await;
+        if sync.block.is_some_and(|(number, _)| number >= l1_block) {
+            self.state.write().await.cursor = Cursor::none();
+            sync.complete = false;
+        }
+
         // Record the L2 block and address so should_create_game() skips duplicate
         // creation while the pinned cache hasn't caught up to this game.
         *self.creation_guard.lock().await = CreationGuard {
