@@ -85,20 +85,15 @@ where
                 .get_l2_block_data_range(range.start, range.end)
                 .await
                 .context("Failed to fetch block data range")?;
-            let starting_output = data_fetcher
-                .get_l2_output_at_block(range.start)
+            let starting_output_root = data_fetcher
+                .get_l2_output_root(range.start)
                 .await
                 .context("Failed to fetch expected starting L2 output")?;
-            let output = data_fetcher
-                .get_l2_output_at_block(range.end)
+            let output_root = data_fetcher
+                .get_l2_output_root(range.end)
                 .await
                 .context("Failed to fetch expected L2 output")?;
-            Ok::<_, anyhow::Error>((
-                range,
-                block_data,
-                starting_output.output_root,
-                output.output_root,
-            ))
+            Ok::<_, anyhow::Error>((range, block_data, starting_output_root, output_root))
         })
         .buffered(15)
         .try_collect::<Vec<_>>()
