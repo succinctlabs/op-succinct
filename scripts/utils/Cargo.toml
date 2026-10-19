@@ -81,6 +81,9 @@ op-succinct-fp.workspace = true
 # sp1
 sp1-sdk.workspace = true
 
+[dev-dependencies]
+tempfile.workspace = true
+
 [build-dependencies]
 op-succinct-build-utils.workspace = true
 

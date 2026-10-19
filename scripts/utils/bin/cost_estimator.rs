@@ -1,7 +1,7 @@
 use alloy_primitives::B256;
-use anyhow::{Context, Result};
+use anyhow::{ensure, Context, Result};
 use clap::Parser;
-use futures::StreamExt;
+use futures::{StreamExt, TryStreamExt};
 use log::info;
 use op_succinct_host_utils::{
     block_range::{
@@ -15,7 +15,9 @@ use op_succinct_host_utils::{
     witness_cache::{load_stdin_from_cache, save_stdin_to_cache},
     witness_generation::WitnessGenerator,
 };
-use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
+use op_succinct_proof_utils::{
+    execution::validate_range_execution, get_range_elf_embedded, initialize_host,
+};
 use op_succinct_scripts::HostExecutorArgs;
 
 // Cost-estimator-specific CLI args. Wraps `HostExecutorArgs` and adds the estimator-only
@@ -82,12 +84,16 @@ where
             let block_data = data_fetcher
                 .get_l2_block_data_range(range.start, range.end)
                 .await
-                .expect("Failed to fetch block data range.");
-            (range, block_data)
+                .context("Failed to fetch block data range")?;
+            let output = data_fetcher
+                .get_l2_output_at_block(range.end)
+                .await
+                .context("Failed to fetch expected L2 output")?;
+            Ok::<_, anyhow::Error>((range, block_data, output.output_root))
         })
         .buffered(15)
-        .collect::<Vec<_>>()
-        .await;
+        .try_collect::<Vec<_>>()
+        .await?;
 
     let cargo_metadata = cargo_metadata::MetadataCommand::new().exec().unwrap();
     let root_dir = PathBuf::from(cargo_metadata.workspace_root);
@@ -153,32 +159,36 @@ where
     let report_path_clone = report_path.clone();
     tokio::task::spawn_blocking(move || {
         let prover = CpuProver::new();
-        execution_inputs.into_par_iter().try_for_each(|(sp1_stdin, (range, block_data))| {
-            let (_, report) = prover
-                .execute(Elf::Static(get_range_elf_embedded()), sp1_stdin)
-                .deferred_proof_verification(false)
-                .run()
-                .with_context(|| {
-                    format!("Failed to execute blocks {}-{}", range.start, range.end)
-                })?;
+        execution_inputs.into_par_iter().try_for_each(
+            |(sp1_stdin, (range, block_data, output_root))| {
+                let (public_values, report) = prover
+                    .execute(Elf::Static(get_range_elf_embedded()), sp1_stdin)
+                    .calculate_gas(true)
+                    .deferred_proof_verification(false)
+                    .run()
+                    .with_context(|| {
+                        format!("Failed to execute blocks {}-{}", range.start, range.end)
+                    })?;
 
-            let execution_stats = ExecutionStats::new(0, &block_data, &report, 0, 0);
+                validate_range_execution(&public_values, &report, range.end, output_root)?;
+                let execution_stats = ExecutionStats::new(0, &block_data, &report, 0, 0);
 
-            let mut file =
-                OpenOptions::new().read(true).append(true).open(&report_path_clone).unwrap();
+                let mut file =
+                    OpenOptions::new().read(true).append(true).open(&report_path_clone).unwrap();
 
-            // Writes the headers only if the file is empty.
-            let needs_header = file.seek(std::io::SeekFrom::End(0)).unwrap() == 0;
+                // Writes the headers only if the file is empty.
+                let needs_header = file.seek(std::io::SeekFrom::End(0)).unwrap() == 0;
 
-            let mut csv_writer =
-                csv::WriterBuilder::new().has_headers(needs_header).from_writer(file);
+                let mut csv_writer =
+                    csv::WriterBuilder::new().has_headers(needs_header).from_writer(file);
 
-            csv_writer
-                .serialize(execution_stats.clone())
-                .expect("Failed to write execution stats to CSV.");
-            csv_writer.flush().expect("Failed to flush CSV writer.");
-            Ok::<_, anyhow::Error>(())
-        })
+                csv_writer
+                    .serialize(execution_stats.clone())
+                    .expect("Failed to write execution stats to CSV.");
+                csv_writer.flush().expect("Failed to flush CSV writer.");
+                Ok::<_, anyhow::Error>(())
+            },
+        )
     })
     .await??;
 
@@ -328,6 +338,13 @@ async fn main() -> Result<()> {
         let stats: ExecutionStats = result?;
         final_execution_stats.push(stats);
     }
+
+    let executed_blocks: u64 = final_execution_stats.iter().map(|stats| stats.nb_blocks).sum();
+    ensure!(
+        executed_blocks == l2_end_block - l2_start_block,
+        "Executed {executed_blocks} blocks, expected {}",
+        l2_end_block - l2_start_block
+    );
 
     println!("Wrote execution stats to {}", report_path.display());
 

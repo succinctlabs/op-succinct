@@ -85,9 +85,9 @@ Use `just fp-integration-tests-rpc <target> <da>` to run against RPCs supplied t
 ## Workspace Tests and Cost Estimation
 
 From the repository root, `just tests` runs the existing workspace tests against local Sysgo RPCs, including `execute_batch` and its zkVM execution.
-`just cost-estimator-test` estimates execution over local L2 blocks 1 through 6.
+`just cost-estimator-test` estimates execution over five recent local L2 blocks.
 Both wait for enough finalized history and use the same node launcher as Rust fault-proof E2E.
-The cost-estimator command fails if zkVM execution fails.
+Both execution paths require a zero guest exit code and final output matching the requested L2 block and output root.
 These local checks exercise Ethereum DA and do not measure public-chain workload costs.
 Use `just tests-rpc` or `just cost-estimator-rpc` to supply RPCs through the environment.
 
