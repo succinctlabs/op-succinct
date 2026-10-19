@@ -16,8 +16,8 @@ pub async fn execute_multi(
     l2_start_block: u64,
     l2_end_block: u64,
 ) -> Result<(Vec<BlockInfo>, ExecutionReport, Duration)> {
-    let starting_output = data_fetcher.get_l2_output_at_block(l2_start_block).await?;
-    let output = data_fetcher.get_l2_output_at_block(l2_end_block).await?;
+    let starting_output_root = data_fetcher.get_l2_output_root(l2_start_block).await?;
+    let output_root = data_fetcher.get_l2_output_root(l2_end_block).await?;
     let start_time = Instant::now();
 
     // CpuProver creates its own tokio runtime, so run it outside the async context.
@@ -35,8 +35,8 @@ pub async fn execute_multi(
         &public_values,
         &report,
         l2_end_block,
-        starting_output.output_root,
-        output.output_root,
+        starting_output_root,
+        output_root,
     )?;
     let execution_duration = start_time.elapsed();
 
