@@ -2216,8 +2216,13 @@ mod proposer_sync {
     ///
     /// Without the address-based invalidation, the guard would stay set and permanently
     /// block creation after the branch switch.
+    #[rstest]
+    #[case::confirmed_creation(false)]
+    #[case::pending_creation(true)]
     #[tokio::test]
-    async fn test_challenger_wins_clears_creation_guard() -> Result<()> {
+    async fn test_challenger_wins_clears_creation_guard(
+        #[case] pending_creation: bool,
+    ) -> Result<()> {
         let (env, proposer, init_bond) = setup().await?;
         let starting_l2_block = env.anvil.starting_l2_block_number;
 
@@ -2259,7 +2264,47 @@ mod proposer_sync {
 
         // Now resolve game 1 as CHALLENGER_WINS (challenged + prove deadline expired).
         env.warp_time(MAX_PROVE_DURATION + 1).await?;
-        env.resolve_game(game_1_address).await?;
+        if pending_creation {
+            // Keep the descendant's receipt pending while sync removes its losing ancestor.
+            let provider = &env.anvil.provider;
+            let _: serde_json::Value =
+                provider.raw_request("evm_setIntervalMining".into(), [0u64]).await?;
+            let _: serde_json::Value =
+                provider.raw_request("evm_setAutomine".into(), [true]).await?;
+            let creation =
+                proposer.handle_game_creation(U256::from(next_block + proposal_interval), 1);
+            tokio::pin!(creation);
+            let prune = async {
+                tokio::time::timeout(std::time::Duration::from_secs(60), async {
+                    while proposer.factory.gameCount().call().await? < U256::from(3) {
+                        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                    }
+                    Ok::<_, anyhow::Error>(())
+                })
+                .await
+                .context("Descendant creation was not mined")??;
+                env.resolve_game(game_1_address).await?;
+                proposer.sync_state().await?;
+                let snapshot = proposer.state_snapshot().await;
+                assert_eq!(snapshot.canonical_head_index, Some(U256::ZERO));
+                assert_eq!(snapshot.games, vec![(U256::ZERO, game_0_address)]);
+                Ok::<_, anyhow::Error>(())
+            };
+            tokio::select! {
+                biased;
+                result = &mut creation => panic!("Creation completed before subtree removal: {result:?}"),
+                result = prune => result?,
+            }
+            // Creation and resolution each mined one block; finish the remaining confirmations.
+            for _ in 2..NUM_CONFIRMATIONS {
+                let _: serde_json::Value = provider.raw_request("evm_mine".into(), ()).await?;
+            }
+            tokio::time::timeout(std::time::Duration::from_secs(60), creation)
+                .await
+                .context("Descendant receipt did not finish after confirmation mining")??;
+        } else {
+            env.resolve_game(game_1_address).await?;
+        }
 
         // Step 5: Sync — CHALLENGER_WINS triggers RemoveSubtree.
         // The guard should be cleared because game 1's address matches.
@@ -2276,8 +2321,15 @@ mod proposer_sync {
         // by the subtree removal, so should_create_game uses game 0 as head and computes
         // a fresh next_l2_block. Without the address-based clear, the guard would still
         // be set at next_block and would block this.
-        let (unblocked, _, _) = proposer.should_create_game().await?;
+        let (unblocked, next_block, parent) = proposer.should_create_game().await?;
         assert!(unblocked, "Creation should be unblocked after CHALLENGER_WINS clears the guard");
+        if pending_creation {
+            assert_eq!(parent, 0, "Recovery must extend the last valid parent");
+            create_and_confirm(&proposer, next_block, parent).await?;
+            let (_, recovery_address) = env.last_game_info().await?;
+            let recovery = env.fault_dispute_game(recovery_address).await?;
+            assert_eq!(recovery.claimData().call().await?.parentIndex, 0);
+        }
 
         Ok(())
     }
