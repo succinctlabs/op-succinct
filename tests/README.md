@@ -6,6 +6,7 @@ run the suite with the expected environment.
 
 ## Layout
 
+- `rust/`: Existing Rust test and cost-estimator commands using local Sysgo nodes.
 - `e2e/`: Go e2e tests.
   - `nodes/`: Nodes-only tests (no proposer) for local development.
   - `validity/`: Validity proposer tests.
@@ -80,6 +81,15 @@ The `integration` feature uses mock proofs.
 No external RPC credentials are required.
 
 Use `just fp-integration-tests-rpc <target> <da>` to run against RPCs supplied through the environment.
+
+## Workspace Tests and Cost Estimation
+
+From the repository root, `just tests` runs the existing workspace tests against local Sysgo RPCs, including `execute_batch` and its zkVM execution.
+`just cost-estimator-test` estimates execution over local L2 blocks 1 through 6.
+Both wait for enough finalized history and use the same node launcher as Rust fault-proof E2E.
+The cost-estimator command fails if zkVM execution fails.
+These local checks exercise Ethereum DA and do not measure public-chain workload costs.
+Use `just tests-rpc` or `just cost-estimator-rpc` to supply RPCs through the environment.
 
 ## Long-Running Tests
 

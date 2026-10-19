@@ -16,7 +16,11 @@ mod common;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn execute_batch() -> Result<()> {
-    dotenv::dotenv()?;
+    if let Err(error) = dotenv::dotenv() {
+        if !error.not_found() {
+            return Err(error.into());
+        }
+    }
 
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 

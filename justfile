@@ -448,6 +448,10 @@ build-agg-elf:
 
 # Run all unit tests except for the specified ones.
 tests:
+   cd tests && just rust-tests workspace
+
+# Run workspace tests against RPCs supplied through the environment.
+tests-rpc:
    cargo t --release \
     -- \
     --skip test_cycle_count_diff \
@@ -457,7 +461,7 @@ tests:
 # target: test file (integration, sync, etc.)
 # da selects the Rust feature; local nodes use Ethereum DA.
 fp-integration-tests target="integration" da="ethereum":
-  cd tests && just fp-rust-tests {{target}} {{da}}
+  cd tests && just rust-tests fault-proof {{target}} {{da}}
 
 # Run the same Rust tests against RPCs supplied through the environment.
 fp-integration-tests-rpc target="integration" da="ethereum":
@@ -501,3 +505,11 @@ forge-build *ARGS:
     --sig "idonotexist()" \
     --skip-simulation \
     2>/dev/null || true
+
+# Run cost estimation over the first five local L2 blocks.
+cost-estimator-test:
+  cd tests && just rust-tests cost-estimator
+
+# Run the same estimator command against RPCs supplied through the environment.
+cost-estimator-rpc:
+  cargo run --bin cost-estimator --release -- --start 1 --end 6
