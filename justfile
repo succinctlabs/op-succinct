@@ -508,10 +508,10 @@ forge-build *ARGS:
     --skip-simulation \
     2>/dev/null || true
 
-# Run cost estimation over the first five local L2 blocks.
+# Run cost estimation over a recent range of local L2 blocks.
 cost-estimator-test:
   cd tests && just rust-tests cost-estimator
 
 # Run the same estimator command against RPCs supplied through the environment.
 cost-estimator-rpc:
-  cargo run --bin cost-estimator --release -- --start 1 --end 6
+  cargo run --bin cost-estimator --release -- --rolling
