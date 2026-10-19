@@ -44,6 +44,7 @@ jobs:
       - image=ubuntu24-full-x64
       - run-id=${{ github.run_id }} 
       - spot=false
+      - disk=large
     timeout-minutes: 90
     steps:
     - name: Checkout code
