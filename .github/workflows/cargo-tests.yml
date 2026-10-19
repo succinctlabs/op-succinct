@@ -41,6 +41,8 @@ jobs:
     runs-on:
       - runs-on
       - runner=64cpu-linux-x64
+      # Use a compatible glibc for the bundled PostgreSQL test binary.
+      - image=ubuntu24-full-x64
       - run-id=${{ github.run_id }} 
       - spot=false
     timeout-minutes: 90

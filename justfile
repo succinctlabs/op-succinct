@@ -446,7 +446,7 @@ build-agg-elf:
     cd programs/aggregation
     ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v6.8.1 --output-directory ../../elf
 
-# Run all unit tests except for the specified ones.
+# Run workspace tests against local Sysgo nodes.
 tests:
    cd tests && just rust-tests workspace
 
