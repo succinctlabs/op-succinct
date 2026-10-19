@@ -432,6 +432,8 @@ mod proposer_sync {
         }
         let original_provider = proposer.l1_provider.clone();
         let creator = proposer.clone();
+        let creation_task = std::sync::Arc::new(tokio::sync::Mutex::new(None));
+        let task_slot = creation_task.clone();
         let pending = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(create_during_sync));
         let redirected = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let observed = redirected.clone();
@@ -462,15 +464,35 @@ mod proposer_sync {
             let transport = transport.clone();
             let creator = creator.clone();
             let pending = pending.clone();
+            let task_slot = task_slot.clone();
             Box::pin(async move {
                 if old_tip_requested && pending.swap(false, std::sync::atomic::Ordering::Relaxed) {
-                    create_and_confirm(&creator, block, M).await.unwrap();
+                    let task_creator = creator.clone();
+                    *task_slot.lock().await = Some(tokio::spawn(async move {
+                        create_and_confirm(&task_creator, block, M).await
+                    }));
+                    // Confirm on-chain before returning the old tip. Guard registration
+                    // waits for sync to release its mutex, so do not await that task here.
+                    tokio::time::timeout(std::time::Duration::from_secs(60), async {
+                        while creator.l1_provider.get_block_number().await? <
+                            old_tip + NUM_CONFIRMATIONS
+                        {
+                            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                        }
+                        Ok::<_, anyhow::Error>(())
+                    })
+                    .await
+                    .expect("Concurrent creation did not reach its confirmation height")
+                    .unwrap();
                 }
                 transport.oneshot(packet).await
             })
         });
         proposer.l1_provider = fault_proof::L1Provider::new(RpcClient::new(transport, true));
         proposer.sync_state().await?;
+        if let Some(task) = creation_task.lock().await.take() {
+            task.await??;
+        }
         proposer.state_snapshot().await.assert_game_len(0);
         assert!(redirected.load(std::sync::atomic::Ordering::Relaxed) > 0);
         assert!(!proposer.should_create_game().await?.0, "A lagging tip must retain the guard");
