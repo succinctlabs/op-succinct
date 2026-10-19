@@ -69,6 +69,18 @@ run the suite with the expected environment.
   just test-e2e-sysgo ./e2e/validity/... TestValidityProposer_ProveSingleRange
   ```
 
+## Rust Fault Proof E2E
+
+From the repository root, run `just fp-integration-tests sync ethereum` or `just fp-integration-tests integration ethereum`.
+Each command starts the existing Sysgo node preset, waits for 500 finalized L2 blocks, then runs the existing Rust target.
+RPC URLs and chain configs come from this local stack, which stops when the Rust target finishes.
+The Rust tests retain their separate Anvil settlement chain for time control, payouts, anchor updates, and L1 reorgs.
+Local nodes use Ethereum DA.
+The `integration` feature uses mock proofs.
+No external RPC credentials are required.
+
+Use `just fp-integration-tests-rpc <target> <da>` to run against RPCs supplied through the environment.
+
 ## Long-Running Tests
 
 Keep the stack running indefinitely for manual debugging. Press `Ctrl+C` to stop.
