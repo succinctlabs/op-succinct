@@ -27,17 +27,20 @@ jobs:
       - image=ubuntu22-full-x64
       - run-id=${{ github.run_id }}
       - spot=false
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup CI
         uses: ./.github/actions/setup
 
-      - name: Run cost estimator on recent block range
-        run: |
-          RUST_LOG=info cargo run --bin cost-estimator --release -- --rolling
-        env:
-          L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
-          L1_RPC: ${{ secrets.L1_RPC }}
-          L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
-          L2_RPC: ${{ secrets.L2_RPC }}
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly-d592b3e0f142d694c3be539702704a4a73238773
+
+      - name: Install just
+        uses: extractions/setup-just@v3
+
+      - name: Run cost estimator against local Sysgo
+        run: RUST_LOG=info just cost-estimator-test

@@ -1,14 +1,15 @@
 SOURCE := source_directory()
 ROOT := parent_directory(SOURCE)
 
-# Run existing Rust fault-proof tests while Sysgo owns the local node lifecycle.
-fp-rust-tests TARGET="integration" DA="ethereum": build-contracts unzip-contract-artifacts
+# Run existing Rust commands while Sysgo owns the local node lifecycle.
+rust-tests MODE="fault-proof" TARGET="integration" DA="ethereum": build-contracts unzip-contract-artifacts
     #!/bin/bash
     set -euo pipefail
     export DEVSTACK_ORCHESTRATOR=sysgo
     export OP_DEPLOYER_ARTIFACTS="{{SOURCE}}/artifacts/src/forge-artifacts"
     export DISABLE_OP_E2E_LEGACY=true
     export SYSGO_METRICS_ENABLED=false
+    export RUST_E2E_MODE="{{MODE}}"
     export FP_RUST_TEST_TARGET="{{TARGET}}"
     export FP_RUST_TEST_DA="{{DA}}"
     cd {{SOURCE}} && go test -p 1 -count=1 -timeout 90m -v ./rust
