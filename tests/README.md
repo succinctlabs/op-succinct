@@ -91,6 +91,17 @@ Both execution paths require a zero guest exit code and final output matching th
 These local checks exercise Ethereum DA and do not measure public-chain workload costs.
 Use `just tests-rpc` or `just cost-estimator-rpc` to supply RPCs through the environment.
 
+## Cycle Count Comparison
+
+From the repository root, run `just cycle-count-diff /absolute/path/to/base-checkout`.
+Both checkouts must have their submodules initialized.
+The command runs both branches against one Sysgo chain, with the same finalized L2 range and L1 head.
+Each branch generates its own witness and executes its own embedded range ELF through the same test driver.
+The base checkout receives a temporary test target, which is removed when the command finishes.
+The comparison writes statistics, block identities, and `cycle_count_report.md` under `scripts/prove/`.
+No external RPC credentials are required.
+The system-transaction workload measures local execution and does not cover every accelerated cryptographic operation.
+
 ## Long-Running Tests
 
 Keep the stack running indefinitely for manual debugging. Press `Ctrl+C` to stop.
