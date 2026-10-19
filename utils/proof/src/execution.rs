@@ -11,6 +11,7 @@ pub fn validate_range_execution(
     public_values: &SP1PublicValues,
     report: &ExecutionReport,
     end_block: u64,
+    starting_output_root: B256,
     output_root: B256,
 ) -> Result<()> {
     // SDK execution can return Ok even when the guest panics.
@@ -24,6 +25,11 @@ pub fn validate_range_execution(
         boot.l2BlockNumber == end_block,
         "Range program committed block {}, expected {end_block}",
         boot.l2BlockNumber
+    );
+    ensure!(
+        boot.l2PreRoot == starting_output_root,
+        "Range program committed starting output root {}, expected {starting_output_root}",
+        boot.l2PreRoot
     );
     ensure!(
         boot.l2PostRoot == output_root,
@@ -53,16 +59,24 @@ mod tests {
         };
         let values = SP1PublicValues::from(bincode::serialize(&boot).unwrap().as_slice());
         let report = ExecutionReport::default();
-        validate_range_execution(&values, &report, 6, root).unwrap();
-        assert!(validate_range_execution(&values, &report, 7, root).is_err());
-        assert!(validate_range_execution(&values, &report, 6, B256::ZERO).is_err());
-        assert!(validate_range_execution(&SP1PublicValues::default(), &report, 6, root).is_err());
+        validate_range_execution(&values, &report, 6, B256::ZERO, root).unwrap();
+        assert!(validate_range_execution(&values, &report, 7, B256::ZERO, root).is_err());
+        assert!(validate_range_execution(&values, &report, 6, B256::ZERO, B256::ZERO).is_err());
+        assert!(validate_range_execution(
+            &SP1PublicValues::default(),
+            &report,
+            6,
+            B256::ZERO,
+            root
+        )
+        .is_err());
+        assert!(validate_range_execution(&values, &report, 6, root, root).is_err());
         let mut trailing = bincode::serialize(&boot).unwrap();
         trailing.push(0);
         let trailing = SP1PublicValues::from(trailing.as_slice());
-        assert!(validate_range_execution(&trailing, &report, 6, root).is_err());
+        assert!(validate_range_execution(&trailing, &report, 6, B256::ZERO, root).is_err());
         let mut failed = report;
         failed.exit_code = 1;
-        assert!(validate_range_execution(&values, &failed, 6, root).is_err());
+        assert!(validate_range_execution(&values, &failed, 6, B256::ZERO, root).is_err());
     }
 }

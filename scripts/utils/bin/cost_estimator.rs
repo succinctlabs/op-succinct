@@ -85,11 +85,20 @@ where
                 .get_l2_block_data_range(range.start, range.end)
                 .await
                 .context("Failed to fetch block data range")?;
+            let starting_output = data_fetcher
+                .get_l2_output_at_block(range.start)
+                .await
+                .context("Failed to fetch expected starting L2 output")?;
             let output = data_fetcher
                 .get_l2_output_at_block(range.end)
                 .await
                 .context("Failed to fetch expected L2 output")?;
-            Ok::<_, anyhow::Error>((range, block_data, output.output_root))
+            Ok::<_, anyhow::Error>((
+                range,
+                block_data,
+                starting_output.output_root,
+                output.output_root,
+            ))
         })
         .buffered(15)
         .try_collect::<Vec<_>>()
@@ -160,7 +169,7 @@ where
     tokio::task::spawn_blocking(move || {
         let prover = CpuProver::new();
         execution_inputs.into_par_iter().try_for_each(
-            |(sp1_stdin, (range, block_data, output_root))| {
+            |(sp1_stdin, (range, block_data, starting_output_root, output_root))| {
                 let (public_values, report) = prover
                     .execute(Elf::Static(get_range_elf_embedded()), sp1_stdin)
                     .calculate_gas(true)
@@ -170,7 +179,13 @@ where
                         format!("Failed to execute blocks {}-{}", range.start, range.end)
                     })?;
 
-                validate_range_execution(&public_values, &report, range.end, output_root)?;
+                validate_range_execution(
+                    &public_values,
+                    &report,
+                    range.end,
+                    starting_output_root,
+                    output_root,
+                )?;
                 let execution_stats = ExecutionStats::new(0, &block_data, &report, 0, 0);
 
                 let mut file =

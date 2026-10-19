@@ -16,6 +16,7 @@ pub async fn execute_multi(
     l2_start_block: u64,
     l2_end_block: u64,
 ) -> Result<(Vec<BlockInfo>, ExecutionReport, Duration)> {
+    let starting_output = data_fetcher.get_l2_output_at_block(l2_start_block).await?;
     let output = data_fetcher.get_l2_output_at_block(l2_end_block).await?;
     let start_time = Instant::now();
 
@@ -30,7 +31,13 @@ pub async fn execute_multi(
     })
     .await??;
 
-    validate_range_execution(&public_values, &report, l2_end_block, output.output_root)?;
+    validate_range_execution(
+        &public_values,
+        &report,
+        l2_end_block,
+        starting_output.output_root,
+        output.output_root,
+    )?;
     let execution_duration = start_time.elapsed();
 
     let block_data = data_fetcher.get_l2_block_data_range(l2_start_block, l2_end_block).await?;
