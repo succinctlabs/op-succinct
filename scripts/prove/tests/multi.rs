@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use common::{post_to_github_pr, DEFAULT_RANGE};
+use common::DEFAULT_RANGE;
 use op_succinct_host_utils::{
     block_range::get_rolling_block_range,
     fetcher::OPSuccinctDataFetcher,
@@ -16,7 +16,11 @@ mod common;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn execute_batch() -> Result<()> {
-    dotenv::dotenv()?;
+    if let Err(error) = dotenv::dotenv() {
+        if !error.not_found() {
+            return Err(error.into());
+        }
+    }
 
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
@@ -40,25 +44,22 @@ async fn execute_batch() -> Result<()> {
 
     println!("Execution Stats: \n{:?}", stats.to_string());
 
-    if std::env::var("POST_TO_GITHUB").ok().and_then(|v| v.parse::<bool>().ok()).unwrap_or_default()
-    {
-        if let (Ok(owner), Ok(repo), Ok(pr_number), Ok(token)) = (
-            std::env::var("REPO_OWNER"),
-            std::env::var("REPO_NAME"),
-            std::env::var("PR_NUMBER"),
-            std::env::var("GITHUB_TOKEN"),
-        ) {
-            post_to_github_pr(
-                &owner,
-                &repo,
-                &pr_number,
-                &token,
-                &MarkdownExecutionStats::new(stats).to_string(),
-            )
-            .await
-            .unwrap();
-        }
-    }
+    std::fs::write("execution_report.md", MarkdownExecutionStats::new(stats).to_string())?;
 
+    Ok(())
+}
+
+/// A guest panic must fail the same execution path used by execute_batch.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn execute_batch_rejects_invalid_witness() -> Result<()> {
+    let data_fetcher = OPSuccinctDataFetcher::new();
+    let mut stdin = sp1_sdk::SP1Stdin::new();
+    stdin.write_slice(&[]);
+    let result = execute_multi(&data_fetcher, stdin, 1, 6).await;
+    assert!(result.is_err(), "A panicking range program was accepted");
+    assert!(
+        format!("{:#}", result.err().unwrap()).contains("Range program exited with code 1"),
+        "Failure must come from the guest exit check"
+    );
     Ok(())
 }

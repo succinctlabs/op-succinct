@@ -446,17 +446,31 @@ build-agg-elf:
     cd programs/aggregation
     ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v6.8.1 --output-directory ../../elf
 
-# Run all unit tests except for the specified ones.
+# Compare both checkouts against the same finalized local Sysgo input.
+cycle-count-diff BASE:
+   cd tests && CYCLE_COUNT_BASE_DIR="{{absolute_path(BASE)}}" just rust-tests cycle-count
+
+# Run workspace tests against local Sysgo nodes.
 tests:
+   cd tests && just rust-tests workspace
+
+# Run workspace tests against RPCs supplied through the environment.
+# The bundle build script otherwise reuses an archive from before a version change.
+tests-rpc:
+   cargo clean --release -p postgresql_embedded
    cargo t --release \
     -- \
     --skip test_cycle_count_diff \
     --skip test_post_to_github
 
-# Run fault-proof integration tests
+# Run fault-proof integration tests against local Sysgo nodes.
 # target: test file (integration, sync, etc.)
-# da: DA feature (ethereum, eigenda). DA-agnostic tests like sync work with any.
+# da selects the Rust feature; local nodes use Ethereum DA.
 fp-integration-tests target="integration" da="ethereum":
+  cd tests && just rust-tests fault-proof {{target}} {{da}}
+
+# Run the same Rust tests against RPCs supplied through the environment.
+fp-integration-tests-rpc target="integration" da="ethereum":
   cd fault-proof && cargo t --test {{target}} --release --features integration,{{da}} -- --test-threads=1 --nocapture
 
 # Run DA-specific host utility tests
@@ -497,3 +511,11 @@ forge-build *ARGS:
     --sig "idonotexist()" \
     --skip-simulation \
     2>/dev/null || true
+
+# Run cost estimation over a recent range of local L2 blocks.
+cost-estimator-test:
+  cd tests && just rust-tests cost-estimator
+
+# Run the same estimator command against RPCs supplied through the environment.
+cost-estimator-rpc:
+  cargo run --bin cost-estimator --release -- --rolling

@@ -1,7 +1,8 @@
 use std::{fmt::Write as _, fs::File, sync::Arc};
 
-use anyhow::Result;
-use common::{post_to_github_pr, DEFAULT_RANGE};
+use alloy_primitives::B256;
+use anyhow::{ensure, Context, Result};
+use common::DEFAULT_RANGE;
 use op_succinct_host_utils::{
     block_range::get_rolling_block_range,
     fetcher::OPSuccinctDataFetcher,
@@ -127,11 +128,8 @@ async fn test_cycle_count_diff() -> Result<()> {
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     let host = initialize_host(Arc::new(data_fetcher.clone()));
-    let (l2_start_block, l2_end_block) = match std::env::var("NEW_BRANCH")
-        .expect("NEW_BRANCH must be set")
-        .parse::<bool>()
-        .unwrap_or_default()
-    {
+    let new_branch = std::env::var("NEW_BRANCH")?.parse::<bool>()?;
+    let (l2_start_block, l2_end_block) = match new_branch {
         true => get_rolling_block_range(&data_fetcher, DEFAULT_RANGE).await?,
         false => {
             let base_stats =
@@ -140,7 +138,31 @@ async fn test_cycle_count_diff() -> Result<()> {
         }
     };
 
-    let host_args = host.fetch(l2_start_block, l2_end_block, None, false).await?;
+    // Pin the L1 head as well as the finalized L2 range: the default L1 buffer
+    // can otherwise grow while the first branch is compiling or executing.
+    // The file contains [L1 head hash, L2 start hash, L2 end hash].
+    let expected_heads: Option<[B256; 3]> = if new_branch {
+        None
+    } else {
+        Some(serde_json::from_reader(File::open("cycle_count_heads.json")?)?)
+    };
+    let host_args = host
+        .fetch(l2_start_block, l2_end_block, expected_heads.map(|heads| heads[0]), false)
+        .await?;
+    let heads = [
+        host.get_l1_head_hash(&host_args).context("benchmark host must select an L1 head")?,
+        data_fetcher.get_l2_header(l2_start_block.into()).await?.hash_slow(),
+        data_fetcher.get_l2_header(l2_end_block.into()).await?.hash_slow(),
+    ];
+    if let Some(expected) = expected_heads {
+        ensure!(
+            heads == expected,
+            "benchmark L1/L2 block identities differ: expected {expected:?}, got {heads:?}"
+        );
+    } else {
+        serde_json::to_writer_pretty(File::create("cycle_count_heads.json")?, &heads)?;
+    }
+    println!("Benchmark input: L2 ({l2_start_block}, {l2_end_block}], heads {heads:?}");
 
     let witness_data = host.run(&host_args).await?;
     let sp1_stdin = host.witness_generator().get_sp1_stdin(witness_data)?;
@@ -150,11 +172,7 @@ async fn test_cycle_count_diff() -> Result<()> {
     let new_stats = ExecutionStats::new(0, &block_data, &report, 0, execution_duration.as_secs());
 
     println!("Execution Stats:\n{}", MarkdownExecutionStats::new(new_stats.clone()));
-    let mut file = match std::env::var("NEW_BRANCH")
-        .expect("NEW_BRANCH must be set")
-        .parse::<bool>()
-        .unwrap_or_default()
-    {
+    let mut file = match new_branch {
         true => File::create("new_cycle_stats.json")?,
         false => File::create("old_cycle_stats.json")?,
     };
@@ -169,19 +187,14 @@ async fn test_post_to_github() -> Result<()> {
         serde_json::from_reader::<_, ExecutionStats>(File::open("old_cycle_stats.json")?)?;
     let new_stats =
         serde_json::from_reader::<_, ExecutionStats>(File::open("new_cycle_stats.json")?)?;
+    ensure!(
+        (old_stats.batch_start, old_stats.batch_end) ==
+            (new_stats.batch_start, new_stats.batch_end),
+        "cannot compare execution statistics for different block ranges"
+    );
     let report = create_diff_report(&old_stats, &new_stats);
-
-    if std::env::var("POST_TO_GITHUB").ok().and_then(|v| v.parse::<bool>().ok()).unwrap_or_default()
-    {
-        if let (Ok(owner), Ok(repo), Ok(pr_number), Ok(token)) = (
-            std::env::var("REPO_OWNER"),
-            std::env::var("REPO_NAME"),
-            std::env::var("PR_NUMBER"),
-            std::env::var("GITHUB_TOKEN"),
-        ) {
-            post_to_github_pr(&owner, &repo, &pr_number, &token, &report).await.unwrap();
-        }
-    }
+    std::fs::write("cycle_count_report.md", &report)?;
+    println!("{report}");
 
     Ok(())
 }
