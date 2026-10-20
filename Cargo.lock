@@ -7604,9 +7604,12 @@ dependencies = [
 name = "op-succinct-proof-utils"
 version = "3.14.2"
 dependencies = [
+ "alloy-primitives",
  "anyhow",
+ "bincode",
  "cfg-if",
  "op-succinct-altda-host-utils",
+ "op-succinct-client-utils",
  "op-succinct-eigenda-host-utils",
  "op-succinct-elfs",
  "op-succinct-ethereum-host-utils",
@@ -7702,6 +7705,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp1-sdk",
+ "tempfile",
  "tokio",
  "tracing",
 ]

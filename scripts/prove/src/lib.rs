@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Ok, Result};
 use op_succinct_host_utils::fetcher::{BlockInfo, OPSuccinctDataFetcher};
-use op_succinct_proof_utils::get_range_elf_embedded;
+use op_succinct_proof_utils::{execution::validate_range_execution, get_range_elf_embedded};
 use sp1_sdk::{
     blocking::{CpuProver, Prover},
     Elf, ExecutionReport, SP1Stdin,
@@ -16,10 +16,12 @@ pub async fn execute_multi(
     l2_start_block: u64,
     l2_end_block: u64,
 ) -> Result<(Vec<BlockInfo>, ExecutionReport, Duration)> {
+    let starting_output_root = data_fetcher.get_l2_output_root(l2_start_block).await?;
+    let output_root = data_fetcher.get_l2_output_root(l2_end_block).await?;
     let start_time = Instant::now();
 
     // CpuProver creates its own tokio runtime, so run it outside the async context.
-    let (_, report) = tokio::task::spawn_blocking(move || {
+    let (public_values, report) = tokio::task::spawn_blocking(move || {
         let prover = CpuProver::new();
         prover
             .execute(Elf::Static(get_range_elf_embedded()), sp1_stdin)
@@ -29,6 +31,13 @@ pub async fn execute_multi(
     })
     .await??;
 
+    validate_range_execution(
+        &public_values,
+        &report,
+        l2_end_block,
+        starting_output_root,
+        output_root,
+    )?;
     let execution_duration = start_time.elapsed();
 
     let block_data = data_fetcher.get_l2_block_data_range(l2_start_block, l2_end_block).await?;

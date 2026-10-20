@@ -38,7 +38,7 @@ const ZERO_PROTOCOL_VERSIONS_ADDRESS: &str = "0x00000000000000000000000000000000
 /// Resolve the L2ToL1MessagePasser storage root from a block.
 ///
 /// Post-Isthmus, the header's `withdrawals_root` field carries this value directly.
-/// Pre-Isthmus (Canyon→Fjord), `withdrawals_root` is set to `EMPTY_ROOT_HASH`,
+/// Before Isthmus, `withdrawals_root` is absent or set to `EMPTY_ROOT_HASH`,
 /// so we fall back to `eth_getProof`.
 /// Ref: <https://specs.optimism.io/protocol/isthmus/exec-engine.html>
 async fn l2_to_l1_message_passer_storage_root(
@@ -1010,6 +1010,35 @@ impl OPSuccinctDataFetcher {
         classify_safe_db_probe_outcome(&response)
     }
 
+    /// Calculate an L2 output root using the execution RPC used for witness generation.
+    ///
+    /// Historical pre-Isthmus blocks need account proofs from this RPC, which can retain
+    /// more history than the execution node behind the rollup RPC.
+    pub async fn get_l2_output_root(&self, block_number: u64) -> Result<B256> {
+        let output = self.get_l2_execution_output(block_number).await?;
+        Ok(keccak256(output.abi_encode()))
+    }
+
+    async fn get_l2_execution_output(&self, block_number: u64) -> Result<L2Output> {
+        let block = self
+            .l2_provider
+            .get_block_by_number(block_number.into())
+            .await?
+            .ok_or_else(|| anyhow!("Block not found for block number {block_number}"))?;
+        let storage_root = l2_to_l1_message_passer_storage_root(
+            self.l2_provider.as_ref(),
+            &block.header.inner,
+            block_number,
+        )
+        .await?;
+        Ok(L2Output {
+            zero: 0,
+            l2_state_root: block.header.state_root.0.into(),
+            l2_storage_hash: storage_root.0.into(),
+            l2_claim_hash: block.header.hash.0.into(),
+        })
+    }
+
     /// Get the L2 output data for a given block number and save the boot info to a file in the data
     /// directory with block_number. Return the arguments to be passed to the native host for
     /// datagen.
@@ -1031,48 +1060,10 @@ impl OPSuccinctDataFetcher {
             ));
         }
 
-        let l2_provider = self.l2_provider.clone();
-
-        // Get L2 output data.
-        let l2_output_block =
-            l2_provider.get_block_by_number(l2_start_block.into()).await?.ok_or_else(|| {
-                anyhow::anyhow!("Block not found for block number {}", l2_start_block)
-            })?;
-        let l2_output_state_root = l2_output_block.header.state_root;
-        let agreed_l2_head_hash = l2_output_block.header.hash;
-        let l2_output_storage_hash = l2_to_l1_message_passer_storage_root(
-            l2_provider.as_ref(),
-            &l2_output_block.header.inner,
-            l2_start_block,
-        )
-        .await?;
-
-        let l2_output_encoded = L2Output {
-            zero: 0,
-            l2_state_root: l2_output_state_root.0.into(),
-            l2_storage_hash: l2_output_storage_hash.0.into(),
-            l2_claim_hash: agreed_l2_head_hash.0.into(),
-        };
-        let agreed_l2_output_root = keccak256(l2_output_encoded.abi_encode());
-
-        // Get L2 claim data.
-        let l2_claim_block = l2_provider.get_block_by_number(l2_end_block.into()).await?.unwrap();
-        let l2_claim_state_root = l2_claim_block.header.state_root;
-        let l2_claim_hash = l2_claim_block.header.hash;
-        let l2_claim_storage_hash = l2_to_l1_message_passer_storage_root(
-            l2_provider.as_ref(),
-            &l2_claim_block.header.inner,
-            l2_end_block,
-        )
-        .await?;
-
-        let l2_claim_encoded = L2Output {
-            zero: 0,
-            l2_state_root: l2_claim_state_root.0.into(),
-            l2_storage_hash: l2_claim_storage_hash.0.into(),
-            l2_claim_hash: l2_claim_hash.0.into(),
-        };
-        let claimed_l2_output_root = keccak256(l2_claim_encoded.abi_encode());
+        let agreed_output = self.get_l2_execution_output(l2_start_block).await?;
+        let agreed_l2_head_hash = agreed_output.l2_claim_hash;
+        let agreed_l2_output_root = keccak256(agreed_output.abi_encode());
+        let claimed_l2_output_root = self.get_l2_output_root(l2_end_block).await?;
 
         let l1_beacon_address = self
             .rpc_config
@@ -1217,6 +1208,66 @@ mod tests {
             "l1Block": { "hash": B256::ZERO, "number": l1 },
             "safeHead": { "hash": B256::ZERO, "number": l2 },
         } })
+    }
+
+    #[tokio::test]
+    async fn execution_output_roots_reuse_host_calculation_without_rollup_rpc() {
+        for withdrawals_root in [Some(alloy_trie::EMPTY_ROOT_HASH), Some(B256::repeat_byte(3))] {
+            let storage_root = B256::repeat_byte(3);
+            let rpc = TestRpc::new(L1BlockSelectionConfig::default(), move |path, request| {
+                assert_eq!(path, "/l2", "Output roots must use the witness execution RPC");
+                match request["method"].as_str().unwrap() {
+                    "eth_getBlockByNumber" => {
+                        let number = u64::from_str_radix(
+                            request["params"][0].as_str().unwrap().trim_start_matches("0x"),
+                            16,
+                        )
+                        .unwrap();
+                        let header = Header {
+                            number,
+                            state_root: B256::repeat_byte(number as u8),
+                            withdrawals_root,
+                            ..Default::default()
+                        };
+                        let mut block = serde_json::to_value(&header).unwrap();
+                        block["hash"] = json!(header.hash_slow());
+                        block["transactions"] = json!([]);
+                        block["uncles"] = json!([]);
+                        json!({"result": block})
+                    }
+                    "eth_getProof" => {
+                        assert_eq!(withdrawals_root, Some(alloy_trie::EMPTY_ROOT_HASH));
+                        assert_eq!(request["params"][0], json!(L2_TO_L1_MESSAGE_PASSER));
+                        assert_eq!(request["params"][1], json!([]));
+                        assert!([json!("0x1"), json!("0x6")].contains(&request["params"][2]));
+                        json!({"result": {
+                            "address": L2_TO_L1_MESSAGE_PASSER,
+                            "accountProof": [],
+                            "balance": "0x0",
+                            "codeHash": B256::ZERO,
+                            "nonce": "0x0",
+                            "storageHash": storage_root,
+                            "storageProof": [],
+                        }})
+                    }
+                    other => panic!("Unexpected execution RPC method: {other}"),
+                }
+            })
+            .await;
+            let args = rpc.fetcher.get_host_args(1, 6, B256::ZERO).await.unwrap();
+            assert_ne!(args.agreed_l2_output_root, args.claimed_l2_output_root);
+            assert_eq!(
+                rpc.fetcher.get_l2_output_root(1).await.unwrap(),
+                args.agreed_l2_output_root
+            );
+            assert_eq!(
+                rpc.fetcher.get_l2_output_root(6).await.unwrap(),
+                args.claimed_l2_output_root
+            );
+            let expected_calls =
+                if withdrawals_root == Some(alloy_trie::EMPTY_ROOT_HASH) { 8 } else { 4 };
+            assert_eq!(rpc.calls.load(AtomicOrdering::Relaxed), expected_calls);
+        }
     }
 
     #[tokio::test]

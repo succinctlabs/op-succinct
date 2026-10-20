@@ -2,3 +2,6 @@
 # Keep the default proxy first, with a fallback for unavailable pinned modules.
 # Go's module checksums and checksum database verification remain enabled.
 GOPROXY = "https://proxy.golang.org,https://goproxy.cn,direct"
+
+# The 18.6.1 archive uses hard links unsupported by postgresql_archive 0.20.
+POSTGRESQL_VERSION = "=18.6.0"
