@@ -446,6 +446,10 @@ build-agg-elf:
     cd programs/aggregation
     ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v6.8.1 --output-directory ../../elf
 
+# Compare both checkouts against the same finalized local Sysgo input.
+cycle-count-diff BASE:
+   cd tests && CYCLE_COUNT_BASE_DIR="{{absolute_path(BASE)}}" just rust-tests cycle-count
+
 # Run workspace tests against local Sysgo nodes.
 tests:
    cd tests && just rust-tests workspace

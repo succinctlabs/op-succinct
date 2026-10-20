@@ -34,6 +34,8 @@ func TestRustE2E(gt *testing.T) {
 		args = []string{"tests-rpc"}
 	case "cost-estimator":
 		args = []string{"cost-estimator-rpc"}
+	case "cycle-count":
+		t.Require().NotEmpty(os.Getenv("CYCLE_COUNT_BASE_DIR"), "CYCLE_COUNT_BASE_DIR is required")
 	default:
 		gt.Fatalf("unsupported RUST_E2E_MODE %q", mode)
 	}
@@ -54,14 +56,19 @@ func TestRustE2E(gt *testing.T) {
 
 	nodeEnv, err := os.ReadFile(chain.EnvFilePath)
 	t.Require().NoError(err, "read local node RPCs")
+	env := append(os.Environ(), strings.Split(strings.TrimSpace(string(nodeEnv)), "\n")...)
+	env = append(env,
+		"L1_CONFIG_DIR="+chain.L1ConfigDir,
+		"L2_CONFIG_DIR="+filepath.Join(configDir, "L2"),
+	)
+	if os.Getenv("RUST_E2E_MODE") == "cycle-count" {
+		runCycleCountDiff(t.Ctx(), gt, env)
+		return
+	}
 	cmd := exec.CommandContext(t.Ctx(), "just", args...)
 	cmd.Dir = utils.RepoRoot()
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Env = append(os.Environ(), strings.Split(strings.TrimSpace(string(nodeEnv)), "\n")...)
-	cmd.Env = append(cmd.Env,
-		"L1_CONFIG_DIR="+chain.L1ConfigDir,
-		"L2_CONFIG_DIR="+filepath.Join(configDir, "L2"),
-	)
+	cmd.Env = env
 	t.Require().NoError(cmd.Run(), "Rust E2E command failed")
 }
