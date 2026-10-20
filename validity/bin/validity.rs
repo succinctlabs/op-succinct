@@ -55,6 +55,7 @@ async fn main() -> Result<()> {
 
     let fetcher =
         OPSuccinctDataFetcher::new_with_rollup_config_and_l1_selection(l1_selection).await?;
+    info!(l1_head_buffer = fetcher.l1_head_buffer, "L1 head buffer configured");
 
     // Read the environment variables.
     let env_config = read_proposer_env().await?;
