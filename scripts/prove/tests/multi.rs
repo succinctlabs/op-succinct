@@ -16,7 +16,11 @@ mod common;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn execute_batch() -> Result<()> {
-    dotenv::dotenv()?;
+    if let Err(error) = dotenv::dotenv() {
+        if !error.not_found() {
+            return Err(error.into());
+        }
+    }
 
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
@@ -60,5 +64,20 @@ async fn execute_batch() -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+/// A guest panic must fail the same execution path used by execute_batch.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn execute_batch_rejects_invalid_witness() -> Result<()> {
+    let data_fetcher = OPSuccinctDataFetcher::new();
+    let mut stdin = sp1_sdk::SP1Stdin::new();
+    stdin.write_slice(&[]);
+    let result = execute_multi(&data_fetcher, stdin, 1, 6).await;
+    assert!(result.is_err(), "A panicking range program was accepted");
+    assert!(
+        format!("{:#}", result.err().unwrap()).contains("Range program exited with code 1"),
+        "Failure must come from the guest exit check"
+    );
     Ok(())
 }
