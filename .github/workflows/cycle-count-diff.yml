@@ -5,6 +5,9 @@ on:
     paths:
       - 'elf/range-elf-embedded'
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/main' }}
@@ -83,13 +86,18 @@ jobs:
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_RPC }}
 
-      - name: Compare Results And Post To Github
+      - name: Create comparison report
         run: |
+          cp ../old_code/scripts/prove/old_cycle_stats.json scripts/prove/old_cycle_stats.json
           RUST_LOG=info cargo test --test cycle_count_diff test_post_to_github -- --exact --nocapture
-        working-directory: ./old_code
-        env:
-          REPO_OWNER: ${{ github.repository_owner }}
-          REPO_NAME: ${{ github.event.repository.name }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          POST_TO_GITHUB: ${{ github.event_name == 'pull_request' }}
+        working-directory: ./new_code
+
+      - name: Save comparison report
+        run: cat new_code/scripts/prove/cycle_count_report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: performance-report
+          path: new_code/scripts/prove/cycle_count_report.md
+          if-no-files-found: error
+          overwrite: true

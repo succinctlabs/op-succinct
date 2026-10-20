@@ -1,7 +1,7 @@
 use std::{fmt::Write as _, fs::File, sync::Arc};
 
 use anyhow::Result;
-use common::{post_to_github_pr, DEFAULT_RANGE};
+use common::DEFAULT_RANGE;
 use op_succinct_host_utils::{
     block_range::get_rolling_block_range,
     fetcher::OPSuccinctDataFetcher,
@@ -171,17 +171,8 @@ async fn test_post_to_github() -> Result<()> {
         serde_json::from_reader::<_, ExecutionStats>(File::open("new_cycle_stats.json")?)?;
     let report = create_diff_report(&old_stats, &new_stats);
 
-    if std::env::var("POST_TO_GITHUB").ok().and_then(|v| v.parse::<bool>().ok()).unwrap_or_default()
-    {
-        if let (Ok(owner), Ok(repo), Ok(pr_number), Ok(token)) = (
-            std::env::var("REPO_OWNER"),
-            std::env::var("REPO_NAME"),
-            std::env::var("PR_NUMBER"),
-            std::env::var("GITHUB_TOKEN"),
-        ) {
-            post_to_github_pr(&owner, &repo, &pr_number, &token, &report).await.unwrap();
-        }
-    }
+    std::fs::write("cycle_count_report.md", &report)?;
+    println!("{report}");
 
     Ok(())
 }
