@@ -68,9 +68,9 @@ impl ProposerBackup {
     /// references, which are normal when anchor-based fetching or ASR filtering produce partial
     /// DAGs.
     pub fn validate(&self) -> Result<()> {
-        // Cursor with no games indicates a stale or corrupted backup.
+        // Removed-game records can be the only state needed to recover a reverted claim.
         if let Some(cursor) = self.cursor {
-            if self.games.is_empty() && cursor > U256::ZERO {
+            if self.games.is_empty() && self.removed_games.is_empty() && cursor > U256::ZERO {
                 bail!("cursor exists but no games");
             }
         }

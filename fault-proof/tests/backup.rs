@@ -112,6 +112,20 @@ mod persistence {
     }
 
     #[test]
+    fn save_and_load_removed_only_backup() {
+        let (_dir, path) = temp_backup_path();
+        let mut backup = ProposerBackup::new(Some(U256::from(2)), vec![], None);
+        backup
+            .removed_games
+            .insert(U256::ZERO, alloy_eips::BlockNumHash::new(43, B256::repeat_byte(4)));
+        backup.save(&path).unwrap();
+        let restored = ProposerBackup::load(&path).expect("Removal records must survive restart");
+        assert!(restored.games.is_empty());
+        assert_eq!(restored.cursor, backup.cursor);
+        assert_eq!(restored.removed_games, backup.removed_games);
+    }
+
+    #[test]
     fn old_backup_preserves_guard_without_inventing_observed_height() {
         let (_dir, path) = temp_backup_path();
         let mut backup = serde_json::to_value(ProposerBackup::new(None, vec![], None)).unwrap();
