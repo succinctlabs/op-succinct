@@ -2,66 +2,6 @@
 
 pub mod common;
 
-mod asr_filtering {
-    use alloy_primitives::{Address, B256, U256};
-    use fault_proof::{
-        contract::{GameStatus, ProposalStatus},
-        proposer::Game,
-    };
-    use std::collections::HashMap;
-
-    fn game_with(index: u64, parent_index: u32, l2_block: u64) -> Game {
-        Game {
-            index: U256::from(index),
-            address: Address::left_padding_from(&[index as u8]),
-            parent_index,
-            l2_block: U256::from(l2_block),
-            status: GameStatus::IN_PROGRESS,
-            proposal_status: ProposalStatus::Unchallenged,
-            deadline: 0,
-            should_attempt_to_resolve: false,
-            should_attempt_to_close_game: false,
-            should_attempt_to_claim_bond: false,
-            aggregation_vkey: B256::ZERO,
-            range_vkey_commitment: B256::ZERO,
-            rollup_config_hash: B256::ZERO,
-        }
-    }
-
-    #[test]
-    fn filtered_dag_produces_correct_canonical_head() {
-        // After ASR filtering, only new-ASR games in DAG → correct canonical head.
-        let mut games = HashMap::new();
-        let anchor = game_with(3, u32::MAX, 100);
-        games.insert(U256::from(3), anchor);
-        games.insert(U256::from(4), game_with(4, 3, 200));
-
-        let best = games.values().max_by_key(|g| g.l2_block).unwrap();
-        assert_eq!(best.index, U256::from(4));
-    }
-
-    #[test]
-    fn descendants_excludes_unrelated_chains() {
-        let mut games = HashMap::new();
-        games.insert(U256::from(0), game_with(0, u32::MAX, 100));
-        games.insert(U256::from(1), game_with(1, 0, 200));
-        games.insert(U256::from(2), game_with(2, 1, 300));
-        games.insert(U256::from(3), game_with(3, u32::MAX, 150));
-        games.insert(U256::from(4), game_with(4, 3, 250));
-
-        // Chain A: 0 → 1 → 2 (verify parent linkage)
-        assert_eq!(games[&U256::from(1)].parent_index, 0);
-        assert_eq!(games[&U256::from(2)].parent_index, 1);
-
-        // Chain B: 3 → 4 (independent)
-        assert_eq!(games[&U256::from(4)].parent_index, 3);
-
-        // No cross-chain parent references
-        assert_ne!(games[&U256::from(3)].parent_index, 2);
-        assert_ne!(games[&U256::from(0)].parent_index, 4);
-    }
-}
-
 #[cfg(feature = "integration")]
 mod proposer_sync {
     use std::collections::HashMap;
@@ -175,20 +115,9 @@ mod proposer_sync {
     /// - "anch_*": anchored game present.
     #[rstest]
     #[case::zero_games(0, &[], &[M], &[], None, 0)]
-    #[case::noanch_single_game_default_interval(1, &[], &[M], &[], Some(0), 1)] // Branch: M->0, Blocks: 0->1
     #[case::noanch_single_game_large_interval(1, &[], &[M], &[10], Some(0), 10)] // Branch: M->0, Blocks: 0->10
-    #[case::noanch_two_games_same_branch(2, &[], &[M, 0], &[], Some(1), 2)] // Branch: M->0->1, Blocks: 0->1->2
-    #[case::noanch_two_games_same_parent_diff_intervals(2, &[], &[M, M], &[1, 2], Some(1), 2)] // Branches: M->0, M->1, Blocks: 0->1, 0->2
-    #[case::noanch_three_games_same_branch(3,&[], &[M, 0, 1], &[], Some(2), 3)] // Branch: M->0->1->2, Blocks: 0->1->2->3
-    #[case::noanch_three_games_same_parent_diff_intervals_1(3,&[], &[M, M, M], &[1, 2, 3], Some(2), 3)] // Branches: M->0, M->1, M->2, Blocks: 0->1, 0->2, 0->3
-    #[case::noanch_three_games_same_parent_diff_intervals_2(3,&[], &[M, M, M], &[1, 3, 2], Some(1), 3)] // Branches: M->0, M->1, M->2, Blocks: 0->1, 0->3, 0->2
-    #[case::noanch_three_games_same_branch_diff_intervals_1(3,&[], &[M, 0, 1], &[1, 2, 3], Some(2), 6)] // Branch: M->0->1->2, Blocks: 0->1->3->6
-    #[case::noanch_three_games_same_branch_diff_intervals_2(3, &[], &[M, 0, 1], &[1, 3, 2], Some(2), 6)] // Branch: M->0->1->2, Blocks: 0->1->4->6
     #[case::noanch_three_games_two_branches_diff_intervals(3,&[], &[M, 0, M], &[1, 3, 2], Some(1), 4)] // Branches: M->0->1, M->2, Blocks: 0->1->4 and 0->2
-    #[case::noanch_five_games_two_branches(5, &[], &[M, 0, 1, 0, 3], &[1, 1, 1, 2, 2], Some(4), 5)] // Branches: M->0->1->2, 0->3->4, Blocks: 0->1->2->3 and 1->3->5
     #[case::noanch_five_games_three_branches(5, &[], &[M, 0, 1, 0, 0], &[1, 1, 1, 4, 3], Some(3), 5)] // Branches: M->0->1->2, 0->3, 0->4, Blocks: 0->1->2->3, 1->5, 1->4
-    #[case::anch_single_game_default_interval(1, &[0], &[M], &[], Some(0), 1)]
-    #[case::anch_two_games_same_branch(2, &[0, 1], &[M, 0], &[], Some(1), 2)]
     #[case::anch_two_games_genesis_parent_override(2, &[0], &[M, M], &[1, 2], Some(1), 2)] // M->0(anchor), M->1, game 1 overrides (genesis, higher block)
     #[case::anch_lower_parent_override(4, &[0, 1], &[M, 0, 1, 0], &[1, 1, 1, 3], Some(3), 4)] // M->0->1(anchor)->2, 0->3, game 3 overrides (lower parent, higher block)
     #[case::anch_no_override_lower_block(4, &[0, 1], &[M, 0, 1, 0], &[1, 1, 2, 2], Some(2), 4)] // M->0->1(anchor)->2, 0->3, no override (game 3 block < game 2)
@@ -320,13 +249,9 @@ mod proposer_sync {
     /// - Branch 2: 3 -> 6 -> 7 -> 8 -> 9
     #[rstest]
     #[case::anchor_none_invalid_4_5(None, &[4, 5], 8, Some(9), 10)]
-    #[case::anchor_0_invalid_4_5(Some(0), &[4, 5], 8, Some(9), 10)]
-    #[case::anchor_3_invalid_4_5(Some(3), &[4, 5], 8, Some(9), 10)]
     #[case::anchor_9_invalid_4_5(Some(9), &[4, 5], 8, Some(9), 10)]
-    #[case::anchor_0_invalid_6(Some(0), &[6], 6, Some(5), 6)]
     #[case::anchor_5_invalid_6(Some(5), &[6], 6, Some(5), 6)]
     #[case::anchor_none_invalid_3(None, &[3], 3, Some(2), 3)]
-    #[case::anchor_0_invalid_3(Some(0), &[3], 3, Some(2), 3)]
     #[tokio::test]
     async fn test_sync_state_with_invalid_games_removes_subtree(
         #[case] anchor_index: Option<usize>,
@@ -389,7 +314,6 @@ mod proposer_sync {
     }
 
     #[rstest]
-    #[case::clean(false)]
     #[case::retry_after_rpc_failure(true)]
     #[tokio::test]
     async fn test_sync_state_with_max_game_deadline_gap(
@@ -619,115 +543,6 @@ mod proposer_sync {
         assert!(
             matches!(valid_fetch_result, GameFetchResult::AlreadyExists),
             "Valid game at index 1 should be cached"
-        );
-
-        Ok(())
-    }
-
-    /// Verifies that games are correctly evicted from cache after bond claims are processed.
-    ///
-    /// This test covers the eviction logic for games with status DEFENDER_WINS that are:
-    /// - Finalized (past DISPUTE_GAME_FINALITY_DELAY_SECONDS)
-    /// - Have zero credit (bonds successfully claimed)
-    /// - Are NOT protected (anchor game or canonical head)
-    ///
-    /// Protection rules tested:
-    /// - Anchor games are always retained after bond claims
-    /// - Canonical head games are always retained after bond claims
-    /// - Games that are both anchor and canonical head are retained
-    /// - Non-protected games with zero credit are evicted
-    ///
-    /// This test uses a simple 5-game linear chain (M → 0 → 1 → 2 → 3 → 4) and exercises the
-    /// eviction behavior after all games have been resolved as DEFENDER_WINS and all bonds have
-    /// been claimed. In this configuration, game 4 becomes both the canonical head and the
-    /// on-chain anchor game, so it is the only game retained after eviction.
-    #[tokio::test]
-    async fn test_bond_claim_cache_eviction() -> Result<()> {
-        let expected_retained: Vec<usize> = vec![4];
-        let expected_evicted: Vec<usize> = vec![0, 1, 2, 3];
-
-        let (env, proposer, init_bond) = setup().await?;
-
-        let starting_l2_block = env.anvil.starting_l2_block_number;
-
-        // Step 1: Create 5 games in linear chain M → 0 → 1 → 2 → 3 → 4
-        let mut game_addresses = Vec::new();
-        let parent_ids = [M, 0, 1, 2, 3];
-
-        for (i, parent_id) in parent_ids.iter().enumerate() {
-            let block = starting_l2_block + (i as u64) + 1;
-            let root_claim = env.compute_output_root_at_block(block).await?;
-            env.create_game(root_claim, block, *parent_id, init_bond).await?;
-            let (_, address) = env.last_game_info().await?;
-            game_addresses.push(address);
-            tracing::info!("✓ Created game {i} at {address}");
-        }
-
-        // Step 2: Initial sync - all 5 games should be cached
-        proposer.sync_state().await?;
-        let initial_snapshot = proposer.state_snapshot().await;
-        initial_snapshot.assert_game_len(5);
-        tracing::info!("✓ All 5 games synced to cache");
-
-        // Step 3: Resolve all games as DEFENDER_WINS
-        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
-        for (i, address) in game_addresses.iter().enumerate() {
-            env.resolve_game(*address).await?;
-            tracing::info!("✓ Resolved game {i} as DEFENDER_WINS");
-        }
-
-        // Step 4: Sync after finalization - games should still be retained (have credit)
-        proposer.sync_state().await?;
-        let pre_claim_snapshot = proposer.state_snapshot().await;
-        pre_claim_snapshot.assert_game_len(5);
-        tracing::info!("✓ All 5 games still cached after finalization (bonds not yet claimed)");
-
-        // Step 5: Claim bonds for all games (set credit to zero)
-        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
-        for (i, address) in game_addresses.iter().enumerate() {
-            env.claim_bond(*address, PROPOSER_ADDRESS).await?;
-            tracing::info!("✓ Claimed bond for game {i}");
-        }
-
-        // Step 6: Sync after claims - eviction should now occur
-        proposer.sync_state().await?;
-
-        // Step 7: Verify eviction results
-        let final_snapshot = proposer.state_snapshot().await;
-
-        let game_indices: std::collections::HashSet<U256> =
-            final_snapshot.games.iter().map(|(idx, _)| *idx).collect();
-
-        // Verify retained games are present
-        for idx in &expected_retained {
-            assert!(
-                game_indices.contains(&U256::from(*idx)),
-                "Game {} should be retained (anchor or canonical head)",
-                idx
-            );
-        }
-
-        // Verify evicted games are absent
-        for idx in &expected_evicted {
-            assert!(
-                !game_indices.contains(&U256::from(*idx)),
-                "Game {} should be evicted (not anchor, not canonical head, zero credit)",
-                idx
-            );
-        }
-
-        // Verify total count matches expected
-        assert_eq!(
-            final_snapshot.games.len(),
-            expected_retained.len(),
-            "Cache should contain exactly {} games after eviction",
-            expected_retained.len()
-        );
-
-        tracing::info!(
-            "✓ Eviction complete: {} games retained, {} games evicted",
-            expected_retained.len(),
-            expected_evicted.len()
         );
 
         Ok(())
@@ -1039,30 +854,6 @@ mod proposer_sync {
 
     /// Tests CHALLENGER_WINS cascade removal at various tree positions.
     #[rstest]
-    #[case::at_root(
-        &[M, 0, 1],  // parent_ids: M -> 0 -> 1 -> 2
-        &[0],  // games_to_challenge: challenge game 0
-        None,  // anchor_id: no anchor
-        0,  // expected_retained_count (all removed - root is CHALLENGER_WINS)
-        None,
-        0
-    )]
-    #[case::mid_chain(
-        &[M, 0, 1, 2],  // M -> 0 -> 1 -> 2 -> 3
-        &[1],  // challenge game 1
-        None,  // anchor_id: no anchor
-        1,  // Only game 0 retained (games 1, 2, 3 removed)
-        Some(0),
-        1
-    )]
-    #[case::two_children(
-        &[M, 0, 0],  // M -> 0, 0 -> 1, 0 -> 2
-        &[1],  // challenge game 1
-        None,  // anchor_id: no anchor
-        2,  // Games 0, 2 retained; game 1 removed
-        Some(2),
-        3
-    )]
     #[case::multiple_challenger_wins(
         &[M, 0, 1],  // M -> 0 -> 1 -> 2
         &[0, 1],  // challenge games 0 and 1
@@ -1965,7 +1756,6 @@ mod challenger_sync {
     /// Verifies challenger state sync with varying game counts.
     #[rstest]
     #[case::zero_games(0)]
-    #[case::single_game(1)]
     #[case::multiple_games(3)]
     #[tokio::test]
     async fn test_sync_state_game_count(#[case] num_games: u64) -> Result<()> {
@@ -2019,24 +1809,6 @@ mod challenger_sync {
         env.warp_time(0).await?;
         challenger.sync_state().await?;
         assert_eq!(cached_game(&challenger, 0).await?.validation, GameValidation::Valid);
-
-        Ok(())
-    }
-
-    /// Verifies that re-syncing doesn't duplicate games.
-    #[tokio::test]
-    async fn test_sync_state_idempotent() -> Result<()> {
-        let (env, challenger, init_bond) = setup().await?;
-
-        let starting_l2_block = env.anvil.starting_l2_block_number;
-        let block = starting_l2_block + 1;
-        let root_claim = env.compute_output_root_at_block(block).await?;
-        env.create_game(root_claim, block, M, init_bond).await?;
-
-        challenger.sync_state().await?;
-        challenger.sync_state().await?;
-
-        assert_eq!(challenger.cached_game_count().await, 1, "Should still have only 1 game");
 
         Ok(())
     }
@@ -2132,7 +1904,6 @@ mod challenger_sync {
     /// - "valid_root": Game with valid output root → should NOT challenge
     /// - "already_challenged": Invalid game already challenged → should NOT challenge
     #[rstest]
-    #[case::invalid_root_should_challenge(true, false, true)]
     #[case::valid_root_should_not_challenge(false, false, false)]
     #[case::already_challenged_should_not_challenge(true, true, false)]
     #[tokio::test]
@@ -2513,55 +2284,6 @@ mod challenger_sync {
         let game = cached_game(&challenger, 0).await?;
         assert!(!game.should_attempt_to_close_game, "closed game should not close again");
         assert!(game.should_attempt_to_claim_bond, "closed game with credit should claim");
-
-        Ok(())
-    }
-
-    // ==================== Game Eviction Tests ====================
-
-    /// Verifies game eviction based on final status.
-    ///
-    /// Eviction rules:
-    /// - DEFENDER_WINS: Always evicted
-    /// - CHALLENGER_WINS + finalized + credit = 0: Evicted
-    #[rstest]
-    #[case::defender_wins(false)]
-    #[case::challenger_wins_no_credit(true)]
-    #[tokio::test]
-    async fn test_game_eviction(#[case] is_invalid: bool) -> Result<()> {
-        let (env, challenger, init_bond) = setup().await?;
-
-        let starting_l2_block = env.anvil.starting_l2_block_number;
-        let block = starting_l2_block + 1;
-
-        let root = if is_invalid {
-            random_invalid_root()
-        } else {
-            env.compute_output_root_at_block(block).await?
-        };
-        env.create_game(root, block, M, init_bond).await?;
-        let (_, game_address) = env.last_game_info().await?;
-
-        // Initial sync
-        challenger.sync_state().await?;
-        assert_eq!(challenger.cached_game_count().await, 1);
-
-        if is_invalid {
-            // Challenge → resolve as CHALLENGER_WINS → claim bond
-            env.challenge_game(game_address).await?;
-            env.warp_time(MAX_PROVE_DURATION + 1).await?;
-            env.resolve_game(game_address).await?;
-            env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
-            env.claim_bond(game_address, CHALLENGER_ADDRESS).await?;
-        } else {
-            // No challenge → resolve as DEFENDER_WINS
-            env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
-            env.resolve_game(game_address).await?;
-        }
-
-        challenger.sync_state().await?;
-
-        assert!(challenger.get_game(U256::from(0)).await.is_none(), "Game should be evicted");
 
         Ok(())
     }

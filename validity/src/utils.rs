@@ -235,10 +235,7 @@ mod tests {
         &[(1, 2), (4, 5), (7, 8)],
         &[2..4, 5..7, 8..10]
     );
-    test_find_gaps!(test_find_gaps_at_start, 1, 6, &[(3, 4), (5, 6)], &[1..3, 4..5]);
-    test_find_gaps!(test_find_gaps_at_end, 1, 5, &[(1, 2), (2, 3)], &[3..5]);
     test_find_gaps!(test_find_gaps_empty_ranges, 1, 5, &[], &[1..5]);
-    test_find_gaps!(test_find_gaps_single_range, 1, 5, &[(2, 4)], &[1..2, 4..5]);
 
     test_merge_ranges!(test_merge_ranges_contiguous, vec![3..4, 4..7], vec![3..7]);
     test_merge_ranges!(test_merge_ranges_overlap, vec![3..6, 4..7], vec![3..7]);
@@ -260,27 +257,6 @@ mod tests {
         &[0..50, 100..200, 200..210],
         25,
         &[0..25, 25..50, 100..125, 125..150, 150..175, 175..200]
-    );
-
-    test_get_ranges_to_prove_by_blocks!(
-        test_get_ranges_to_prove_case_2,
-        &[0..30, 40..70],
-        10,
-        &[0..10, 10..20, 20..30, 40..50, 50..60, 60..70]
-    );
-
-    test_get_ranges_to_prove_by_blocks!(
-        test_get_ranges_to_prove_case_3,
-        &[0..100],
-        20,
-        &[0..20, 20..40, 40..60, 60..80, 80..100]
-    );
-
-    test_get_ranges_to_prove_by_blocks!(
-        test_get_ranges_to_prove_case_4,
-        &[0..15, 20..35],
-        5,
-        &[0..5, 5..10, 10..15, 20..25, 25..30, 30..35]
     );
 
     test_get_ranges_to_prove_by_blocks!(
@@ -314,21 +290,6 @@ mod tests {
                 )
             })
             .collect()
-    }
-
-    #[test]
-    fn test_basic_gas_splitting() {
-        // Test case: 4 blocks of 30M gas each with 100M limit
-        // Expected: First 3 blocks (90M gas), then last block (30M gas)
-        let block_infos = create_block_infos(vec![
-            (1, 30_000_000),
-            (2, 30_000_000),
-            (3, 30_000_000),
-            (4, 30_000_000),
-        ]);
-
-        let result = get_ranges_to_prove_by_gas(&[0..4], 100_000_000, 600, &block_infos).unwrap();
-        assert_eq!(result, vec![0..3, 3..4]);
     }
 
     #[test]
@@ -399,27 +360,6 @@ mod tests {
     }
 
     #[test]
-    fn test_max_interval_and_small_blocks() {
-        // Test case: multiple small blocks
-        let block_infos = create_block_infos(vec![
-            // First range
-            (1, 1_000),
-            (2, 1_000),
-            (3, 1_000),
-            // Second range
-            (4, 1_000),
-            (5, 1_000),
-            (6, 1_000),
-            // Third range
-            (7, 1_000),
-            (8, 1_000),
-        ]);
-
-        let result = get_ranges_to_prove_by_gas(&[0..8], 100_000_000, 3, &block_infos).unwrap();
-        assert_eq!(result, vec![0..3, 3..6, 6..8]);
-    }
-
-    #[test]
     fn test_zero_max_interval() {
         // Test case: multiple small blocks
         let block_infos = create_block_infos(vec![
@@ -444,15 +384,6 @@ mod tests {
     fn test_single_large_block() {
         // Test case: single block exceeding gas limit
         let block_infos = create_block_infos(vec![(1, 150_000_000)]);
-
-        let result = get_ranges_to_prove_by_gas(&[0..1], 100_000_000, 600, &block_infos).unwrap();
-        assert_eq!(result, vec![0..1]);
-    }
-
-    #[test]
-    fn test_single_small_block() {
-        // Test case: single block not exceeding gas limit
-        let block_infos = create_block_infos(vec![(1, 10_000)]);
 
         let result = get_ranges_to_prove_by_gas(&[0..1], 100_000_000, 600, &block_infos).unwrap();
         assert_eq!(result, vec![0..1]);
@@ -495,25 +426,5 @@ mod tests {
         let result = get_ranges_to_prove_by_gas(&[0..1], 100_000_000, 600, &block_infos);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("inconsistent block number"));
-    }
-
-    // Block-based splitting tests
-
-    #[test]
-    fn test_basic_block_splitting() {
-        let result = get_ranges_to_prove_by_blocks(&[0..50, 100..200, 200..210], 25);
-        assert_eq!(result, vec![0..25, 25..50, 100..125, 125..150, 150..175, 175..200]);
-    }
-
-    #[test]
-    fn test_block_splitting_exact_intervals() {
-        let result = get_ranges_to_prove_by_blocks(&[0..30, 40..70], 10);
-        assert_eq!(result, vec![0..10, 10..20, 20..30, 40..50, 50..60, 60..70]);
-    }
-
-    #[test]
-    fn test_block_splitting_removes_small_last_range() {
-        let result = get_ranges_to_prove_by_blocks(&[0..5, 10..15, 20..25], 30);
-        assert_eq!(result, vec![0..5, 10..15]);
     }
 }

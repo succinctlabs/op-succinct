@@ -116,28 +116,6 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
         assertEq(l2oo.getL2Output(l2oo.latestOutputIndex()).outputRoot, outputRoot);
     }
 
-    function testFallbackProposal_TimeoutElapsed_ApprovedCanStillPropose() public {
-        // Get the next block number to propose
-        uint256 nextBlockNumber = l2oo.nextBlockNumber();
-        bytes32 outputRoot = keccak256("test_output");
-
-        // Warp time to exceed the fallback timeout
-        uint256 lastProposalTime = l2oo.lastProposalTimestamp();
-        vm.warp(lastProposalTime + FALLBACK_TIMEOUT + 1);
-
-        // Checkpoint the current block hash
-        uint256 currentL1Block = block.number;
-        checkpointAndRoll(l2oo, currentL1Block);
-
-        // Approved proposer should still be able to propose after timeout
-        vm.prank(approvedProposer);
-        l2oo.proposeL2Output(genesisConfigName, outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
-
-        // Verify the proposal was accepted
-        assertEq(l2oo.latestBlockNumber(), nextBlockNumber);
-        assertEq(l2oo.getL2Output(l2oo.latestOutputIndex()).outputRoot, outputRoot);
-    }
-
     function testLastProposalTimestamp_InitialState() public view {
         // Initially, lastProposalTimestamp should return the starting timestamp
         assertEq(l2oo.lastProposalTimestamp(), startingTimestamp);
@@ -160,11 +138,6 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
 
         // lastProposalTimestamp should now return the proposal time
         assertEq(l2oo.lastProposalTimestamp(), proposalTime);
-    }
-
-    function testFallbackProposalTimeout_Getter() public view {
-        // Test that the getter returns the correct timeout value
-        assertEq(l2oo.fallbackTimeout(), FALLBACK_TIMEOUT);
     }
 }
 

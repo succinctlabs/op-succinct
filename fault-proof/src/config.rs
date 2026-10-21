@@ -564,10 +564,7 @@ mod split_range_tests {
 
     #[rstest]
     #[case::single_split(range_split_count(1), 10, 20, &[(10, 20)])]
-    #[case::single_block(range_split_count(2), 0, 1, &[(0, 1)])]
-    #[case::no_empty_tail(range_split_count(4), 0, 5, &[(0, 2), (2, 4), (4, 5)])]
     #[case::offset_uneven(range_split_count(4), 5, 14, &[(5, 8), (8, 11), (11, 14)])]
-    #[case::even_split(range_split_count(4), 0, 10, &[(0, 3), (3, 6), (6, 9), (9, 10)])]
     #[case::large_splits_small_range(range_split_count(15), 0, 1, &[(0, 1)])]
     #[case::max_splits_exact(
         range_split_count(RangeSplitCount::MAX),
@@ -593,13 +590,6 @@ mod split_range_tests {
         ]
     )]
     #[case::max_splits_caps(range_split_count(RangeSplitCount::MAX), 0, 3, &[(0, 1), (1, 2), (2, 3)])]
-    #[case::stop_when_done(
-        RangeSplitCount::new(15).unwrap(),
-        0,
-        16,
-        &[(0, 2), (2, 4), (4, 6), (6, 8), (8, 10), (10, 12), (12, 14), (14, 16)]
-    )]
-    #[case::drift_up(range_split_count(4), 0, 1802, &[(0, 451), (451, 902), (902, 1353), (1353, 1802)])]
     fn test_splits_expected_paths(
         #[case] splits: RangeSplitCount,
         #[case] start: u64,

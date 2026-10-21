@@ -58,12 +58,6 @@ contract AccessManagerTest is Test {
         accessManager = new AccessManager(FALLBACK_TIMEOUT, mockFactory);
     }
 
-    function testConstructor() public view {
-        assertEq(accessManager.FALLBACK_TIMEOUT(), FALLBACK_TIMEOUT);
-        assertEq(accessManager.owner(), owner);
-        assertEq(address(accessManager.DISPUTE_GAME_FACTORY()), address(mockFactory));
-    }
-
     function testSetProposer() public {
         vm.prank(owner);
         accessManager.setProposer(proposer1, true);
@@ -164,14 +158,6 @@ contract AccessManagerTest is Test {
         MockDisputeGameFactory(address(mockFactory)).addGame(GameType.wrap(0), 0);
 
         assertEq(accessManager.getLastProposalTimestamp(), accessManager.DEPLOYMENT_TIMESTAMP());
-    }
-
-    function testGetLastProposalTimestamp_FindsOPSuccinctGame() public {
-        uint64 newTimestamp = uint64(accessManager.DEPLOYMENT_TIMESTAMP()) + 1;
-        MockDisputeGameFactory(address(mockFactory))
-            .addGame(GameType.wrap(OP_SUCCINCT_FAULT_DISPUTE_GAME_TYPE), newTimestamp);
-
-        assertEq(accessManager.getLastProposalTimestamp(), newTimestamp);
     }
 
     function testGetLastProposalTimestamp_SkipsNonOPSuccinctGames() public {

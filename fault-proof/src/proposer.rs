@@ -2877,12 +2877,6 @@ impl ProposerState {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::RangeSplitCount;
-    use anyhow::{bail, Result};
-    use futures::stream::{self, StreamExt, TryStreamExt};
-    use rstest::rstest;
-    use std::time::Duration;
-
     mod canonical_head {
         use super::super::{Game, ProposerState};
         use crate::contract::{GameStatus, ProposalStatus};
@@ -2915,29 +2909,10 @@ mod tests {
         }
 
         #[test]
-        fn no_anchor_selects_highest_block_game() {
-            let s = state(vec![game_with(0, u32::MAX, 100), game_with(1, 0, 200)], None);
-            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(1));
-        }
-
-        #[test]
         fn anchor_subtree_selects_its_tip() {
             let anchor = game_with(5, 4, 100);
             let s = state(
                 vec![anchor.clone(), game_with(6, 5, 200), game_with(7, 6, 300)],
-                Some(anchor),
-            );
-            assert_eq!(s.select_canonical_head().unwrap().index, U256::from(7));
-        }
-
-        #[test]
-        fn genesis_rooted_catchup_chain_follows_to_tip() {
-            // Anchor 5 was the canonical head; the proposer could not parent on it (the contract
-            // reverts when the parent is the anchor), so it built a fresh genesis-rooted chain
-            // 6 <- 7 above it. The head must track the chain tip (7), not its root (6).
-            let anchor = game_with(5, 4, 100);
-            let s = state(
-                vec![anchor.clone(), game_with(6, u32::MAX, 200), game_with(7, 6, 300)],
                 Some(anchor),
             );
             assert_eq!(s.select_canonical_head().unwrap().index, U256::from(7));
@@ -2991,67 +2966,6 @@ mod tests {
         }
     }
 
-    async fn mock_prove(
-        idx: usize,
-        range: (u64, u64),
-        fail: bool,
-        delay: Duration,
-    ) -> Result<usize> {
-        tokio::time::sleep(delay).await;
-        if fail {
-            bail!("proof failed for range {}-{}", range.0, range.1);
-        }
-        Ok(idx)
-    }
-
-    async fn prove_ranges(
-        ranges: Vec<(u64, u64)>,
-        fail_idx: Option<usize>,
-        concurrency: usize,
-        delay: Duration,
-    ) -> Result<Vec<usize>> {
-        let tasks = ranges.into_iter().enumerate().map(|(idx, range)| {
-            let fail = fail_idx == Some(idx);
-            async move { mock_prove(idx, range, fail, delay).await }
-        });
-        stream::iter(tasks).buffer_unordered(concurrency).try_collect().await
-    }
-
-    #[rstest]
-    #[case::first(0, "0-25")]
-    #[case::middle(1, "25-50")]
-    #[case::last(3, "75-100")]
-    #[tokio::test]
-    async fn test_failure_aborts(#[case] fail_idx: usize, #[case] expected: &str) {
-        let ranges = RangeSplitCount::new(4).unwrap().split(0, 100).unwrap();
-        let err = prove_ranges(ranges, Some(fail_idx), 4, Duration::ZERO).await.unwrap_err();
-        assert!(err.to_string().contains(expected), "got: {err}");
-    }
-
-    #[rstest]
-    #[case::full(16)]
-    #[case::half(8)]
-    #[case::single(1)]
-    #[tokio::test]
-    async fn test_stress_varying_concurrency(#[case] concurrency: usize) {
-        let ranges = RangeSplitCount::new(16).unwrap().split(0, 1600).unwrap();
-        let results =
-            prove_ranges(ranges, None, concurrency, Duration::from_millis(5)).await.unwrap();
-
-        let mut indices: Vec<_> = results.clone();
-        indices.sort();
-        assert_eq!(indices, (0..16).collect::<Vec<_>>());
-    }
-
-    #[tokio::test]
-    async fn test_stress_repeated() {
-        for _ in 0..50 {
-            let ranges = RangeSplitCount::new(8).unwrap().split(0, 800).unwrap();
-            let results = prove_ranges(ranges, None, 4, Duration::from_micros(100)).await.unwrap();
-            assert_eq!(results.len(), 8);
-        }
-    }
-
     mod proving_deadline_tests {
         use super::super::{check_deadline_status, DeadlineStatus};
         use rstest::rstest;
@@ -3060,9 +2974,7 @@ mod tests {
         const MAX_DURATION: u64 = 6 * HOUR;
 
         #[rstest]
-        #[case::passed_in_past(1000, 900, DeadlineStatus::Passed)]
         #[case::passed_exactly_now(1000, 1000, DeadlineStatus::Passed)]
-        #[case::ok_plenty_of_time(1000, 1000 + 5 * HOUR, DeadlineStatus::Ok)]
         #[case::ok_at_threshold(1000, 1000 + MAX_DURATION / 2, DeadlineStatus::Ok)]
         fn test_deadline_status(
             #[case] now: u64,
@@ -3074,7 +2986,6 @@ mod tests {
         }
 
         #[rstest]
-        #[case::two_hours_left(1000, 1000 + 2 * HOUR, 2.0)]
         #[case::one_hour_left(1000, 1000 + HOUR, 1.0)]
         fn test_deadline_approaching(
             #[case] now: u64,

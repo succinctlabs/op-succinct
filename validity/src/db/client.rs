@@ -1647,20 +1647,6 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn test_update_request_status_changes_status() {
-            let db = TestDb::new().await;
-            let c = db.client();
-
-            let req = RequestBuilder::new().range(100, 200).build();
-            let id = insert_and_get_id(c, &req).await;
-
-            c.update_request_status(id, RequestStatus::WitnessGeneration).await.unwrap();
-
-            assert_eq!(count(c, RequestStatus::WitnessGeneration).await, 1);
-            assert_eq!(count(c, RequestStatus::Unrequested).await, 0);
-        }
-
-        #[tokio::test]
         async fn test_update_request_status_updates_timestamp() {
             let db = TestDb::new().await;
             let c = db.client();

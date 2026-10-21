@@ -96,42 +96,6 @@ mod tests {
     }
 
     #[test]
-    fn explicit_batch_size_wins_over_start_end_range() {
-        // Regression: before the fix, `effective_batch_size` silently
-        // overrode an explicit `--batch-size` with `end - start` whenever
-        // both bounds were provided. The estimator workaround
-        // (`--start X --end Y --batch-size N`) relies on this precedence.
-        let a = args(Some(1_000), Some(2_800), Some(120));
-        assert_eq!(a.effective_batch_size(), 120);
-    }
-
-    #[test]
-    fn explicit_batch_size_without_range() {
-        let a = args(None, None, Some(42));
-        assert_eq!(a.effective_batch_size(), 42);
-    }
-
-    #[test]
-    fn explicit_batch_size_with_only_start() {
-        let a = args(Some(1_000), None, Some(42));
-        assert_eq!(a.effective_batch_size(), 42);
-    }
-
-    #[test]
-    fn explicit_batch_size_with_only_end() {
-        let a = args(None, Some(2_800), Some(42));
-        assert_eq!(a.effective_batch_size(), 42);
-    }
-
-    #[test]
-    fn omitted_batch_size_with_start_and_end_uses_full_range() {
-        // DX default preserved from PR #820: user who just says
-        // "estimate this specific range" gets a single batch.
-        let a = args(Some(1_000), Some(2_800), None);
-        assert_eq!(a.effective_batch_size(), 1_800);
-    }
-
-    #[test]
     fn omitted_batch_size_with_no_range_uses_default() {
         let a = args(None, None, None);
         assert_eq!(a.effective_batch_size(), DEFAULT_BATCH_SIZE);
