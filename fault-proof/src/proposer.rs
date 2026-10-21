@@ -10,11 +10,12 @@ use std::{
 
 use tempfile::NamedTempFile;
 
-use alloy_eips::{BlockId, BlockNumberOrTag};
+use alloy_eips::{BlockId, BlockNumHash, BlockNumberOrTag};
 use alloy_primitives::{Address, FixedBytes, TxHash, B256, U256};
 use alloy_provider::{Provider, ProviderBuilder};
+use alloy_rpc_types_eth::Header;
 use alloy_sol_types::{SolEvent, SolValue};
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 use futures::stream::{self, StreamExt, TryStreamExt};
 use op_succinct_client_utils::boot::{hash_rollup_config, BootInfoStruct};
 use op_succinct_elfs::AGGREGATION_ELF;
@@ -190,6 +191,7 @@ struct ProposerState {
     canonical_head_l2_block: Option<U256>,
     cursor: Cursor,
     games: HashMap<U256, Game>,
+    removed_games: HashMap<U256, BlockNumHash>,
 }
 
 impl ProposerState {
@@ -219,11 +221,18 @@ impl ProposerState {
     ///
     /// Used when a game is invalidated (i.e., `CHALLENGER_WINS`) and its entire subtree must be
     /// dropped.
-    fn remove_subtree(&mut self, root_index: U256) {
+    fn remove_subtree(&mut self, root_index: U256, block: BlockNumHash) {
         tracing::info!(?root_index, "Removing subtree from cache");
         for index in self.descendants_of(root_index) {
             tracing::info!(?index, "Removing game from cache");
-            self.games.remove(&index);
+            self.remove_game(index, block);
+        }
+    }
+
+    /// Retain the index so a reverted removal can recover games beyond the discovery cutoff.
+    fn remove_game(&mut self, index: U256, block: BlockNumHash) {
+        if self.games.remove(&index).is_some() {
+            self.removed_games.insert(index, block);
         }
     }
 
@@ -641,6 +650,7 @@ where
                 let mut state = self.state.write().await;
                 state.cursor = restored.cursor;
                 state.games = restored.games;
+                state.removed_games = restored.removed_games;
                 state.anchor_game = restored.anchor_game;
                 ProposerGauge::BackupRestoreSuccess.increment(1.0);
             } else if path.exists() {
@@ -736,12 +746,7 @@ where
                 let canonical_hash = if confirmed_number == previous_number {
                     block_hash
                 } else {
-                    self.l1_provider
-                        .get_block_by_number(BlockNumberOrTag::Number(previous_number))
-                        .await?
-                        .context("Previous L1 sync block is unavailable; retrying sync")?
-                        .header
-                        .hash
+                    self.l1_ancestor(confirmed_header.clone(), previous_number).await?.hash
                 };
                 rebuild = canonical_hash != previous_hash;
                 unchanged = !rebuild && confirmed_number == previous_number && sync.complete;
@@ -791,24 +796,38 @@ where
         }
 
         if rebuild {
+            // Backups can outlive finality; release proven removals before refreshing the rest.
+            self.prune_finalized_removals(confirmed_header.clone()).await?;
             // Read the replacement baseline before discarding local state. RPC failures
             // must remain retryable instead of being interpreted as empty chain state.
             let anchor_l2_block =
                 self.anchor_state_registry.getAnchorRoot().block(pinned_block).call().await?._1;
             let latest_index = self.factory.fetch_latest_game_index(pinned_block).await?;
-            let indices = self.state.read().await.games.keys().copied().collect::<Vec<_>>();
+            let indices = {
+                let state = self.state.read().await;
+                state
+                    .games
+                    .keys()
+                    .chain(state.removed_games.keys())
+                    .copied()
+                    .collect::<HashSet<_>>()
+            };
             let mut games = HashMap::new();
+            let mut removed_games = HashMap::new();
             for index in indices {
                 if latest_index.is_some_and(|latest| index <= latest) {
                     // Tracked bonds can be older than the normal discovery window.
                     // Refresh them by index, including when a reorg reused their address.
                     if let (_, Some(game)) = self.read_game(index, pinned_block).await? {
                         games.insert(index, game);
+                        continue;
                     }
                 }
+                removed_games.insert(index, BlockNumHash::new(confirmed_number, block_hash));
             }
             *self.state.write().await = ProposerState {
                 games,
+                removed_games,
                 canonical_head_l2_block: Some(anchor_l2_block),
                 ..Default::default()
             };
@@ -826,7 +845,7 @@ where
         sync.complete = false;
 
         // Pull new games and synchronize cached game statuses.
-        self.sync_games(pinned_block, pinned_timestamp).await?;
+        self.sync_games(BlockNumHash::new(confirmed_number, block_hash), pinned_timestamp).await?;
 
         // Align anchor information after the cached game statuses have been synchronized.
         self.sync_anchor_game(pinned_block).await?;
@@ -834,8 +853,75 @@ where
         // With the cached game statuses and anchor synchronized, recompute the canonical head.
         self.compute_canonical_head().await;
 
+        self.prune_finalized_removals(confirmed_header).await?;
+
         sync.complete = true;
 
+        Ok(())
+    }
+
+    /// Follow this header's parents; independent number lookups can come from another fork.
+    async fn l1_ancestor(&self, mut header: Header, number: u64) -> Result<Header> {
+        ensure!(number <= header.number, "Requested L1 ancestor is above the selected block");
+        while header.number > number {
+            let parent_hash = header.parent_hash;
+            let parent = self
+                .l1_provider
+                .get_block_by_hash(parent_hash)
+                .await?
+                .context("L1 ancestor is unavailable; retrying sync")?
+                .header;
+            ensure!(
+                parent.hash == parent_hash && parent.number.checked_add(1) == Some(header.number),
+                "L1 ancestor does not match the selected block's parent"
+            );
+            header = parent;
+        }
+        Ok(header)
+    }
+
+    /// Release rollback records only after verifying L1 finality on the selected chain.
+    async fn prune_finalized_removals(&self, selected: Header) -> Result<()> {
+        let removals = self.state.read().await.removed_games.clone();
+        if removals.is_empty() {
+            return Ok(());
+        }
+        let finalized = self
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Finalized)
+            .await?
+            .context("Finalized L1 block is unavailable; retrying sync")?
+            .header;
+        let limit = selected.number.min(finalized.number);
+        let mut candidates: Vec<_> =
+            removals.into_iter().filter(|(_, block)| block.number <= limit).collect();
+        if candidates.is_empty() {
+            return Ok(());
+        }
+        // A lagging or divergent finality response must never discard recovery information.
+        let mut ancestor = if finalized.number <= selected.number {
+            let ancestor = self.l1_ancestor(selected, finalized.number).await?;
+            ensure!(ancestor.hash == finalized.hash, "Finalized L1 block is on another fork");
+            ancestor
+        } else {
+            let ancestor = self.l1_ancestor(finalized, selected.number).await?;
+            ensure!(ancestor.hash == selected.hash, "Selected L1 block is on another fork");
+            ancestor
+        };
+        // Walk each parent once even when several removals share a block.
+        candidates.sort_unstable_by_key(|(_, block)| std::cmp::Reverse(block.number));
+        let mut finalized_indices = Vec::new();
+        for (index, block) in &candidates {
+            ancestor = self.l1_ancestor(ancestor, block.number).await?;
+            // A reorg can invalidate the removal itself. Keep that index for the rebuild.
+            if ancestor.hash == block.hash {
+                finalized_indices.push(*index);
+            }
+        }
+        let mut state = self.state.write().await;
+        for index in finalized_indices {
+            state.removed_games.remove(&index);
+        }
         Ok(())
     }
 
@@ -856,7 +942,8 @@ where
     ///    - Closed defender-won games with no remaining credit, subject to anchor/canonical
     ///      retention.
     ///    - The entire subtree of a CHALLENGER_WINS game.
-    pub async fn sync_games(&self, pinned_block: BlockId, pinned_timestamp: u64) -> Result<()> {
+    pub async fn sync_games(&self, snapshot: BlockNumHash, pinned_timestamp: u64) -> Result<()> {
+        let pinned_block = BlockId::hash_canonical(snapshot.hash);
         // 0. Prune cached games that don't exist at the pinned block. After a backup restore, the
         //    cache may contain games created in tip blocks that are ahead of the pinned snapshot.
         //    Reading their on-chain state at the pinned block would fail, and leaving them in the
@@ -891,7 +978,7 @@ where
                     });
 
                 for idx in &future_games {
-                    state.games.remove(idx);
+                    state.remove_game(*idx, snapshot);
                 }
                 tracing::info!(
                     count = future_games.len(),
@@ -1010,6 +1097,7 @@ where
         {
             let mut state = self.state.write().await;
             for game in fetched_games {
+                state.removed_games.remove(&game.index);
                 state.games.insert(game.index, game);
             }
             state.cursor = latest_index;
@@ -1022,7 +1110,7 @@ where
                     game_index = %idx,
                     "Removing invalid game and its subtree from cache"
                 );
-                state.remove_subtree(idx);
+                state.remove_subtree(idx, snapshot);
             }
         }
 
@@ -1221,7 +1309,7 @@ where
                         }
                     }
                     GameSyncAction::Remove(index) => {
-                        state.games.remove(&index);
+                        state.remove_game(index, snapshot);
                         tracing::debug!(game_index = %index, "Removed game from cache");
                     }
                     GameSyncAction::RemoveSubtree(index) => {
@@ -1244,7 +1332,7 @@ where
                                 );
                             }
                         }
-                        state.remove_subtree(index);
+                        state.remove_subtree(index, snapshot);
                     }
                 }
             }
@@ -2943,11 +3031,13 @@ pub fn check_deadline_status(now: u64, deadline: u64, max_duration: u64) -> Dead
 impl ProposerState {
     /// Serialize the current state to a backup struct.
     pub fn to_backup(&self) -> ProposerBackup {
-        ProposerBackup::new(
+        let mut backup = ProposerBackup::new(
             self.cursor.index(),
             self.games.values().cloned().collect(),
             self.anchor_game.as_ref().map(|g| g.index),
-        )
+        );
+        backup.removed_games = self.removed_games.clone();
+        backup
     }
 
     /// Restore state from a backup struct.
@@ -2959,6 +3049,7 @@ impl ProposerState {
         Self {
             cursor: backup.cursor.map(Cursor::from).unwrap_or_default(),
             games,
+            removed_games: backup.removed_games,
             anchor_game,
             // NOTE(fakedev9999): Not persisted; re-computed on first sync cycle from on-chain
             // state.
