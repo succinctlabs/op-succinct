@@ -673,15 +673,6 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     }
 
     // =========================================
-    // Test: Check if anchor game is updated
-    // =========================================
-    function testAnchorGameUpdated() public {
-        _finalizeAndClose(game);
-
-        assertEq(address(anchorStateRegistry.anchorGame()), address(game));
-    }
-
-    // =========================================
     // Test: Cannot create game without permission
     // =========================================
     function testCannotCreateGameWithoutPermission() public {

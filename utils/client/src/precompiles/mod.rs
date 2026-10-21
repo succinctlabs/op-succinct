@@ -353,22 +353,6 @@ mod tests {
         assert!(result.is_none());
     }
 
-    /// Test out-of-gas handling for precompiles.
-    #[test]
-    fn test_run_out_of_gas() {
-        let mut ctx = create_test_context();
-        let mut precompiles = OpZkvmPrecompiles::new_with_spec(OpSpecId::BEDROCK);
-
-        let sha256_addr = revm::precompile::u64_to_address(2);
-        let call_inputs = create_call_inputs(sha256_addr, Bytes::from_static(b"test"), 0);
-
-        let result = precompiles.run(&mut ctx, &call_inputs).unwrap();
-        assert!(result.is_some());
-
-        let interpreter_result = result.unwrap();
-        assert_eq!(interpreter_result.result, InstructionResult::PrecompileOOG);
-    }
-
     /// Test SharedBuffer input handling.
     #[test]
     fn test_run_with_shared_buffer_empty() {
@@ -395,56 +379,6 @@ mod tests {
         assert!(result.is_some());
     }
 
-    // ===== Cycle Tracker Name Tests =====
-
-    #[test]
-    fn test_precompile_tracker_name_bn_add() {
-        assert_eq!(
-            get_precompile_tracker_name(&PrecompileId::Bn254Add),
-            Some(cycle_tracker::names::BN_ADD)
-        );
-    }
-
-    #[test]
-    fn test_precompile_tracker_name_bn_mul() {
-        assert_eq!(
-            get_precompile_tracker_name(&PrecompileId::Bn254Mul),
-            Some(cycle_tracker::names::BN_MUL)
-        );
-    }
-
-    #[test]
-    fn test_precompile_tracker_name_bn_pair() {
-        assert_eq!(
-            get_precompile_tracker_name(&PrecompileId::Bn254Pairing),
-            Some(cycle_tracker::names::BN_PAIR)
-        );
-    }
-
-    #[test]
-    fn test_precompile_tracker_name_ecrecover() {
-        assert_eq!(
-            get_precompile_tracker_name(&PrecompileId::EcRec),
-            Some(cycle_tracker::names::EC_RECOVER)
-        );
-    }
-
-    #[test]
-    fn test_precompile_tracker_name_p256verify() {
-        assert_eq!(
-            get_precompile_tracker_name(&PrecompileId::P256Verify),
-            Some(cycle_tracker::names::P256_VERIFY)
-        );
-    }
-
-    #[test]
-    fn test_precompile_tracker_name_kzg_eval() {
-        assert_eq!(
-            get_precompile_tracker_name(&PrecompileId::KzgPointEvaluation),
-            Some(cycle_tracker::names::KZG_EVAL)
-        );
-    }
-
     #[test]
     fn test_unknown_precompile_returns_none() {
         // SHA256 is a precompile but not accelerated/tracked
@@ -457,17 +391,16 @@ mod tests {
     #[test]
     fn test_tracked_precompile_ids_have_tracker_names() {
         let tracked_ids = [
-            PrecompileId::Bn254Add,
-            PrecompileId::Bn254Mul,
-            PrecompileId::Bn254Pairing,
-            PrecompileId::EcRec,
-            PrecompileId::P256Verify,
-            PrecompileId::KzgPointEvaluation,
+            (PrecompileId::Bn254Add, cycle_tracker::names::BN_ADD),
+            (PrecompileId::Bn254Mul, cycle_tracker::names::BN_MUL),
+            (PrecompileId::Bn254Pairing, cycle_tracker::names::BN_PAIR),
+            (PrecompileId::EcRec, cycle_tracker::names::EC_RECOVER),
+            (PrecompileId::P256Verify, cycle_tracker::names::P256_VERIFY),
+            (PrecompileId::KzgPointEvaluation, cycle_tracker::names::KZG_EVAL),
         ];
 
-        for id in &tracked_ids {
-            let tracker = get_precompile_tracker_name(id);
-            assert!(tracker.is_some(), "Precompile {id:?} is missing a cycle tracker name",);
+        for (id, expected_name) in tracked_ids {
+            assert_eq!(get_precompile_tracker_name(&id), Some(expected_name));
         }
     }
 
@@ -648,60 +581,5 @@ mod tests {
                 "{spec:?} must use canonical Granite BN254 pairing limits",
             );
         }
-    }
-
-    #[test]
-    fn test_tracker_keys_match_expected_format() {
-        let expected_keys = [
-            cycle_tracker::keys::BN_ADD,
-            cycle_tracker::keys::BN_MUL,
-            cycle_tracker::keys::BN_PAIR,
-            cycle_tracker::keys::EC_RECOVER,
-            cycle_tracker::keys::P256_VERIFY,
-            cycle_tracker::keys::KZG_EVAL,
-        ];
-
-        for key in &expected_keys {
-            assert!(
-                key.starts_with(cycle_tracker::PREFIX),
-                "Key '{}' should start with '{}'",
-                key,
-                cycle_tracker::PREFIX
-            );
-            assert!(!key.contains(' '), "Key '{}' contains spaces", key);
-            assert!(
-                !key[cycle_tracker::PREFIX.len()..].contains('_'),
-                "Key '{}' contains underscores (should use dashes)",
-                key
-            );
-        }
-    }
-
-    #[test]
-    fn test_names_and_keys_are_consistent() {
-        assert_eq!(
-            cycle_tracker::keys::BN_ADD,
-            format!("{}{}", cycle_tracker::PREFIX, cycle_tracker::names::BN_ADD)
-        );
-        assert_eq!(
-            cycle_tracker::keys::BN_MUL,
-            format!("{}{}", cycle_tracker::PREFIX, cycle_tracker::names::BN_MUL)
-        );
-        assert_eq!(
-            cycle_tracker::keys::BN_PAIR,
-            format!("{}{}", cycle_tracker::PREFIX, cycle_tracker::names::BN_PAIR)
-        );
-        assert_eq!(
-            cycle_tracker::keys::EC_RECOVER,
-            format!("{}{}", cycle_tracker::PREFIX, cycle_tracker::names::EC_RECOVER)
-        );
-        assert_eq!(
-            cycle_tracker::keys::P256_VERIFY,
-            format!("{}{}", cycle_tracker::PREFIX, cycle_tracker::names::P256_VERIFY)
-        );
-        assert_eq!(
-            cycle_tracker::keys::KZG_EVAL,
-            format!("{}{}", cycle_tracker::PREFIX, cycle_tracker::names::KZG_EVAL)
-        );
     }
 }

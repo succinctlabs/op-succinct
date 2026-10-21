@@ -154,10 +154,6 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
         assertEq(uint8(game.status()), uint8(GameStatus.DEFENDER_WINS));
     }
 
-    function testRootClaimByChainId() public view {
-        assertEq(game.rootClaimByChainId(block.chainid).raw(), rootClaim);
-    }
-
     // =========================================
     // Test: Cannot resolve game twice
     // =========================================

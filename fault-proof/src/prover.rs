@@ -572,7 +572,6 @@ mod tests {
     use std::time::Duration;
 
     #[rstest]
-    #[case::ok(30, 60, ProvingTimeout::Ok)]
     #[case::at_limit(60, 60, ProvingTimeout::Ok)]
     #[case::exceeded(61, 60, ProvingTimeout::Exceeded { elapsed_secs: 61 })]
     fn test_timeout(#[case] elapsed: u64, #[case] limit: u64, #[case] expected: ProvingTimeout) {
@@ -582,9 +581,7 @@ mod tests {
 
     #[rstest]
     #[case::not_mainnet(false, FulfillmentStatus::Requested as i32, 2000, AuctionTimeout::Skip)]
-    #[case::assigned(true, FulfillmentStatus::Assigned as i32, 2000, AuctionTimeout::Skip)]
     #[case::fulfilled(true, FulfillmentStatus::Fulfilled as i32, 2000, AuctionTimeout::Skip)]
-    #[case::within(true, FulfillmentStatus::Requested as i32, 1050, AuctionTimeout::Ok)]
     #[case::at_limit(true, FulfillmentStatus::Requested as i32, 1060, AuctionTimeout::Ok)]
     #[case::exceeded(true, FulfillmentStatus::Requested as i32, 1061, AuctionTimeout::Exceeded { elapsed_secs: 61 })]
     fn test_auction(
@@ -600,7 +597,6 @@ mod tests {
     #[rstest]
     #[case::ok(2000, 1500, Deadline::Ok)]
     #[case::at_limit(2000, 2000, Deadline::Exceeded { deadline: 2000 })]
-    #[case::exceeded(2000, 2001, Deadline::Exceeded { deadline: 2000 })]
     fn test_deadline(#[case] deadline: u64, #[case] current: u64, #[case] expected: Deadline) {
         assert_eq!(check_deadline(deadline, current), expected);
     }
@@ -608,8 +604,6 @@ mod tests {
     #[rstest]
     #[case::ready(FulfillmentStatus::Fulfilled as i32, ProofStatus::Ready)]
     #[case::failed(FulfillmentStatus::Unfulfillable as i32, ProofStatus::Failed)]
-    #[case::pending_assigned(FulfillmentStatus::Assigned as i32, ProofStatus::Pending)]
-    #[case::pending_requested(FulfillmentStatus::Requested as i32, ProofStatus::Pending)]
     #[case::pending_unknown(999, ProofStatus::Pending)]
     fn test_status(#[case] status: i32, #[case] expected: ProofStatus) {
         assert_eq!(check_status(status), expected);

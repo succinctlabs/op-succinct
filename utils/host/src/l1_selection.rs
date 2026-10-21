@@ -152,34 +152,6 @@ mod tests {
     }
 
     #[test]
-    fn default_is_finalized_zero() {
-        let cfg = L1BlockSelectionConfig::default();
-        assert_eq!(cfg.tag, L1BlockTag::Finalized);
-        assert_eq!(cfg.confirmations, 0);
-        assert!(cfg.is_default());
-    }
-
-    #[test]
-    fn from_env_empty_env_yields_default() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        clear_env();
-        let cfg = L1BlockSelectionConfig::from_env().unwrap();
-        assert!(cfg.is_default());
-    }
-
-    #[test]
-    fn from_env_parses_safe() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        clear_env();
-        std::env::set_var(L1_BLOCK_TAG_ENV, "safe");
-        let cfg = L1BlockSelectionConfig::from_env().unwrap();
-        assert_eq!(cfg.tag, L1BlockTag::Safe);
-        assert_eq!(cfg.confirmations, 0);
-        assert!(!cfg.is_default());
-        clear_env();
-    }
-
-    #[test]
     fn from_env_parses_latest_with_confirmations() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         clear_env();

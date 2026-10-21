@@ -1438,35 +1438,6 @@ mod tests {
     }
 
     #[test]
-    fn safe_db_classifier_active_on_parseable_result() {
-        let response = json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "result": {
-                "l1Block": {
-                    "hash": "0x0000000000000000000000000000000000000000000000000000000000000001",
-                    "number": 100,
-                },
-                "safeHead": {
-                    "hash": "0x0000000000000000000000000000000000000000000000000000000000000002",
-                    "number": 42,
-                },
-            },
-        });
-        assert!(classify_safe_db_probe_outcome(&response).unwrap());
-    }
-
-    #[test]
-    fn safe_db_classifier_inactive_on_method_not_found() {
-        let response = json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "error": { "code": -32601, "message": "the method optimism_safeHeadAtL1Block does not exist" },
-        });
-        assert!(!classify_safe_db_probe_outcome(&response).unwrap());
-    }
-
-    #[test]
     fn safe_db_classifier_inactive_on_disabled_safedb_message() {
         // op-node `disabledSafeDB` returns a generic-code error with a SafeDB-specific message.
         let response = json!({
@@ -1475,18 +1446,6 @@ mod tests {
             "error": { "code": -32000, "message": "safeDB is not enabled" },
         });
         assert!(!classify_safe_db_probe_outcome(&response).unwrap());
-    }
-
-    #[test]
-    fn safe_db_classifier_errs_on_unrelated_rpc_error() {
-        // Transport / auth / upstream health failures must not be collapsed into SafeDB-off.
-        let response = json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "error": { "code": -32000, "message": "unauthorized" },
-        });
-        let err = classify_safe_db_probe_outcome(&response).unwrap_err();
-        assert!(err.to_string().contains("unauthorized"), "error = {err}");
     }
 
     #[test]

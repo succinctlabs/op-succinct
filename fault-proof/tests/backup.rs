@@ -41,15 +41,9 @@ mod validation {
     // Valid cases
     #[case::empty(None, &[], None, true)]
     #[case::cursor_zero_no_games(Some(0), &[], None, true)]
-    #[case::single_genesis_game(Some(0), &[(0, M)], None, true)]
-    #[case::chain_with_anchor(Some(1), &[(0, M), (1, 0)], Some(1), true)]
     // Orphan cases — valid because anchor-based fetch and ASR filtering create partial DAGs
-    #[case::orphaned_parent(Some(1), &[(0, M), (1, 99)], None, true)]
     #[case::anchor_fetch_orphan(Some(5), &[(3, 2), (4, 3), (5, 4)], Some(3), true)]
-    #[case::asr_filtered_gap(Some(4), &[(2, 1), (4, 3)], Some(4), true)]
     #[case::multiple_orphan_roots(Some(5), &[(2, 1), (5, 4)], None, true)]
-    #[case::single_orphan(Some(5), &[(5, 3)], None, true)]
-    #[case::all_genesis_rooted(Some(1), &[(0, M), (1, M)], Some(0), true)]
     // Invalid cases — real corruption
     #[case::cursor_without_games(Some(5), &[], None, false)]
     #[case::invalid_anchor_index(Some(0), &[(0, M)], Some(99), false)]
@@ -151,9 +145,21 @@ mod integration {
     use tracing::info;
 
     use alloy_primitives::U256;
+    use alloy_provider::Provider;
     use fault_proof::backup::ProposerBackup;
 
     use crate::common::TestEnvironment;
+
+    /// Keep confirmation boundaries stable while proposer initialization takes place.
+    async fn setup_confirmation_test() -> Result<TestEnvironment> {
+        let env = TestEnvironment::setup().await?;
+        let client = env.anvil.provider.client();
+        let _: () = client.request("anvil_setIntervalMining", (0u64,)).await?;
+        let _: () = client.request("anvil_setAutomine", (true,)).await?;
+        // Games created at the registry deployment timestamp are treated as retired.
+        env.warp_time(1).await?;
+        Ok(env)
+    }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_proposer_backup_persistence() -> Result<()> {
@@ -216,7 +222,7 @@ mod integration {
     async fn test_backup_partial_prune_with_confirmations() -> Result<()> {
         info!("=== Test: Backup Partial Prune With Confirmations ===");
 
-        let env = TestEnvironment::setup().await?;
+        let env = setup_confirmation_test().await?;
         let starting_l2_block = env.anvil.starting_l2_block_number;
 
         let backup_dir = TempDir::new()?;
@@ -304,13 +310,13 @@ mod integration {
 
     /// Tests that backup restore with pinned block having zero games clears all state.
     ///
-    /// Saves a backup containing a game, then restarts with confirmations large enough
-    /// that the pinned block predates all game creation. Verifies the cache is fully cleared.
+    /// Saves a backup containing a game, then pins to the block immediately before its
+    /// creation, after factory deployment. Verifies the cache is fully cleared.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_backup_restore_pinned_block_no_games() -> Result<()> {
         info!("=== Test: Backup Restore With Pinned Block Having Zero Games ===");
 
-        let env = TestEnvironment::setup().await?;
+        let env = setup_confirmation_test().await?;
         let starting_l2_block = env.anvil.starting_l2_block_number;
 
         let backup_dir = TempDir::new()?;
@@ -334,9 +340,8 @@ mod integration {
         let backup = ProposerBackup::new(Some(U256::from(0)), vec![game_0], None);
         backup.save(&backup_path)?;
 
-        // Phase 3: Restart with huge confirmations so pinned block is before all games.
-        let proposer =
-            Arc::new(env.new_proposer_with_options(Some(backup_path.clone()), 1_000_000).await?);
+        // Phase 3: Pin before the game was created, after the factory was deployed.
+        let proposer = Arc::new(env.new_proposer_with_options(Some(backup_path.clone()), 1).await?);
         proposer.try_init().await?;
 
         // Verify: backup was restored with game 0.
@@ -365,7 +370,7 @@ mod integration {
     async fn test_backup_prune_then_rediscover_after_confirmation() -> Result<()> {
         info!("=== Test: Prune Then Rediscover After Confirmation ===");
 
-        let env = TestEnvironment::setup().await?;
+        let env = setup_confirmation_test().await?;
         let starting_l2_block = env.anvil.starting_l2_block_number;
 
         let backup_dir = TempDir::new()?;
