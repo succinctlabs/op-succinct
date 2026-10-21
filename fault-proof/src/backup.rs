@@ -206,6 +206,7 @@ mod tests {
                 "last_created_game_address",
                 "last_created_game_l2_block",
                 "last_created_game_observation",
+                "removed_games",
                 "version"
             ],
             "ProposerBackup schema changed! Check compatibility and bump BACKUP_VERSION for breaking changes"
