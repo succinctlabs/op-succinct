@@ -95,6 +95,9 @@ mod persistence {
             output_root: B256::repeat_byte(2),
             extra_data: vec![3; 36].into(),
         });
+        original
+            .removed_games
+            .insert(U256::from(4), alloy_eips::BlockNumHash::new(43, B256::repeat_byte(4)));
         original.save(&path).unwrap();
         let loaded = ProposerBackup::load(&path).unwrap();
 
@@ -105,6 +108,7 @@ mod persistence {
         assert_eq!(loaded.last_created_game_l2_block, original.last_created_game_l2_block);
         assert_eq!(loaded.last_created_game_address, original.last_created_game_address);
         assert_eq!(loaded.last_created_game_observation, original.last_created_game_observation);
+        assert_eq!(loaded.removed_games, original.removed_games);
     }
 
     #[test]
@@ -112,6 +116,7 @@ mod persistence {
         let (_dir, path) = temp_backup_path();
         let mut backup = serde_json::to_value(ProposerBackup::new(None, vec![], None)).unwrap();
         backup.as_object_mut().unwrap().remove("last_created_game_observation");
+        backup.as_object_mut().unwrap().remove("removed_games");
         backup["last_created_game_l2_block"] = serde_json::json!(103);
         backup["last_created_game_address"] = serde_json::json!(Address::repeat_byte(1));
         std::fs::write(&path, backup.to_string()).unwrap();
@@ -119,6 +124,7 @@ mod persistence {
         assert_eq!(loaded.last_created_game_l2_block, 103);
         assert_eq!(loaded.last_created_game_address, Address::repeat_byte(1));
         assert_eq!(loaded.last_created_game_observation, None);
+        assert!(loaded.removed_games.is_empty());
     }
 
     #[test]

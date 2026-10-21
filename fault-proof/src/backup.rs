@@ -7,6 +7,7 @@ use std::{io::Write, path::Path};
 
 use tempfile::NamedTempFile;
 
+use alloy_eips::BlockNumHash;
 use alloy_primitives::{Address, Bytes, B256, U256};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
@@ -31,6 +32,9 @@ pub struct ProposerBackup {
     pub cursor: Option<U256>,
     pub games: Vec<Game>,
     pub anchor_game_index: Option<U256>,
+    /// Removed games remain recoverable until their removal snapshot is finalized on L1.
+    #[serde(default)]
+    pub removed_games: std::collections::HashMap<U256, BlockNumHash>,
     /// L2 block of the most recently created game. Prevents duplicate creation after
     /// restart when the pinned sync cache hasn't caught up. Defaults to 0 for backups
     /// created before this field existed.
@@ -53,6 +57,7 @@ impl ProposerBackup {
             cursor,
             games,
             anchor_game_index,
+            removed_games: Default::default(),
             last_created_game_l2_block: 0,
             last_created_game_address: Address::ZERO,
             last_created_game_observation: None,
