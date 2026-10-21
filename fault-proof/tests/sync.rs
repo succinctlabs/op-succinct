@@ -889,15 +889,17 @@ mod proposer_sync {
     }
 
     #[rstest]
-    #[case::clean(false, false, false)]
-    #[case::retry_after_rpc_failure(true, false, false)]
-    #[case::tracked_before_first_sync(false, true, false)]
-    #[case::reverted_old_claim(false, true, true)]
+    #[case::clean(false, false, false, false)]
+    #[case::retry_after_rpc_failure(true, false, false, false)]
+    #[case::tracked_before_first_sync(false, true, false, false)]
+    #[case::reverted_old_claim(false, true, true, false)]
+    #[case::removal_only_backup(false, true, true, true)]
     #[tokio::test]
     async fn test_sync_state_with_max_game_deadline_gap(
         #[case] retry_after_rpc_failure: bool,
         #[case] tracked_before_first_sync: bool,
         #[case] reverted_old_claim: bool,
+        #[case] removal_only_backup: bool,
     ) -> Result<()> {
         let (env, mut proposer, init_bond) = setup().await?;
 
@@ -1000,6 +1002,28 @@ mod proposer_sync {
                 assert!(env.claim_bond(*address, PROPOSER_ADDRESS).await?.status());
             }
             let provider = &env.anvil.provider;
+            let mut expected_anchor = game_addresses[2];
+            let mut expected_anchor_l2 = U256::from(starting_l2_block + 3);
+            if removal_only_backup {
+                // A new game type's anchor stops fresh discovery above the old payable game.
+                env.setup_legacy_game_type(MOCK_PERMISSIONED_GAME_TYPE, U256::ZERO).await?;
+                env.set_respected_game_type(MOCK_PERMISSIONED_GAME_TYPE).await?;
+                expected_anchor_l2 += U256::ONE;
+                let root = env.compute_output_root_at_block(expected_anchor_l2.to::<u64>()).await?;
+                let create = DisputeGameFactory::createCall {
+                    _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+                    _rootClaim: root,
+                    _extraData: (expected_anchor_l2, M).abi_encode_packed().into(),
+                };
+                env.send_factory_tx(create.abi_encode(), Some(U256::ZERO)).await?;
+                expected_anchor = env.last_game_info().await?.1;
+                assert!(env.resolve_game(expected_anchor).await?.status());
+                env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+                let update = op_succinct_bindings::anchor_state_registry::AnchorStateRegistry::setAnchorStateCall {
+                    _game: expected_anchor,
+                };
+                env.send_anchor_state_registry_tx(update.abi_encode(), None).await?;
+            }
             let _: serde_json::Value =
                 provider.raw_request("evm_setIntervalMining".into(), [0u64]).await?;
             let _: serde_json::Value =
@@ -1019,9 +1043,19 @@ mod proposer_sync {
             let backup_service = tokio::spawn(std::sync::Arc::new(backup_proposer).run());
             let saved = tokio::time::timeout(std::time::Duration::from_secs(30), async {
                 loop {
-                    if let Some(backup) = fault_proof::backup::ProposerBackup::load(&backup_path) {
+                    // Inspect the service-written file before restart invokes production
+                    // validation.
+                    if let Ok(bytes) = std::fs::read(&backup_path) {
+                        let backup: fault_proof::backup::ProposerBackup =
+                            serde_json::from_slice(&bytes)
+                                .expect("Service backup must be valid JSON");
                         assert!(!backup.games.iter().any(|game| game.index == U256::ZERO));
                         assert!(backup.removed_games.contains_key(&U256::ZERO));
+                        if removal_only_backup {
+                            assert!(backup.games.is_empty(), "Only recovery records may remain");
+                            assert!(backup.cursor.is_some_and(|cursor| cursor > U256::ZERO));
+                            assert!(backup.anchor_game_index.is_none());
+                        }
                         break backup.removed_games[&U256::ZERO];
                     }
                     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
@@ -1041,6 +1075,14 @@ mod proposer_sync {
                 "Reorg restored the old bond but sync lost its game beyond the discovery cutoff",
             )?;
             assert!(restored.should_attempt_to_close_game);
+            if removal_only_backup {
+                let fresh = env.init_proposer().await?;
+                fresh.sync_state().await?;
+                assert!(
+                    fresh.get_game(U256::ZERO).await.is_none(),
+                    "Fresh discovery must not recover the old bond without its removal record"
+                );
+            }
 
             // Restart from the pre-reorg backup, where game 0 is already absent.
             let mut restarted = env.new_proposer_with_options(Some(backup_path.clone()), 0).await?;
@@ -1059,6 +1101,10 @@ mod proposer_sync {
             let handle = tokio::spawn(restarted.clone().run());
             let result = async {
                 env.wait_for_bond_claims(&tracked, PROPOSER_ADDRESS, 60).await?;
+                if removal_only_backup {
+                    // This recovered game is now the old-type cache's head and stays retained.
+                    return Ok::<_, anyhow::Error>(());
+                }
                 tokio::time::timeout(std::time::Duration::from_secs(30), async {
                     loop {
                         let backup = fault_proof::backup::ProposerBackup::load(&backup_path)
@@ -1081,8 +1127,10 @@ mod proposer_sync {
             .await;
             handle.abort();
             result?;
-            env.verify_bond_claims(&checks, game_addresses[2], U256::from(starting_l2_block + 3))
-                .await?;
+            env.verify_bond_claims(&checks, expected_anchor, expected_anchor_l2).await?;
+            if removal_only_backup {
+                return Ok(());
+            }
 
             // Once the removal block is finalized, the next service backup must release it.
             let _: serde_json::Value = provider.raw_request("anvil_mine".into(), ["0x80"]).await?;
