@@ -181,9 +181,21 @@ mod integration {
     use tracing::info;
 
     use alloy_primitives::U256;
+    use alloy_provider::Provider;
     use fault_proof::backup::ProposerBackup;
 
     use crate::common::TestEnvironment;
+
+    // Keep confirmation boundaries fixed while constructing and restoring the backup.
+    async fn stop_interval_mining(env: &TestEnvironment) -> Result<()> {
+        let _: serde_json::Value =
+            env.anvil.provider.raw_request("evm_setIntervalMining".into(), [0u64]).await?;
+        let _: serde_json::Value =
+            env.anvil.provider.raw_request("evm_setAutomine".into(), [true]).await?;
+        // Games must be newer than the registry retirement timestamp set during deployment.
+        env.warp_time(1).await?;
+        Ok(())
+    }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_proposer_backup_persistence() -> Result<()> {
@@ -247,6 +259,7 @@ mod integration {
         info!("=== Test: Backup Partial Prune With Confirmations ===");
 
         let env = TestEnvironment::setup().await?;
+        stop_interval_mining(&env).await?;
         let starting_l2_block = env.anvil.starting_l2_block_number;
 
         let backup_dir = TempDir::new()?;
@@ -334,13 +347,14 @@ mod integration {
 
     /// Tests that backup restore with pinned block having zero games clears all state.
     ///
-    /// Saves a backup containing a game, then restarts with confirmations large enough
-    /// that the pinned block predates all game creation. Verifies the cache is fully cleared.
+    /// Saves a backup containing a game, then restarts at the block before its creation.
+    /// The contracts already exist at that block, but the factory contains no games.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_backup_restore_pinned_block_no_games() -> Result<()> {
         info!("=== Test: Backup Restore With Pinned Block Having Zero Games ===");
 
         let env = TestEnvironment::setup().await?;
+        stop_interval_mining(&env).await?;
         let starting_l2_block = env.anvil.starting_l2_block_number;
 
         let backup_dir = TempDir::new()?;
@@ -364,9 +378,8 @@ mod integration {
         let backup = ProposerBackup::new(Some(U256::from(0)), vec![game_0], None);
         backup.save(&backup_path)?;
 
-        // Phase 3: Restart with huge confirmations so pinned block is before all games.
-        let proposer =
-            Arc::new(env.new_proposer_with_options(Some(backup_path.clone()), 1_000_000).await?);
+        // Phase 3: Pin before game creation, after the factory and registry were deployed.
+        let proposer = Arc::new(env.new_proposer_with_options(Some(backup_path.clone()), 1).await?);
         proposer.try_init().await?;
 
         // Verify: backup was restored with game 0.
@@ -396,6 +409,7 @@ mod integration {
         info!("=== Test: Prune Then Rediscover After Confirmation ===");
 
         let env = TestEnvironment::setup().await?;
+        stop_interval_mining(&env).await?;
         let starting_l2_block = env.anvil.starting_l2_block_number;
 
         let backup_dir = TempDir::new()?;
