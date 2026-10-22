@@ -34,6 +34,8 @@ jobs:
               - 'justfile'
               - 'rust-toolchain.toml'
               - 'fault-proof/**'
+              - 'tests/**'
+              - 'contracts/**'
               - 'bindings/**'
               - 'utils/**'
 
@@ -45,7 +47,7 @@ jobs:
     if: always() && github.event_name == 'pull_request'
     name: Fault Proof (${{ matrix.test }})
     runs-on: ${{ (!matrix.run_real || (needs.changes.result == 'success' && needs.changes.outputs.code != 'true')) && 'ubuntu-latest' || fromJSON(format('["runs-on","runner=64cpu-linux-x64","run-id={0}","spot=false","disk=large","extras=s3-cache"]', github.run_id)) }}
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     strategy:
       fail-fast: false
@@ -112,11 +114,6 @@ jobs:
     - name: Run tests
       if: matrix.run_real && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
       run: just fp-integration-tests ${{ matrix.test }} ethereum
-      env:
-        L1_RPC: ${{ secrets.L1_RPC }}
-        L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
-        L2_RPC: ${{ secrets.L2_RPC }}
-        L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
 
     - name: Upload test logs on failure
       if: failure() && matrix.run_real
@@ -147,7 +144,7 @@ jobs:
       - spot=false
       - disk=large
       - extras=s3-cache
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     strategy:
       fail-fast: false
@@ -219,11 +216,6 @@ jobs:
 
     - name: Run tests
       run: just fp-integration-tests ${{ matrix.test }} ethereum
-      env:
-        L1_RPC: ${{ secrets.L1_RPC }}
-        L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
-        L2_RPC: ${{ secrets.L2_RPC }}
-        L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
 
     - name: Upload test logs on failure
       if: failure()

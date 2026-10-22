@@ -11,6 +11,8 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'justfile'
+      - 'tests/**'
+      - 'contracts/**'
       - 'fault-proof/**'
       - 'bindings/**'
       - 'configs/**'
@@ -43,7 +45,8 @@ jobs:
       - runner=64cpu-linux-x64
       - run-id=${{ github.run_id }} 
       - spot=false
-    timeout-minutes: 60
+      - disk=large
+    timeout-minutes: 90
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -75,11 +78,6 @@ jobs:
 
     - name: Test
       run: just tests
-      env:
-        L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
-        L1_RPC: ${{ secrets.L1_RPC }}
-        L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
-        L2_RPC: ${{ secrets.L2_RPC }}
 
     - name: Test AggLayer validity
       run: cargo test -p op-succinct-validity --release --features agglayer --lib
