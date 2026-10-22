@@ -7,7 +7,8 @@ use std::{io::Write, path::Path};
 
 use tempfile::NamedTempFile;
 
-use alloy_primitives::{Address, U256};
+use alloy_eips::BlockNumHash;
+use alloy_primitives::{Address, Bytes, B256, U256};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +17,14 @@ use crate::proposer::Game;
 /// Current backup format version. Increment when making breaking changes.
 pub const BACKUP_VERSION: u32 = 1;
 
+/// L1 height where a proposal existed, with the factory identity needed to find it again.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GameCreation {
+    pub observed_l1_block: u64,
+    pub output_root: B256,
+    pub extra_data: Bytes,
+}
+
 /// Serializable backup of the proposer state.
 #[derive(Serialize, Deserialize)]
 pub struct ProposerBackup {
@@ -23,6 +32,9 @@ pub struct ProposerBackup {
     pub cursor: Option<U256>,
     pub games: Vec<Game>,
     pub anchor_game_index: Option<U256>,
+    /// Removed games remain recoverable until their removal snapshot is finalized on L1.
+    #[serde(default)]
+    pub removed_games: std::collections::HashMap<U256, BlockNumHash>,
     /// L2 block of the most recently created game. Prevents duplicate creation after
     /// restart when the pinned sync cache hasn't caught up. Defaults to 0 for backups
     /// created before this field existed.
@@ -32,6 +44,9 @@ pub struct ProposerBackup {
     /// guard reset. Defaults to Address::ZERO (no guard) for old backups.
     #[serde(default)]
     pub last_created_game_address: Address,
+    /// Missing in older backups; without an observed height, preserve the restored guard.
+    #[serde(default)]
+    pub last_created_game_observation: Option<GameCreation>,
 }
 
 impl ProposerBackup {
@@ -42,8 +57,10 @@ impl ProposerBackup {
             cursor,
             games,
             anchor_game_index,
+            removed_games: Default::default(),
             last_created_game_l2_block: 0,
             last_created_game_address: Address::ZERO,
+            last_created_game_observation: None,
         }
     }
 
@@ -51,9 +68,9 @@ impl ProposerBackup {
     /// references, which are normal when anchor-based fetching or ASR filtering produce partial
     /// DAGs.
     pub fn validate(&self) -> Result<()> {
-        // Cursor with no games indicates a stale or corrupted backup.
+        // Removed-game records can be the only state needed to recover a reverted claim.
         if let Some(cursor) = self.cursor {
-            if self.games.is_empty() && cursor > U256::ZERO {
+            if self.games.is_empty() && self.removed_games.is_empty() && cursor > U256::ZERO {
                 bail!("cursor exists but no games");
             }
         }
@@ -188,9 +205,11 @@ mod tests {
                 "games",
                 "last_created_game_address",
                 "last_created_game_l2_block",
+                "last_created_game_observation",
+                "removed_games",
                 "version"
             ],
-            "ProposerBackup schema changed! Bump BACKUP_VERSION in backup.rs"
+            "ProposerBackup schema changed! Check compatibility and bump BACKUP_VERSION for breaking changes"
         );
     }
 }
