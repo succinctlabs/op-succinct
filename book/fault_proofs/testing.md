@@ -4,7 +4,8 @@ This guide explains how to run and understand the test suite for the OP Succinct
 
 ## Overview
 
-The fault-proof crate includes comprehensive integration tests that run actual proposer and challenger binaries against a forked Ethereum network (Anvil). These tests validate the complete lifecycle of dispute games including creation, challenges, resolution, and bond claims.
+The fault-proof integration tests run proposer and challenger services using local Sysgo L2 nodes.
+They use a separate Anvil settlement chain to control time and validate game creation, challenges, resolution, bond claims, and anchor updates.
 
 ## Prerequisites
 
@@ -27,12 +28,11 @@ Before running the tests, ensure you have:
     cargo install just
     ```
 
-4. **Environment variables configured**
-   ```bash
-   export L1_RPC=<YOUR_L1_RPC>
-   export L2_RPC=<YOUR_L2_RPC>
-   export L2_NODE_RPC=<YOUR_L2_NODE_RPC>
-   ```
+4. **Local test nodes**
+
+   The default commands start local Sysgo nodes and supply RPC URLs and chain configuration.
+   See the [Rust E2E setup](https://github.com/succinctlabs/op-succinct/blob/release/v3.x/tests/README.md#rust-fault-proof-e2e) for prerequisites and commands.
+   That section also explains how to use RPCs supplied through the environment.
 
 ## Available Tests
 
@@ -90,6 +90,6 @@ These tests focus on anchor selection, parent validation, and handling of invali
 
 ### Basic Test Execution
 ```bash
-# Run all integration tests with single thread and no capture
-just fp-integration-tests
+# Run the lifecycle suite against local Sysgo nodes.
+just fp-integration-tests integration ethereum
 ```

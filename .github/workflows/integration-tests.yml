@@ -32,7 +32,7 @@ jobs:
       - spot=false
       - disk=large
       - extras=s3-cache
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     strategy:
       fail-fast: false
@@ -78,11 +78,6 @@ jobs:
 
     - name: Run tests
       run: just fp-integration-tests ${{ matrix.test }} ethereum
-      env:
-        L1_RPC: ${{ secrets.L1_RPC }}
-        L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
-        L2_RPC: ${{ secrets.L2_RPC }}
-        L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
 
     - name: Upload test logs on failure
       if: failure()

@@ -4,6 +4,11 @@ on:
   pull_request:
     paths:
       - 'elf/range-elf-embedded'
+      - '.github/workflows/cycle-count-diff.yml'
+      - 'scripts/prove/tests/cycle_count_diff.rs'
+      - 'tests/rust/**'
+      - 'tests/justfile'
+      - 'justfile'
 
 permissions:
   contents: read
@@ -24,14 +29,18 @@ jobs:
       - disk=large
       - spot=false
       
+    timeout-minutes: 90
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
     steps:
       - name: Checkout Repository (for local actions)
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          submodules: recursive
 
       - name: Setup CI
-        uses: ./.github/actions/setup
-        with:
-           submodules: recursive
+        uses: ./.github/actions/setup-e2e-sysgo
       
       - name: Install SP1 toolchain
         run: |
@@ -40,62 +49,33 @@ jobs:
           ~/.sp1/bin/cargo-prove prove --version
           source ~/.bashrc
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: nightly-d592b3e0f142d694c3be539702704a4a73238773
-
-      - name: Checkout PR Branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          path: new_code
-          submodules: recursive
-
       - name: Checkout Base Branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.ref }}
+          ref: ${{ github.event.pull_request.base.sha }}
           path: old_code
           submodules: recursive
 
-      - name: Run Test On New Branch
-        run: |
-          RUST_LOG=info NEW_BRANCH=true cargo test test_cycle_count_diff --release -- --exact --nocapture
-        working-directory: ./new_code
-        env:
-          L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
-          L1_RPC: ${{ secrets.L1_RPC }}
-          L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
-          L2_RPC: ${{ secrets.L2_RPC }}
+      - name: Compare both branches against local Sysgo
+        run: RUST_LOG=info just cycle-count-diff old_code
 
-      - name: Copy Stats File For Old Branch
-        run: |
-          STATS_FILE=$(find ${{ github.workspace }}/new_code -name "new_cycle_stats.json" -type f | head -1)
-          cp "$STATS_FILE" ${{ github.workspace }}/old_code/scripts/prove/new_cycle_stats.json
+      - name: Add performance report to summary
+        run: cat scripts/prove/cycle_count_report.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Run Test On Old Branch
-        run: |
-          RUST_LOG=info NEW_BRANCH=false cargo test test_cycle_count_diff --release -- --exact --nocapture
-        working-directory: ./old_code
-        env:
-          L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
-          L1_RPC: ${{ secrets.L1_RPC }}
-          L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
-          L2_RPC: ${{ secrets.L2_RPC }}
-
-      - name: Create comparison report
-        run: |
-          cp ../old_code/scripts/prove/old_cycle_stats.json scripts/prove/old_cycle_stats.json
-          RUST_LOG=info cargo test --test cycle_count_diff test_post_to_github -- --exact --nocapture
-        working-directory: ./new_code
-
-      - name: Save comparison report
-        run: cat new_code/scripts/prove/cycle_count_report.md >> "$GITHUB_STEP_SUMMARY"
-
-      - uses: actions/upload-artifact@v4
+      - name: Upload performance report
+        uses: actions/upload-artifact@v4
         with:
           name: performance-report
-          path: new_code/scripts/prove/cycle_count_report.md
+          path: scripts/prove/cycle_count_report.md
           if-no-files-found: error
           overwrite: true
+
+      - name: Upload comparison results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cycle-count-diff
+          path: |
+            scripts/prove/*_cycle_stats.json
+            scripts/prove/cycle_count_heads.json
+            scripts/prove/cycle_count_report.md

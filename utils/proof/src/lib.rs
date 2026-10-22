@@ -29,6 +29,8 @@ use sp1_sdk::{
     SP1VerifyingKey,
 };
 
+pub mod execution;
+
 /// Get the range ELF depending on the feature flag.
 pub fn get_range_elf_embedded() -> &'static [u8] {
     cfg_if::cfg_if! {

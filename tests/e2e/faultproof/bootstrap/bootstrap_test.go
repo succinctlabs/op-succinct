@@ -3,12 +3,19 @@ package bootstrap
 import (
 	"context"
 	"math"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rpc"
+	opsbind "github.com/succinctlabs/op-succinct/bindings"
 	opspresets "github.com/succinctlabs/op-succinct/presets"
 	"github.com/succinctlabs/op-succinct/utils"
 )
@@ -57,7 +64,8 @@ func TestFaultProofProposerAndChallenger_SystemUp(gt *testing.T) {
 // TestFaultProofProposer_CreatesFirstGame verifies the proposer creates and proves a game.
 func TestFaultProofProposer_CreatesFirstGame(gt *testing.T) {
 	t := devtest.ParallelT(gt)
-	sys := opspresets.NewFaultProofSystem(t, opspresets.DefaultFPProposerConfig(), opspresets.DefaultL2ChainConfig())
+	cfg := opspresets.DefaultFPProposerConfig()
+	sys := opspresets.NewFaultProofSystem(t, cfg, opspresets.DefaultL2ChainConfig())
 	require := t.Require()
 	logger := t.Logger()
 	ctx, cancel := context.WithTimeout(t.Ctx(), utils.ShortTimeout())
@@ -73,6 +81,34 @@ func TestFaultProofProposer_CreatesFirstGame(gt *testing.T) {
 
 	fdg, err := utils.NewFdgClient(sys.L1EL.EthClient(), game.Proxy)
 	require.NoError(err, "failed to create Fault Dispute Game client")
+
+	gameCaller, err := opsbind.NewOPSuccinctFaultDisputeGameCaller(game.Proxy, utils.NewEthCaller(sys.L1EL.EthClient()))
+	require.NoError(err)
+	startingAnchor, err := gameCaller.StartingOutputRoot(&bind.CallOpts{Context: ctx})
+	require.NoError(err, "failed to read the first game's starting anchor")
+	logger.Info("First game starting anchor", "block", startingAnchor.L2BlockNumber, "root", common.Hash(startingAnchor.Root))
+	require.NoError(utils.VerifyOutputRoot(ctx, sys.L2EL.Escape().L2EthClient(),
+		startingAnchor.L2BlockNumber.Uint64(), startingAnchor.Root), "initial anchor must match the local L2 state")
+
+	asrAddr, err := fdg.AnchorStateRegistryAddr(ctx)
+	require.NoError(err)
+	portalData, err := sys.L1EL.EthClient().Call(ctx, ethereum.CallMsg{
+		To:   &asrAddr,
+		Data: crypto.Keccak256([]byte("portal()"))[:4],
+	}, rpc.LatestBlockNumber)
+	require.NoError(err, "failed to read the v3 registry's portal")
+	require.Len(portalData, 32)
+	portalAddr := common.BytesToAddress(portalData[12:])
+	delayData, err := sys.L1EL.EthClient().Call(ctx, ethereum.CallMsg{
+		To:   &portalAddr,
+		Data: crypto.Keccak256([]byte("disputeGameFinalityDelaySeconds()"))[:4],
+	}, rpc.LatestBlockNumber)
+	require.NoError(err, "failed to read the deployed registry's finality delay")
+	require.Len(delayData, 32)
+	delay := new(big.Int).SetBytes(delayData)
+	logger.Info("Deployed anchor configuration", "registry", asrAddr, "portal", portalAddr, "finalityDelay", delay)
+	require.Equal(new(big.Int).SetUint64(cfg.DisputeGameFinalityDelaySecs), delay,
+		"deployed finality delay must match the test configuration")
 
 	// Verify parent index
 	parentIdx, err := fdg.ParentIndex(ctx)

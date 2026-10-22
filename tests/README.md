@@ -6,6 +6,7 @@ run the suite with the expected environment.
 
 ## Layout
 
+- `rust/`: Existing Rust test and cost-estimator commands using local Sysgo nodes.
 - `e2e/`: Go e2e tests.
   - `nodes/`: Nodes-only tests (no proposer) for local development.
   - `validity/`: Validity proposer tests.
@@ -68,6 +69,38 @@ run the suite with the expected environment.
   ```just
   just test-e2e-sysgo ./e2e/validity/... TestValidityProposer_ProveSingleRange
   ```
+
+## Rust Fault Proof E2E
+
+From the repository root, run `just fp-integration-tests sync ethereum` or `just fp-integration-tests integration ethereum`.
+Each command starts the existing Sysgo node preset, waits for 500 finalized L2 blocks, then runs the existing Rust target.
+RPC URLs and chain configs come from this local stack, which stops when the Rust target finishes.
+The Rust tests retain their separate Anvil settlement chain for time control, payouts, anchor updates, and L1 reorgs.
+Local nodes use Ethereum DA.
+The `integration` feature uses mock proofs.
+No external RPC credentials are required.
+
+Use `just fp-integration-tests-rpc <target> <da>` to run against RPCs supplied through the environment.
+
+## Workspace Tests and Cost Estimation
+
+From the repository root, `just tests` runs the existing workspace tests against local Sysgo RPCs, including `execute_batch` and its zkVM execution.
+`just cost-estimator-test` estimates execution over five recent local L2 blocks.
+Both wait for enough finalized history and use the same node launcher as Rust fault-proof E2E.
+Both execution paths require a zero guest exit code and final output matching the requested L2 range and its starting and ending output roots.
+These local checks exercise Ethereum DA and do not measure public-chain workload costs.
+Use `just tests-rpc` or `just cost-estimator-rpc` to supply RPCs through the environment.
+
+## Cycle Count Comparison
+
+From the repository root, run `just cycle-count-diff /absolute/path/to/base-checkout`.
+Both checkouts must have their submodules initialized.
+The command runs both branches against one Sysgo chain, with the same finalized L2 range and L1 head.
+Each branch generates its own witness and executes its own embedded range ELF through the same test driver.
+The base checkout receives a temporary test target, which is removed when the command finishes.
+The comparison writes statistics, block identities, and `cycle_count_report.md` under `scripts/prove/`.
+No external RPC credentials are required.
+The system-transaction workload measures local execution and does not cover every accelerated cryptographic operation.
 
 ## Long-Running Tests
 
