@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use alloy_primitives::{Address, B256, U256};
 use fault_proof::{
-    backup::{ProposerBackup, BACKUP_VERSION},
+    backup::{GameCreation, ProposerBackup, BACKUP_VERSION},
     contract::{GameStatus, ProposalStatus},
     proposer::Game,
 };
@@ -82,12 +82,22 @@ mod persistence {
     fn save_and_load_roundtrip() {
         let (_dir, path) = temp_backup_path();
 
-        let original = ProposerBackup::new(
+        let mut original = ProposerBackup::new(
             Some(U256::from(5)),
             vec![test_game(0, u32::MAX), test_game(1, 0), test_game(2, 1)],
             Some(U256::from(2)),
         );
 
+        original.last_created_game_l2_block = 103;
+        original.last_created_game_address = Address::repeat_byte(1);
+        original.last_created_game_observation = Some(GameCreation {
+            observed_l1_block: 42,
+            output_root: B256::repeat_byte(2),
+            extra_data: vec![3; 36].into(),
+        });
+        original
+            .removed_games
+            .insert(U256::from(4), alloy_eips::BlockNumHash::new(43, B256::repeat_byte(4)));
         original.save(&path).unwrap();
         let loaded = ProposerBackup::load(&path).unwrap();
 
@@ -95,6 +105,40 @@ mod persistence {
         assert_eq!(loaded.cursor, original.cursor);
         assert_eq!(loaded.games.len(), 3);
         assert_eq!(loaded.anchor_game_index, original.anchor_game_index);
+        assert_eq!(loaded.last_created_game_l2_block, original.last_created_game_l2_block);
+        assert_eq!(loaded.last_created_game_address, original.last_created_game_address);
+        assert_eq!(loaded.last_created_game_observation, original.last_created_game_observation);
+        assert_eq!(loaded.removed_games, original.removed_games);
+    }
+
+    #[test]
+    fn save_and_load_removed_only_backup() {
+        let (_dir, path) = temp_backup_path();
+        let mut backup = ProposerBackup::new(Some(U256::from(2)), vec![], None);
+        backup
+            .removed_games
+            .insert(U256::ZERO, alloy_eips::BlockNumHash::new(43, B256::repeat_byte(4)));
+        backup.save(&path).unwrap();
+        let restored = ProposerBackup::load(&path).expect("Removal records must survive restart");
+        assert!(restored.games.is_empty());
+        assert_eq!(restored.cursor, backup.cursor);
+        assert_eq!(restored.removed_games, backup.removed_games);
+    }
+
+    #[test]
+    fn old_backup_preserves_guard_without_inventing_observed_height() {
+        let (_dir, path) = temp_backup_path();
+        let mut backup = serde_json::to_value(ProposerBackup::new(None, vec![], None)).unwrap();
+        backup.as_object_mut().unwrap().remove("last_created_game_observation");
+        backup.as_object_mut().unwrap().remove("removed_games");
+        backup["last_created_game_l2_block"] = serde_json::json!(103);
+        backup["last_created_game_address"] = serde_json::json!(Address::repeat_byte(1));
+        std::fs::write(&path, backup.to_string()).unwrap();
+        let loaded = ProposerBackup::load(&path).unwrap();
+        assert_eq!(loaded.last_created_game_l2_block, 103);
+        assert_eq!(loaded.last_created_game_address, Address::repeat_byte(1));
+        assert_eq!(loaded.last_created_game_observation, None);
+        assert!(loaded.removed_games.is_empty());
     }
 
     #[test]
@@ -151,9 +195,21 @@ mod integration {
     use tracing::info;
 
     use alloy_primitives::U256;
+    use alloy_provider::Provider;
     use fault_proof::backup::ProposerBackup;
 
     use crate::common::TestEnvironment;
+
+    // Keep confirmation boundaries fixed while constructing and restoring the backup.
+    async fn stop_interval_mining(env: &TestEnvironment) -> Result<()> {
+        let _: serde_json::Value =
+            env.anvil.provider.raw_request("evm_setIntervalMining".into(), [0u64]).await?;
+        let _: serde_json::Value =
+            env.anvil.provider.raw_request("evm_setAutomine".into(), [true]).await?;
+        // Games must be newer than the registry retirement timestamp set during deployment.
+        env.warp_time(1).await?;
+        Ok(())
+    }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_proposer_backup_persistence() -> Result<()> {
@@ -217,6 +273,7 @@ mod integration {
         info!("=== Test: Backup Partial Prune With Confirmations ===");
 
         let env = TestEnvironment::setup().await?;
+        stop_interval_mining(&env).await?;
         let starting_l2_block = env.anvil.starting_l2_block_number;
 
         let backup_dir = TempDir::new()?;
@@ -304,13 +361,14 @@ mod integration {
 
     /// Tests that backup restore with pinned block having zero games clears all state.
     ///
-    /// Saves a backup containing a game, then restarts with confirmations large enough
-    /// that the pinned block predates all game creation. Verifies the cache is fully cleared.
+    /// Saves a backup containing a game, then restarts at the block before its creation.
+    /// The contracts already exist at that block, but the factory contains no games.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_backup_restore_pinned_block_no_games() -> Result<()> {
         info!("=== Test: Backup Restore With Pinned Block Having Zero Games ===");
 
         let env = TestEnvironment::setup().await?;
+        stop_interval_mining(&env).await?;
         let starting_l2_block = env.anvil.starting_l2_block_number;
 
         let backup_dir = TempDir::new()?;
@@ -334,9 +392,8 @@ mod integration {
         let backup = ProposerBackup::new(Some(U256::from(0)), vec![game_0], None);
         backup.save(&backup_path)?;
 
-        // Phase 3: Restart with huge confirmations so pinned block is before all games.
-        let proposer =
-            Arc::new(env.new_proposer_with_options(Some(backup_path.clone()), 1_000_000).await?);
+        // Phase 3: Pin before game creation, after the factory and registry were deployed.
+        let proposer = Arc::new(env.new_proposer_with_options(Some(backup_path.clone()), 1).await?);
         proposer.try_init().await?;
 
         // Verify: backup was restored with game 0.
@@ -366,6 +423,7 @@ mod integration {
         info!("=== Test: Prune Then Rediscover After Confirmation ===");
 
         let env = TestEnvironment::setup().await?;
+        stop_interval_mining(&env).await?;
         let starting_l2_block = env.anvil.starting_l2_block_number;
 
         let backup_dir = TempDir::new()?;
