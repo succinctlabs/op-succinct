@@ -3,6 +3,7 @@ name = "op-succinct-bindings"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish.workspace = true
 authors.workspace = true
 repository.workspace = true
 homepage.workspace = true

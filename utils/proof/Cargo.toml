@@ -2,6 +2,7 @@
 name = "op-succinct-proof-utils"
 version.workspace = true
 license.workspace = true
+publish.workspace = true
 edition.workspace = true
 
 [dependencies]
