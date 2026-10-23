@@ -2,6 +2,7 @@
 name = "range-eigenda"
 version = "0.1.0"
 license.workspace = true
+publish.workspace = true
 edition.workspace = true
 authors.workspace = true
 homepage.workspace = true

@@ -1,0 +1,176 @@
+[graph]
+all-features = true
+
+[advisories]
+ignore = [
+  { id = "RUSTSEC-2021-0127", reason = "serde_cbor, a direct dependency of aggregation, range-eigenda and the eigenda and host utils. Moving to a maintained CBOR crate removes it." },
+  { id = "RUSTSEC-2021-0139", reason = "ansi_term, through tracing-forest's ansi feature in SP1. SP1 dropping that feature removes it." },
+  { id = "RUSTSEC-2021-0141", reason = "dotenv, a direct dependency of validity, fault-proof, the scripts and several utils. Switching to dotenvy removes it." },
+  { id = "RUSTSEC-2024-0320", reason = "yaml-rust, through serde_yaml 0.8 in ethereum-consensus, via sp1-cc-host-executor in hokulea. ethereum-consensus must upgrade serde_yaml first." },
+  { id = "RUSTSEC-2024-0384", reason = "instant, through backoff in sp1-sdk and sp1-cluster. Both must replace backoff first." },
+  { id = "RUSTSEC-2024-0436", reason = "paste, through several crates, including alloy-primitives and ark-ff. Each one must drop it first." },
+  { id = "RUSTSEC-2025-0012", reason = "backoff, through sp1-sdk and sp1-cluster. Both must replace it first." },
+  { id = "RUSTSEC-2025-0119", reason = "number_prefix, through indicatif 0.17 in SP1. SP1 must upgrade indicatif first." },
+  { id = "RUSTSEC-2025-0134", reason = "rustls-pemfile, through tonic 0.12's tls feature in SP1 and sp1-cluster-common. Upgrading to SP1 6.10 and sp1-cluster v2.9.0 removes it." },
+  { id = "RUSTSEC-2025-0141", reason = "bincode, used by aggregation, validity, several utils, hokulea, sp1-cluster and most SP1 crates. All must move to a maintained serializer." },
+  { id = "RUSTSEC-2026-0098", reason = "rustls-webpki 0.101, through aws-sdk-s3's default rustls feature in sp1-cluster-artifact. sp1-cluster must drop that feature first." },
+  { id = "RUSTSEC-2026-0099", reason = "rustls-webpki 0.101, through aws-sdk-s3's default rustls feature in sp1-cluster-artifact. sp1-cluster must drop that feature first." },
+  { id = "RUSTSEC-2026-0104", reason = "rustls-webpki 0.101, through aws-sdk-s3's default rustls feature in sp1-cluster-artifact. sp1-cluster must drop that feature first." },
+  { id = "RUSTSEC-2026-0173", reason = "proc-macro-error2, through dynasm 3 in sp1-jit. SP1 must move to dynasm 5.1 first." },
+  { id = "RUSTSEC-2026-0258", reason = "h2 0.3, through aws-sdk-s3's rustls feature in sp1-cluster-artifact and opentelemetry-otlp 0.16 in host-utils and sp1-cluster-common. All must move off it first." },
+  { id = "RUSTSEC-2026-0344", reason = "ruzstd 0.8, through object 0.37's default features in sp1-core-executor 6.8.1. SP1 6.10 turns them off, so upgrading SP1 and sp1-cluster to v2.9.0 removes it." },
+  { id = "RUSTSEC-2026-0346", reason = "rustls 0.21, through aws-sdk-s3's default rustls feature in sp1-cluster-artifact. sp1-cluster must drop that feature first." },
+  { id = "RUSTSEC-2026-0349", reason = "rustls 0.21, through aws-sdk-s3's default rustls feature in sp1-cluster-artifact. sp1-cluster must drop that feature first." },
+  { id = "RUSTSEC-2026-0382", reason = "rustls-webpki 0.101, through aws-sdk-s3's default rustls feature in sp1-cluster-artifact. sp1-cluster must drop that feature first." },
+]
+
+[licenses]
+allow = [
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "BSL-1.0",
+  "CDLA-Permissive-2.0",
+  "ISC",
+  "MIT",
+  "MPL-2.0",
+  "Unicode-3.0",
+  "Zlib",
+]
+exceptions = [
+  { allow = ["CC0-1.0"], crate = "aurora-engine-modexp" },
+  { allow = ["CC0-1.0"], crate = "secp256k1" },
+  { allow = ["CC0-1.0"], crate = "secp256k1-sys" },
+  { allow = ["CC0-1.0"], crate = "tiny-keccak" },
+  { allow = ["Unlicense"], crate = "async_io_stream" },
+  { allow = ["Unlicense"], crate = "pharos" },
+  { allow = ["Unlicense"], crate = "ws_stream_wasm" },
+  { allow = ["0BSD"], crate = "doctest-file" },
+  { allow = ["0BSD"], crate = "interprocess" },
+  { allow = ["0BSD"], crate = "recvmsg" },
+  # sp1-cluster is under the Business Source License, but its crates don't declare it.
+  { allow = ["BUSL-1.1"], crate = "sp1-cluster-artifact" },
+  { allow = ["BUSL-1.1"], crate = "sp1-cluster-common" },
+  { allow = ["BUSL-1.1"], crate = "sp1-cluster-utils" },
+  # The hokulea repository publishes no license, so all rights are reserved.
+  { allow = ["LicenseRef-hokulea-unlicensed"], crate = "canoe-bindings" },
+  { allow = ["LicenseRef-hokulea-unlicensed"], crate = "canoe-provider" },
+  { allow = ["LicenseRef-hokulea-unlicensed"], crate = "canoe-sp1-cc-host" },
+  { allow = ["LicenseRef-hokulea-unlicensed"], crate = "canoe-sp1-cc-verifier" },
+  { allow = ["LicenseRef-hokulea-unlicensed"], crate = "canoe-verifier" },
+  { allow = ["LicenseRef-hokulea-unlicensed"], crate = "canoe-verifier-address-fetcher" },
+  { allow = ["LicenseRef-hokulea-unlicensed"], crate = "eigenda-cert" },
+  { allow = ["LicenseRef-hokulea-unlicensed"], crate = "hokulea-client" },
+  { allow = ["LicenseRef-hokulea-unlicensed"], crate = "hokulea-client-bin" },
+  { allow = ["LicenseRef-hokulea-unlicensed"], crate = "hokulea-compute-proof" },
+  { allow = ["LicenseRef-hokulea-unlicensed"], crate = "hokulea-eigenda" },
+  { allow = ["LicenseRef-hokulea-unlicensed"], crate = "hokulea-host-bin" },
+  { allow = ["LicenseRef-hokulea-unlicensed"], crate = "hokulea-proof" },
+  { allow = ["LicenseRef-hokulea-unlicensed"], crate = "hokulea-witgen" },
+  { allow = ["LicenseRef-hokulea-unlicensed"], crate = "hokulea-zkvm-verification" },
+]
+
+[[licenses.clarify]]
+crate = "sp1-cluster-artifact@=2.8.4"
+expression = "BUSL-1.1"
+license-files = []
+
+[[licenses.clarify]]
+crate = "sp1-cluster-common@=2.8.4"
+expression = "BUSL-1.1"
+license-files = []
+
+[[licenses.clarify]]
+crate = "sp1-cluster-utils@=2.8.4"
+expression = "BUSL-1.1"
+license-files = []
+
+# Reviewed at hokulea tag hokulea-client/v1.4.0.
+[[licenses.clarify]]
+crate = "canoe-bindings"
+expression = "LicenseRef-hokulea-unlicensed"
+license-files = []
+
+[[licenses.clarify]]
+crate = "canoe-provider"
+expression = "LicenseRef-hokulea-unlicensed"
+license-files = []
+
+[[licenses.clarify]]
+crate = "canoe-sp1-cc-host"
+expression = "LicenseRef-hokulea-unlicensed"
+license-files = []
+
+[[licenses.clarify]]
+crate = "canoe-sp1-cc-verifier"
+expression = "LicenseRef-hokulea-unlicensed"
+license-files = []
+
+[[licenses.clarify]]
+crate = "canoe-verifier"
+expression = "LicenseRef-hokulea-unlicensed"
+license-files = []
+
+[[licenses.clarify]]
+crate = "canoe-verifier-address-fetcher"
+expression = "LicenseRef-hokulea-unlicensed"
+license-files = []
+
+[[licenses.clarify]]
+crate = "eigenda-cert"
+expression = "LicenseRef-hokulea-unlicensed"
+license-files = []
+
+[[licenses.clarify]]
+crate = "hokulea-client"
+expression = "LicenseRef-hokulea-unlicensed"
+license-files = []
+
+[[licenses.clarify]]
+crate = "hokulea-client-bin"
+expression = "LicenseRef-hokulea-unlicensed"
+license-files = []
+
+[[licenses.clarify]]
+crate = "hokulea-compute-proof"
+expression = "LicenseRef-hokulea-unlicensed"
+license-files = []
+
+[[licenses.clarify]]
+crate = "hokulea-eigenda"
+expression = "LicenseRef-hokulea-unlicensed"
+license-files = []
+
+[[licenses.clarify]]
+crate = "hokulea-host-bin"
+expression = "LicenseRef-hokulea-unlicensed"
+license-files = []
+
+[[licenses.clarify]]
+crate = "hokulea-proof"
+expression = "LicenseRef-hokulea-unlicensed"
+license-files = []
+
+[[licenses.clarify]]
+crate = "hokulea-witgen"
+expression = "LicenseRef-hokulea-unlicensed"
+license-files = []
+
+[[licenses.clarify]]
+crate = "hokulea-zkvm-verification"
+expression = "LicenseRef-hokulea-unlicensed"
+license-files = []
+
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "allow"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-org = { github = ["Layr-Labs", "ethereum-optimism", "paradigmxyz", "sp1-patches", "succinctlabs"] }
