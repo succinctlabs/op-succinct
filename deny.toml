@@ -11,17 +11,19 @@ ignore = [
   { id = "RUSTSEC-2024-0436", reason = "paste, through several crates, including alloy-primitives and ark-ff. Each one must drop it first." },
   { id = "RUSTSEC-2025-0012", reason = "backoff, through sp1-sdk and sp1-cluster. Both must replace it first." },
   { id = "RUSTSEC-2025-0119", reason = "number_prefix, through indicatif 0.17 in SP1. SP1 must upgrade indicatif first." },
-  { id = "RUSTSEC-2025-0134", reason = "rustls-pemfile, through tonic 0.12's tls feature in SP1 and sp1-cluster-common. Upgrading to SP1 6.10 and sp1-cluster v2.9.0 removes it." },
   { id = "RUSTSEC-2025-0141", reason = "bincode, used by aggregation, validity, several utils, hokulea, sp1-cluster and most SP1 crates. All must move to a maintained serializer." },
   { id = "RUSTSEC-2026-0098", reason = "rustls-webpki 0.101, through aws-sdk-s3's default rustls feature in sp1-cluster-artifact. sp1-cluster must drop that feature first." },
   { id = "RUSTSEC-2026-0099", reason = "rustls-webpki 0.101, through aws-sdk-s3's default rustls feature in sp1-cluster-artifact. sp1-cluster must drop that feature first." },
   { id = "RUSTSEC-2026-0104", reason = "rustls-webpki 0.101, through aws-sdk-s3's default rustls feature in sp1-cluster-artifact. sp1-cluster must drop that feature first." },
   { id = "RUSTSEC-2026-0173", reason = "proc-macro-error2, through dynasm 3 in sp1-jit. SP1 must move to dynasm 5.1 first." },
   { id = "RUSTSEC-2026-0258", reason = "h2 0.3, through aws-sdk-s3's rustls feature in sp1-cluster-artifact and opentelemetry-otlp 0.16 in host-utils and sp1-cluster-common. All must move off it first." },
-  { id = "RUSTSEC-2026-0344", reason = "ruzstd 0.8, through object 0.37's default features in sp1-core-executor 6.8.1. SP1 6.10 turns them off, so upgrading SP1 and sp1-cluster to v2.9.0 removes it." },
   { id = "RUSTSEC-2026-0346", reason = "rustls 0.21, through aws-sdk-s3's default rustls feature in sp1-cluster-artifact. sp1-cluster must drop that feature first." },
   { id = "RUSTSEC-2026-0349", reason = "rustls 0.21, through aws-sdk-s3's default rustls feature in sp1-cluster-artifact. sp1-cluster must drop that feature first." },
   { id = "RUSTSEC-2026-0382", reason = "rustls-webpki 0.101, through aws-sdk-s3's default rustls feature in sp1-cluster-artifact. sp1-cluster must drop that feature first." },
+  { id = "RUSTSEC-2026-0387", reason = "crypto-bigint 0.4/0.5, through RustCrypto, AWS signing and SP1. The fix requires >=0.7.6 and upstream migrations. Host signing timing exposure remains." },
+  { id = "RUSTSEC-2026-0391", reason = "zstd 0.13, through SP1 and sp1-cluster-artifact. Both use encode_all/decode_all with fresh contexts; the affected with_context API is unused. Remove when both upgrade to >=0.14.3." },
+  { id = "RUSTSEC-2026-0398", reason = "zstd-safe 7.2, through zstd in SP1 and sp1-cluster-artifact. The affected seekable feature is disabled. Remove when zstd-safe reaches >=8.2.0." },
+  { id = "RUSTSEC-2026-0403", reason = "zstd-safe 7.2, through zstd in SP1 and sp1-cluster-artifact. Decompression uses decode_all, whose read decoder is unaffected. Remove when zstd-safe reaches >=8.2.0." },
 ]
 
 [licenses]
@@ -49,10 +51,6 @@ exceptions = [
   { allow = ["0BSD"], crate = "doctest-file" },
   { allow = ["0BSD"], crate = "interprocess" },
   { allow = ["0BSD"], crate = "recvmsg" },
-  # sp1-cluster is under the Business Source License, but its crates don't declare it.
-  { allow = ["BUSL-1.1"], crate = "sp1-cluster-artifact" },
-  { allow = ["BUSL-1.1"], crate = "sp1-cluster-common" },
-  { allow = ["BUSL-1.1"], crate = "sp1-cluster-utils" },
   # The hokulea repository publishes no license, so all rights are reserved.
   { allow = ["LicenseRef-hokulea-unlicensed"], crate = "canoe-bindings" },
   { allow = ["LicenseRef-hokulea-unlicensed"], crate = "canoe-provider" },
@@ -70,21 +68,6 @@ exceptions = [
   { allow = ["LicenseRef-hokulea-unlicensed"], crate = "hokulea-witgen" },
   { allow = ["LicenseRef-hokulea-unlicensed"], crate = "hokulea-zkvm-verification" },
 ]
-
-[[licenses.clarify]]
-crate = "sp1-cluster-artifact@=2.8.4"
-expression = "BUSL-1.1"
-license-files = []
-
-[[licenses.clarify]]
-crate = "sp1-cluster-common@=2.8.4"
-expression = "BUSL-1.1"
-license-files = []
-
-[[licenses.clarify]]
-crate = "sp1-cluster-utils@=2.8.4"
-expression = "BUSL-1.1"
-license-files = []
 
 # Reviewed at hokulea tag hokulea-client/v1.4.0.
 [[licenses.clarify]]

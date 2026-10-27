@@ -102,15 +102,15 @@ kona-registry = { git = "https://github.com/ethereum-optimism/optimism", tag = "
 kona-genesis = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.8.0", default-features = false }
 
 # Hokulea
-hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.4.0" }
-hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.4.0" }
-hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.4.0" }
-hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.4.0" }
-hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.4.0" }
-hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.4.0" }
-canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.4.0" }
-canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.4.0" }
-canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.4.0" }
+hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.4.2" }
+hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.4.2" }
+hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.4.2" }
+hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.4.2" }
+hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.4.2" }
+hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.4.2" }
+canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.4.2" }
+canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.4.2" }
+canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.4.2" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -194,19 +194,19 @@ revm-precompile = { version = "42.0.1", default-features = false }
 # OpSpecId/OpHaltReason/OpEvm mismatches against the kona executor).
 op-revm = { git = "https://github.com/ethereum-optimism/optimism", tag = "kona-client/v1.8.0", default-features = false }
 
-# SP1 v6.8.1 (Hypercube)
-sp1-sdk = { version = "=6.8.1", features = ["network", "blocking", "profiling"] }
-sp1-lib = { version = "=6.8.1", features = ["verify"] }
-sp1-zkvm = { version = "=6.8.1", features = ["verify"] }
-sp1-build = "=6.8.1"
-sp1-prover = "=6.8.1"
-sp1-prover-types = "=6.8.1"
-sp1-core-executor = "=6.8.1"
-sp1-hypercube = "=6.8.1"
-sp1-primitives = "=6.8.1"
-sp1-cluster-artifact = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.8.4" }
-sp1-cluster-common = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.8.4" }
-sp1-cluster-utils = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.8.4" }
+# SP1 v6.10.0 (Hypercube)
+sp1-sdk = { version = "=6.10.0", features = ["network", "blocking", "profiling"] }
+sp1-lib = { version = "=6.10.0", features = ["verify"] }
+sp1-zkvm = { version = "=6.10.0", features = ["verify"] }
+sp1-build = "=6.10.0"
+sp1-prover = "=6.10.0"
+sp1-prover-types = "=6.10.0"
+sp1-core-executor = "=6.10.0"
+sp1-hypercube = "=6.10.0"
+sp1-primitives = "=6.10.0"
+sp1-cluster-artifact = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.9.0" }
+sp1-cluster-common = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.9.0" }
+sp1-cluster-utils = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.9.0" }
 
 # kzg
 kzg-rs = { version = "0.2.8", features = ["rkyv", "serde"] }
@@ -235,14 +235,14 @@ codegen-units = 1
 lto = "fat"
 
 [patch.crates-io]
-sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.9-sp1-6.0.0" }
+sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.9-sp1-6.10.0" }
 # REVM 42 uses SHA2 0.11; preserve SP1 acceleration alongside SHA2 0.10 callers.
-sha2-v11 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.11.0-sp1-6.2.0" }
+sha2-v11 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.11.0-sp1-6.10.0" }
 sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.11.0-sp1-6.0.0" }
-substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-sp1-6.0.0-substrate-bn" }
-p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-6.0.0" }
-k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-6.0.0" }
-tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-6.0.0" }
+substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-sp1-6.10.0-substrate-bn" }
+p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-6.10.0" }
+k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-6.10.0" }
+tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-6.10.0" }
 
 # Patch op-alloy and alloy-op-evm to use the optimism monorepo versions
 # Required because Kona uses path deps from the monorepo, and hokulea's
