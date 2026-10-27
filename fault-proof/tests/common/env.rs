@@ -91,20 +91,27 @@ impl Drop for TestEnvironment {
 /// Returns (aggregation_vkey, range_vkey_commitment) as B256 values.
 /// Uses the same computation as `proposer.rs` and `config_common.rs`.
 pub async fn compute_vkeys() -> anyhow::Result<(B256, B256)> {
-    let prover = ProverClient::builder().cpu().build().await;
+    // Embedded ELFs and their key encoding are fixed for this test binary.
+    static VKEYS: tokio::sync::OnceCell<(B256, B256)> = tokio::sync::OnceCell::const_new();
+    let vkeys = VKEYS
+        .get_or_try_init(|| async {
+            let prover = ProverClient::builder().cpu().build().await;
 
-    let agg_pk = prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
-    let agg_vk = agg_pk.verifying_key();
-    let aggregation_vkey = {
-        let hex_str = agg_vk.bytes32();
-        B256::from_slice(&hex::decode(hex_str.trim_start_matches("0x")).unwrap())
-    };
+            let agg_pk = prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
+            let agg_vk = agg_pk.verifying_key();
+            let aggregation_vkey = {
+                let hex_str = agg_vk.bytes32();
+                B256::from_slice(&hex::decode(hex_str.trim_start_matches("0x")).unwrap())
+            };
 
-    let range_pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
-    let range_vk = range_pk.verifying_key();
-    let range_vkey_commitment = B256::from(range_vk.hash_bytes());
+            let range_pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
+            let range_vk = range_pk.verifying_key();
+            let range_vkey_commitment = B256::from(range_vk.hash_bytes());
 
-    Ok((aggregation_vkey, range_vkey_commitment))
+            Ok::<_, anyhow::Error>((aggregation_vkey, range_vkey_commitment))
+        })
+        .await?;
+    Ok(*vkeys)
 }
 
 /// The test configuration, used for integration tests.
