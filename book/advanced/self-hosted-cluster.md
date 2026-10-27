@@ -8,6 +8,13 @@ By default, op-succinct uses the [Succinct Prover Network](https://docs.succinct
 - RPC endpoints for your OP Stack chain (L1, L1 beacon, L2, L2 node).
 - A gRPC endpoint for the cluster API. Exposing `api-grpc` via a LoadBalancer or Ingress is recommended — `kubectl port-forward` works for quick tests but is unreliable for long-running proofs.
 
+## Cluster API Authentication
+
+If the cluster requires bearer authentication, set `CLI_CLUSTER_ACCESS_TOKEN` to the cluster token in the environment used by the prove scripts and proposer.
+The client uses the first non-empty value from `CLI_CLUSTER_ACCESS_TOKEN`, then `CLUSTER_ACCESS_TOKEN`.
+An empty value counts as unset; whitespace is not trimmed and is invalid in a token.
+Clusters that do not require bearer authentication do not require a token.
+
 ## Cluster Resource Requirements
 
 The cpu-node must be sized to handle both range proofs (CONTROLLER task) and aggregation proofs (PlonkWrap task). The coordinator schedules tasks based on weight — a task is only assigned to a worker if `current_weight + task_weight ≤ max_weight`.
