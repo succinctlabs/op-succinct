@@ -13,10 +13,11 @@ Anything that changes these programs requires reproducing the binaries. This inc
 
 ## Prerequisites
 
-Ensure you have the [`cargo prove`](https://docs.succinct.xyz/docs/sp1/getting-started/install#option-1-prebuilt-binaries-recommended) CLI tool installed and have the latest version of the toolchain by running:
+Install the [`cargo prove`](https://docs.succinct.xyz/docs/sp1/getting-started/install#option-1-prebuilt-binaries-recommended) CLI version that matches the checked-out release.
+For this revision, use SP1 6.10.0:
 
 ```bash
-sp1up -v 6.1.0
+sp1up -v 6.10.0
 ```
 
 and

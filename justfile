@@ -401,7 +401,7 @@ remove-config config_name env_file=".env":
 # Generate verification key hashes for all DA variants.
 vkeys:
     #!/usr/bin/env bash
-    set -e
+    set -euo pipefail
 
     echo "Generating verification key hashes..."
     echo ""
@@ -414,6 +414,18 @@ vkeys:
     # EigenDA
     EIGEN_OUTPUT=$(RUST_LOG=error cargo run --release --bin config --features eigenda 2>&1)
     EIGEN_RANGE=$(echo "$EIGEN_OUTPUT" | grep "Range Verification Key Hash" | awk '{print $NF}')
+    EIGEN_AGG=$(echo "$EIGEN_OUTPUT" | grep "Aggregation Verification Key Hash" | awk '{print $NF}')
+
+    # AltDA
+    ALTDA_OUTPUT=$(RUST_LOG=error cargo run --release --bin config --features altda 2>&1)
+    ALTDA_RANGE=$(echo "$ALTDA_OUTPUT" | grep "Range Verification Key Hash" | awk '{print $NF}')
+    ALTDA_AGG=$(echo "$ALTDA_OUTPUT" | grep "Aggregation Verification Key Hash" | awk '{print $NF}')
+
+    # All DA modes must use the same aggregation key for the shared row below.
+    if [[ "$AGG_KEY" != "$EIGEN_AGG" || "$AGG_KEY" != "$ALTDA_AGG" ]]; then
+        echo "Aggregation verification keys differ across DA modes." >&2
+        exit 1
+    fi
 
     echo "## Verification Key Hashes"
     echo ""
@@ -421,6 +433,7 @@ vkeys:
     echo "|--------|------------------------|"
     echo "| Ethereum DA Range Verification Key | **$ETH_RANGE** |"
     echo "| EigenDA Range Verification Key | **$EIGEN_RANGE** |"
+    echo "| AltDA Range Verification Key | **$ALTDA_RANGE** |"
     echo "| Aggregation Verification Key | **$AGG_KEY** |"
 
 # Build all ELF files.
@@ -431,20 +444,20 @@ build-range-elfs:
     #!/usr/bin/env bash
 
     cd programs/range/ethereum
-    ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-embedded --docker --tag v6.8.1 --output-directory ../../../elf
+    ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-embedded --docker --tag v6.10.0 --output-directory ../../../elf
 
     cd ../eigenda
-    ~/.sp1/bin/cargo-prove prove build --elf-name eigenda-range-elf-embedded --docker --tag v6.8.1 --output-directory ../../../elf
+    ~/.sp1/bin/cargo-prove prove build --elf-name eigenda-range-elf-embedded --docker --tag v6.10.0 --output-directory ../../../elf
 
     cd ../altda
-    ~/.sp1/bin/cargo-prove prove build --elf-name altda-range-elf-embedded --docker --tag v6.8.1 --output-directory ../../../elf
+    ~/.sp1/bin/cargo-prove prove build --elf-name altda-range-elf-embedded --docker --tag v6.10.0 --output-directory ../../../elf
 
 # Build ELF file for aggregation program.
 build-agg-elf:
     #!/usr/bin/env bash
 
     cd programs/aggregation
-    ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v6.8.1 --output-directory ../../elf
+    ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v6.10.0 --output-directory ../../elf
 
 # Compare both checkouts against the same finalized local Sysgo input.
 cycle-count-diff BASE:
