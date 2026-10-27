@@ -68,9 +68,8 @@ git push origin vX.Y.Z
 2. Click "Draft a new release"
 3. Select the tag `vX.Y.Z`
 4. Click "Generate release notes" for auto-generated changelog
-5. From the release commit, run `just vkeys` and copy the Markdown table output into the release notes.
-6. From the same commit, run `cargo run --release --bin config --features altda` and append its `Range Verification Key Hash` as the AltDA range verification key.
-7. Review and publish release
+5. From the release commit, run `just vkeys` and copy the Markdown table with the Ethereum, EigenDA and AltDA range keys and the shared aggregation key into the release notes.
+6. Review and publish release
 
 ## What Gets Published
 
