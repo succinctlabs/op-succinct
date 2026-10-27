@@ -22,6 +22,7 @@ resolver = "2"
 
 [workspace.package]
 license = "MIT"
+publish = false
 edition = "2021"
 authors = ["ratankaliani", "zachobront", "fakedev9999", "yuwen01"]
 homepage = "https://succinctlabs.github.io/op-succinct/"
