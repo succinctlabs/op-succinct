@@ -1,12 +1,13 @@
 use alloy_eips::BlockId;
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use op_succinct_host_utils::{
     fetcher::{OPSuccinctDataFetcher, RPCMode},
     l1_selection::L1BlockSelectionConfig,
     setup_logger, OP_SUCCINCT_L2_OUTPUT_ORACLE_CONFIG_PATH,
 };
 use op_succinct_scripts::config_common::{
-    find_project_root, get_address, get_shared_config_data, write_config_file, TWO_WEEKS_IN_SECONDS,
+    find_project_root, get_address, get_shared_config_data, parse_env_or, parse_required_env,
+    write_config_file, TWO_WEEKS_IN_SECONDS,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -55,31 +56,28 @@ async fn update_l2oo_config() -> Result<()> {
     data_fetcher.validate_l1_selection().await?;
     let shared_config = get_shared_config_data(data_fetcher.clone()).await?;
 
-    let rollup_config = data_fetcher.rollup_config.as_ref().unwrap();
+    let rollup_config = data_fetcher.rollup_config.as_ref().context("rollup config not found")?;
     let l2_block_time = rollup_config.block_time;
 
-    let submission_interval =
-        env::var("SUBMISSION_INTERVAL").map(|p| p.parse().unwrap()).unwrap_or(10);
+    let submission_interval = parse_env_or("SUBMISSION_INTERVAL", 10u64)?;
 
     // Default finalization period of 1 hour. Gives the challenger enough time to dispute the
     // output. Docs: https://docs.optimism.io/builders/chain-operators/configuration/rollup#finalizationperiodseconds
     const DEFAULT_FINALIZATION_PERIOD_SECS: u64 = 60 * 60;
-    let finalization_period = env::var("FINALIZATION_PERIOD_SECS")
-        .map(|p| p.parse().unwrap())
-        .unwrap_or(DEFAULT_FINALIZATION_PERIOD_SECS);
+    let finalization_period =
+        parse_env_or("FINALIZATION_PERIOD_SECS", DEFAULT_FINALIZATION_PERIOD_SECS)?;
 
     // Default to the address associated with the private key if the environment variable is not
     // set. If private key is not set, default to zero address.
-    let proposer = get_address("PROPOSER", true);
-    let owner = get_address("OWNER", true);
-    let challenger = get_address("CHALLENGER", true);
+    let proposer = get_address("PROPOSER", true)?;
+    let owner = get_address("OWNER", true)?;
+    let challenger = get_address("CHALLENGER", true)?;
 
-    let proxy_admin = get_address("PROXY_ADMIN", false);
-    let op_succinct_l2_output_oracle_impl = get_address("OP_SUCCINCT_L2_OUTPUT_ORACLE_IMPL", false);
+    let proxy_admin = get_address("PROXY_ADMIN", false)?;
+    let op_succinct_l2_output_oracle_impl =
+        get_address("OP_SUCCINCT_L2_OUTPUT_ORACLE_IMPL", false)?;
 
-    let fallback_timeout_secs = env::var("FALLBACK_TIMEOUT_SECS")
-        .map(|p| p.parse().unwrap())
-        .unwrap_or(TWO_WEEKS_IN_SECONDS);
+    let fallback_timeout_secs = parse_env_or("FALLBACK_TIMEOUT_SECS", TWO_WEEKS_IN_SECONDS)?;
 
     // Get starting block number - if `STARTING_BLOCK_NUMBER` is unset, derive a default rooted at
     // the literal L2 finalized block, *independent of `L1_BLOCK_TAG`*. Bootstrap config (which
@@ -87,8 +85,9 @@ async fn update_l2oo_config() -> Result<()> {
     // because the operator turned `safe`/`latest` on for proposer latency. Explicit env override
     // still wins.
     let starting_block_number = match env::var("STARTING_BLOCK_NUMBER") {
-        Ok(n) => n.parse().unwrap(),
-        Err(_) => {
+        Ok(value) => parse_required_env("STARTING_BLOCK_NUMBER")
+            .with_context(|| format!("failed to parse STARTING_BLOCK_NUMBER='{value}'"))?,
+        Err(env::VarError::NotPresent) => {
             let finalized_l2_block_number =
                 data_fetcher.get_l2_header(BlockId::finalized()).await?.number;
             let num_blocks_for_finality = finalization_period / l2_block_time;
@@ -106,6 +105,7 @@ async fn update_l2oo_config() -> Result<()> {
 
             finalized_l2_block_number.saturating_sub(num_blocks_for_finality)
         }
+        Err(err) => return Err(err).context("failed to read STARTING_BLOCK_NUMBER"),
     };
 
     if starting_block_number == 0 {
@@ -123,8 +123,13 @@ async fn update_l2oo_config() -> Result<()> {
         )
         .await?;
 
-    let starting_output_root = optimism_output_data["outputRoot"].as_str().unwrap().to_string();
-    let starting_timestamp = optimism_output_data["blockRef"]["timestamp"].as_u64().unwrap();
+    let starting_output_root = optimism_output_data["outputRoot"]
+        .as_str()
+        .context("optimism_outputAtBlock response missing string outputRoot")?
+        .to_string();
+    let starting_timestamp = optimism_output_data["blockRef"]["timestamp"]
+        .as_u64()
+        .context("optimism_outputAtBlock response missing numeric blockRef.timestamp")?;
 
     let l2oo_config = L2OOConfig {
         challenger,
