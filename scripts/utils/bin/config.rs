@@ -1,5 +1,6 @@
-use alloy_primitives::B256;
+use alloy_primitives::{hex, B256};
 use anyhow::Result;
+use bincode::Options;
 use clap::Parser;
 use op_succinct_client_utils::boot::hash_rollup_config;
 use op_succinct_elfs::AGGREGATION_ELF;
@@ -25,6 +26,12 @@ async fn main() -> Result<()> {
     let agg_pk = prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
     let agg_vk = agg_pk.verifying_key();
     println!("Aggregation Verification Key Hash: {}", agg_vk.bytes32());
+
+    // The full verification key, encoded as expected by verifiers that take the key itself rather
+    // than its hash.
+    let agg_vk_bytes =
+        bincode::options().with_big_endian().with_fixint_encoding().serialize(agg_vk)?;
+    println!("Aggregation Verification Key: 0x{}", hex::encode(agg_vk_bytes));
 
     if let Some(env_file) = args.env_file {
         dotenv::from_path(env_file).ok();

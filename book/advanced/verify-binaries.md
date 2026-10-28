@@ -56,6 +56,15 @@ cargo run --bin config --release
 
 This will log the rollup config hash, aggregation verification key, and range verification key commitment based on the latest ELFs in the [`/elf`](https://github.com/succinctlabs/op-succinct/tree/main/elf) directory.
 
+For the `agglayer` images, `config` is shipped as `op-succinct-vkeys`, so the keys can be read with:
+
+```
+$ docker run --rm --entrypoint op-succinct-vkeys <image>
+Range Verification Key Hash: 0x7e6d4611456d99f96b25940f43ca5cf33807d6bf5991a9cf2d86093362fc164f
+Aggregation Verification Key Hash: 0x009eb5031cd753aa3cec78e5e8621a5ee59fe2540c8756cb5dcb9a5746b2f8e8
+Aggregation Verification Key: 0x00001970000078040000000042f6…
+```
+
 ## Update the contract
 
 After reproducing the binaries, you must either [deploy](../validity/contracts/deploy.md) a new OPSuccinctL2OutputOracle contract or perform a [rolling update](../validity/contracts/update-parameters.md) on an existing contract.
