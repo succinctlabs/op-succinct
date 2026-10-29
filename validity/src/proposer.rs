@@ -56,13 +56,6 @@ fn auction_timed_out(request_type: RequestType, status: i32, now: u64, deadline:
         now > deadline
 }
 
-/// L1 blocks to look back when resolving the L2 safe head for an external aggregation.
-///
-/// The safe head near the supplied L1 checkpoint can still move during a short reorganization.
-/// The 20-block margin keeps the aggregation range behind that moving boundary.
-#[cfg(feature = "agglayer")]
-const SAFE_HEAD_L1_LOOKBACK: u64 = 20;
-
 #[cfg(feature = "agglayer")]
 pub(crate) struct ExternalAggregationRequest {
     pub last_proven_block: u64,
@@ -1668,11 +1661,12 @@ where
             })?;
         validate_checkpoint_hash(request.l1_block_hash, checkpoint_header.hash_slow())?;
 
-        let safe_head = self
-            .proof_requester
-            .fetcher
+        // Look back by the range L1 head buffer so every range L1 head stays at or below the
+        // checkpoint, which the aggregation program requires.
+        let fetcher = &self.proof_requester.fetcher;
+        let safe_head = fetcher
             .get_l2_safe_head_from_l1_block_number(
-                request.l1_block_number.saturating_sub(SAFE_HEAD_L1_LOOKBACK),
+                request.l1_block_number.saturating_sub(fetcher.l1_head_buffer),
             )
             .await
             .map_err(|error| {
