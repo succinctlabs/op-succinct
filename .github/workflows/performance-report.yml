@@ -1,0 +1,80 @@
+name: Performance Report
+
+on:
+  pull_request:
+    paths:
+      - '.github/scripts/publish-performance-report*'
+      - '.github/workflows/performance-report.yml'
+  workflow_run:
+    workflows: ['Cargo Tests', 'Cycle Count Diff']
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  test-reporter:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node --test .github/scripts/publish-performance-report.test.cjs
+
+  publish:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      (github.event.workflow_run.path == '.github/workflows/cargo-tests.yml' ||
+       github.event.workflow_run.path == '.github/workflows/cycle-count-diff.yml')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: performance-report-${{ github.event.workflow_run.workflow_id }}-${{ github.event.workflow_run.head_repository.id }}-${{ github.event.workflow_run.head_branch }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    steps:
+      # Only the default branch's reporter code runs with write permission.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - name: Find report artifact
+        id: report
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {
+              ...context.repo, run_id: context.payload.workflow_run.id, per_page: 100,
+            });
+            const reports = artifacts.filter(a => a.name === 'performance-report' && !a.expired);
+            if (reports.length === 0) {
+              core.notice('No report artifact: skip runs before report uploads were added, or expired reports.');
+              return;
+            }
+            if (reports.length !== 1) throw new Error('Expected exactly one performance report artifact');
+            core.setOutput('artifact_id', reports[0].id);
+      - uses: actions/download-artifact@v4
+        if: steps.report.outputs.artifact_id != ''
+        with:
+          name: performance-report
+          path: ${{ runner.temp }}/performance-report
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - uses: actions/github-script@v7
+        if: steps.report.outputs.artifact_id != ''
+        env:
+          REPORT_DIR: ${{ runner.temp }}/performance-report
+        with:
+          script: |
+            const publish = require('./.github/scripts/publish-performance-report.cjs');
+            await publish({ github, context, core, reportDir: process.env.REPORT_DIR });

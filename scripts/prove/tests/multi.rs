@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use common::{post_to_github_pr, DEFAULT_RANGE};
+use common::DEFAULT_RANGE;
 use op_succinct_host_utils::{
     block_range::get_rolling_block_range,
     fetcher::OPSuccinctDataFetcher,
@@ -44,25 +44,7 @@ async fn execute_batch() -> Result<()> {
 
     println!("Execution Stats: \n{:?}", stats.to_string());
 
-    if std::env::var("POST_TO_GITHUB").ok().and_then(|v| v.parse::<bool>().ok()).unwrap_or_default()
-    {
-        if let (Ok(owner), Ok(repo), Ok(pr_number), Ok(token)) = (
-            std::env::var("REPO_OWNER"),
-            std::env::var("REPO_NAME"),
-            std::env::var("PR_NUMBER"),
-            std::env::var("GITHUB_TOKEN"),
-        ) {
-            post_to_github_pr(
-                &owner,
-                &repo,
-                &pr_number,
-                &token,
-                &MarkdownExecutionStats::new(stats).to_string(),
-            )
-            .await
-            .unwrap();
-        }
-    }
+    std::fs::write("execution_report.md", MarkdownExecutionStats::new(stats).to_string())?;
 
     Ok(())
 }
