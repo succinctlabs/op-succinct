@@ -35,6 +35,14 @@ stateDiagram-v2
     Complete --> Relayed: submit_agg_proofs
 ```
 
+## Submission and Confirmation
+
+`Complete` means proof generation has finished; it does not mean the output has been accepted on L1. In mock mode, completion records execution for testing, not a cryptographic proof.
+
+For a non-mock submission, the proposer waits for a transaction receipt and checks that its status is successful before recording the aggregation request as `Relayed`. Broadcasting the transaction alone is not sufficient. If confirmation times out, the transaction's on-chain outcome is still uncertain. Before manually retrying, check its receipt and the latest output accepted by the contract.
+
+An accepted output is also not the same as a finalized withdrawal. Withdrawal readiness depends on the deployment's finalization period and, when using OptimismPortal2, its dispute-game and portal checks. See [OptimismPortal2 Support](./contracts/optimism-portal-2.md).
+
 ## Proposer Operations
 
 The proposer performs the following operations each loop:
