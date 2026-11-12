@@ -31,11 +31,11 @@ sequenceDiagram
     Proposer->>DA: GET /get/0x{hex(encoded_commitment)}
     DA-->>Proposer: batch data
     Proposer->>zkVM: witness with batch data + commitment
-    zkVM->>zkVM: preimage oracle enforces keccak256(data) == key
+    zkVM->>zkVM: AltDA client checks keccak256(data) against full commitment
     zkVM-->>Proposer: range proof
 ```
 
-The OP Succinct proposer reads L1 calldata as usual. When a batcher transaction is prefixed with the `DerivationVersion1` byte (`0x01`), the AltDA data source parses the commitment and emits an `altda-commitment` hint to the host. The host fetches the corresponding batch data from the configured alt-DA server. The resolved data is loaded into the preimage oracle, where the SP1 zkVM verifies that `keccak256(data) == commitment` before accepting it into derivation.
+The OP Succinct proposer reads L1 calldata as usual. When a batcher transaction is prefixed with the `DerivationVersion1` byte (`0x01`), the AltDA data source parses the commitment and emits an `altda-commitment` hint to the host. The host fetches the corresponding batch data from the configured alt-DA server. The resolved data is loaded into the preimage oracle. After reading it, the AltDA client running inside the SP1 zkVM explicitly checks `keccak256(data)` against the full 32-byte commitment before accepting it into derivation. The oracle key identifies the data; the explicit comparison binds all commitment bytes in the proof.
 
 ### Out of scope
 
@@ -47,8 +47,8 @@ The OP Succinct proposer reads L1 calldata as usual. When a batcher transaction 
 
 | Type | Byte | Status |
 |------|------|--------|
-| Keccak256 | `0x00` | Supported. Integrity is enforced inside the zkVM via the preimage oracle (`keccak256(data) == commitment`). |
-| Generic | `0x01` | Not supported in this release. The host rejects this commitment type. |
+| Keccak256 | `0x00` | Supported. The AltDA client inside the zkVM checks `keccak256(data)` against the full 32-byte commitment. |
+| Generic | `0x01` | Not supported in this release. The derivation client skips this commitment type without fetching its data. |
 
 > Note: the byte `0x01` appears in two distinct positions on the wire. It serves as the `DerivationVersion1` prefix on the L1 batcher transaction (separating alt-DA from Ethereum DA) and as the commitment type byte inside the encoded commitment. The two positions are independent.
 
@@ -80,6 +80,7 @@ If you omit this field, OP Succinct uses 130,672 bytes, the op-alt-da default.
 An explicit zero causes pipeline setup to fail.
 Inputs at the limit are accepted.
 The derivation pipeline skips larger inputs and continues with the next batch.
+This is a limit on data accepted into derivation, not a bound on HTTP response size or host memory usage: the check runs after the data has been fetched and read from the oracle.
 
 Use the same fixed value in OP Succinct, op-node, and op-batcher for the rollup's history.
 Check that all three versions support this field before you configure a custom limit.

@@ -232,6 +232,7 @@ Validates a proposal with a proof:
     - Claimed L2 block number
     - Rollup configuration hash
     - Range verification key commitment
+    - Prover address (`msg.sender`, the account calling `prove`)
   - Uses aggregation verification key to verify the proof
 
 - State Updates
