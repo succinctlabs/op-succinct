@@ -30,13 +30,16 @@ Failed to validate L2 block #<block_number> with output root <hash>
 ```
 
 **Cause:**
-This error occurs when the L1 head block selected for ETH DA is too close to the batch posting block, causing the derivation process to fail. The L2 node may have an inconsistent view of the safe head state, requiring additional L1 blocks to properly derive and validate the L2 blocks.
+This error means the derived L2 output root does not match the expected root.
+An L1 head that does not include all required batch data can cause this error.
+Check that your nodes are synced and use the expected chain and rollup configuration.
 
 **Solution:**
-1. Increase the L1 head offset buffer in the derivation process. The code currently adds a buffer of 20 blocks after the batch posting block, but you can increase this to for example 100 blocks:
+1. If derivation logs show exhausted L1 data, test a larger `L1_HEAD_BUFFER`.
+   The default is `0`; set `20` to restore the previous buffer:
 
-```rust,ignore
-let l1_head_number = l1_head_number + 100;
+```bash
+L1_HEAD_BUFFER=20
 ```
 
 2. If you're still encountering this error, you can try:
@@ -45,9 +48,12 @@ let l1_head_number = l1_head_number + 100;
    - For development/testing, you can increase the buffer further (e.g., to 150 blocks)
 
 **Technical Details:**
-The error occurs in the derivation pipeline when attempting to validate L2 blocks. The L1 head must be sufficiently ahead of the batch posting block to ensure all required data is available and the safe head state is consistent. The buffer of 20 blocks is added empirically to handle most cases where RPCs may have an incorrect view of the safe head state and have minimum overhead for the derivation process.
+SafeDB identifies the L1 block with enough data to derive the target L2 block.
+The default buffer of `0` uses that block without adding extra L1 blocks.
+A positive buffer can help diagnose an inconsistent SafeDB view, but it does not fix missing RPC data or node configuration errors.
+The selected L1 head remains capped by `L1_BLOCK_TAG` and `L1_CONFIRMATIONS`.
 
-Reference: [Fetcher Implementation](https://github.com/succinctlabs/op-succinct/blob/5dfc43928c75cef0ebf881d10bd8b3dcbe273419/utils/host/src/fetcher.rs#L773)
+Reference: [Proposer configuration](validity/proposer.md#optional-environment-variables)
 
 ### Cached Rollup Config Differs from Node RPC
 
