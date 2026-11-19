@@ -21,7 +21,7 @@ In the specification of the [standard OP Stack design](https://specs.optimism.io
 
 ### Overview
 
-OP Succinct is a lightweight upgrade to the OP Stack that enables ZK-based finality. Specifically, it upgrades a single on-chain contract and the `op-proposer` component. No changes are needed to `op-geth`, `op-batcher`, or `op-node`.
+OP Succinct is a lightweight upgrade to the OP Stack that enables ZK-based finality. Specifically, it upgrades a single on-chain contract and the `op-proposer` component. No changes are needed to the L2 execution client, `op-batcher`, or `op-node`.
 
 ![OP Succinct Design](./assets/opsuccinct_architecture_0424.png)
 
