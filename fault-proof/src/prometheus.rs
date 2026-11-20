@@ -2,6 +2,10 @@ use op_succinct_host_utils::metrics::MetricsGauge;
 use strum::EnumMessage;
 use strum_macros::{Display, EnumIter};
 
+pub const EXPIRED_UNVERIFIABLE_GAMES: &str =
+    "op_succinct_fp_challenger_expired_unverifiable_games_total";
+pub const EXPIRED_INVALID_GAMES: &str = "op_succinct_fp_challenger_expired_invalid_games_total";
+
 // Define an enum for all fault proof proposer metrics gauges.
 #[derive(Debug, Clone, Copy, Display, EnumIter, EnumMessage)]
 pub enum ProposerGauge {
@@ -182,12 +186,12 @@ pub enum ChallengerGauge {
     GamesBondsClaimed,
     #[strum(
         serialize = "op_succinct_fp_challenger_unverifiable_games",
-        message = "Number of games whose output root is currently unverifiable"
+        message = "Number of challengeable games whose output root is currently unverifiable"
     )]
     UnverifiableGames,
     #[strum(
         serialize = "op_succinct_fp_challenger_nearest_unverifiable_deadline_seconds",
-        message = "Seconds until the nearest unverifiable game deadline (-1 when none)"
+        message = "Seconds until the nearest challengeable unverifiable game deadline (-1 when none)"
     )]
     NearestUnverifiableDeadlineSeconds,
     #[strum(

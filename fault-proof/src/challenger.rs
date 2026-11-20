@@ -26,7 +26,7 @@ use crate::{
     },
     game_validator::{initial_game_validation, GameValidationRequest, GameValidator},
     is_parent_challenger_wins, is_parent_resolved,
-    prometheus::ChallengerGauge,
+    prometheus::{ChallengerGauge, EXPIRED_INVALID_GAMES, EXPIRED_UNVERIFIABLE_GAMES},
     FactoryTrait, L1Provider, TxErrorExt, TX_REVERTED_PREFIX,
 };
 use op_succinct_host_utils::metrics::MetricsGauge;
@@ -199,8 +199,8 @@ where
     ///      own game.
     ///    - Finalized UNDECIDED challenger-won games are marked for close.
     ///    - Closed challenger-won games are marked for bond claim if there is credit to claim.
-    ///    - Closed challenger-won games with no remaining credit are evicted, as are games that
-    ///      resolve as defender wins.
+    ///    - Expired unchallenged games, closed challenger-won games with no remaining credit, and
+    ///      games that resolve as defender wins are evicted.
     pub async fn sync_state(&self) -> Result<()> {
         let _sync_guard = self.sync_lock.lock().await;
         let snapshot = self.l1_sync_snapshot().await?;
@@ -215,7 +215,7 @@ where
         };
 
         for index in pending_discoveries {
-            match self.fetch_game(index, pinned_block).await {
+            match self.fetch_game(index, snapshot).await {
                 Ok(()) => {
                     self.state.lock().await.pending_discoveries.remove(&index);
                 }
@@ -239,7 +239,7 @@ where
             };
 
             while next_index <= latest_index {
-                let failed = match self.fetch_game(next_index, pinned_block).await {
+                let failed = match self.fetch_game(next_index, snapshot).await {
                     Ok(()) => false,
                     Err(error) => {
                         tracing::warn!(
@@ -271,7 +271,7 @@ where
             for game in games {
                 let game_index = game.index;
                 let game_address = game.address;
-                match self.sync_game(game, pinned_block, now_ts, signer_address).await {
+                match self.sync_game(game, snapshot, signer_address).await {
                     Ok(action) => actions.push(action),
                     Err(error) => {
                         tracing::warn!(
@@ -298,8 +298,11 @@ where
                 }
             }
 
-            let unavailable_games =
-                state.games.values().filter(|game| game.requires_validation()).collect::<Vec<_>>();
+            let unavailable_games = state
+                .games
+                .values()
+                .filter(|game| game.requires_validation(now_ts))
+                .collect::<Vec<_>>();
             ChallengerGauge::UnverifiableGames.set(unavailable_games.len() as f64);
             let nearest_deadline =
                 unavailable_games.iter().map(|game| game.deadline).collect::<Vec<_>>();
@@ -334,8 +337,8 @@ where
                 "L1 confirmed head moved backwards from {highest_accepted} to {confirmed_number}"
             );
         }
-        let confirmed_hash = if confirmed_number == latest_number {
-            latest_block.header.hash
+        let confirmed_header = if confirmed_number == latest_number {
+            latest_block.header
         } else {
             self.l1_provider
                 .get_block_by_number(BlockNumberOrTag::Number(confirmed_number))
@@ -344,7 +347,6 @@ where
                     format!("Confirmed L1 block {confirmed_number} is unavailable on this backend")
                 })?
                 .header
-                .hash
         };
 
         ChallengerGauge::ConfirmedL1Head.set(confirmed_number as f64);
@@ -353,7 +355,8 @@ where
 
         Ok(L1SyncSnapshot {
             confirmed_number,
-            pinned_block: BlockId::hash_canonical(confirmed_hash),
+            pinned_block: BlockId::hash_canonical(confirmed_header.hash),
+            confirmed_timestamp: confirmed_header.timestamp,
             latest_timestamp,
         })
     }
@@ -361,10 +364,11 @@ where
     async fn sync_game(
         &self,
         mut game: Game,
-        pinned_block: BlockId,
-        now_ts: u64,
+        snapshot: L1SyncSnapshot,
         signer_address: Address,
     ) -> Result<GameSyncAction> {
+        let pinned_block = snapshot.pinned_block;
+        let now_ts = snapshot.latest_timestamp;
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
         let status = contract.status().block(pinned_block).call().await?;
         let claim_data = contract.claimData().block(pinned_block).call().await?;
@@ -378,18 +382,38 @@ where
                 let is_game_over = now_ts >= game.deadline;
                 match game.proposal_status {
                     ProposalStatus::Unchallenged => {
-                        if is_game_over {
-                            if let GameValidation::Unavailable(reason) = &game.validation {
-                                tracing::error!(
-                                    game_index = %game.index,
-                                    game_address = ?game.address,
-                                    l2_block_number = %game.l2_block_number,
-                                    deadline = game.deadline,
-                                    ?reason,
-                                    "Game expired before validation became available"
-                                );
+                        // A challenge near the deadline may still be ahead of the pinned block.
+                        // The contract treats the deadline as expired only once time passes it.
+                        if snapshot.confirmed_timestamp > game.deadline {
+                            match &game.validation {
+                                GameValidation::Unavailable(reason) => {
+                                    tracing::error!(
+                                        game_index = %game.index,
+                                        game_address = ?game.address,
+                                        l2_block_number = %game.l2_block_number,
+                                        deadline = game.deadline,
+                                        ?reason,
+                                        "Game expired before validation became available"
+                                    );
+                                    metrics::counter!(EXPIRED_UNVERIFIABLE_GAMES).increment(1);
+                                }
+                                GameValidation::Invalid(reason) => {
+                                    tracing::error!(
+                                        game_index = %game.index,
+                                        game_address = ?game.address,
+                                        l2_block_number = %game.l2_block_number,
+                                        deadline = game.deadline,
+                                        ?reason,
+                                        "Invalid game expired without being challenged"
+                                    );
+                                    metrics::counter!(EXPIRED_INVALID_GAMES).increment(1);
+                                }
+                                GameValidation::Valid => {}
                             }
-                        } else {
+                            return Ok(GameSyncAction::Remove(game.index));
+                        }
+
+                        if !is_game_over {
                             if game.validation.is_unavailable() {
                                 game.validation = self.validate_game(&game, now_ts).await;
                             }
@@ -464,8 +488,9 @@ where
 
     /// Fetch game from the factory.
     ///
-    /// Drop game if the game type is invalid or the game was not respected at the time of creation.
-    async fn fetch_game(&self, index: U256, pinned_block: BlockId) -> Result<()> {
+    /// Skip unsupported games and unchallenged games already expired at discovery.
+    async fn fetch_game(&self, index: U256, snapshot: L1SyncSnapshot) -> Result<()> {
+        let pinned_block = snapshot.pinned_block;
         let game = self.factory.gameAtIndex(index).block(pinned_block).call().await?;
         let game_address = game.proxy;
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
@@ -492,11 +517,19 @@ where
             return Ok(())
         }
 
+        let claim_data = contract.claimData().block(pinned_block).call().await?;
+        let status = contract.status().block(pinned_block).call().await?;
+        let deadline = U256::from(claim_data.deadline).to::<u64>();
+        if status == GameStatus::IN_PROGRESS &&
+            claim_data.status == ProposalStatus::Unchallenged &&
+            snapshot.confirmed_timestamp > deadline
+        {
+            return Ok(());
+        }
+
         let l2_block_number = contract.l2BlockNumber().block(pinned_block).call().await?;
         let output_root = contract.rootClaim().block(pinned_block).call().await?;
         let l1_head = contract.l1Head().block(pinned_block).call().await?.0;
-        let claim_data = contract.claimData().block(pinned_block).call().await?;
-        let status = contract.status().block(pinned_block).call().await?;
 
         self.state.lock().await.games.insert(
             index,
@@ -507,7 +540,7 @@ where
                 l2_block_number,
                 output_root,
                 l1_head: l1_head.into(),
-                deadline: U256::from(claim_data.deadline).to::<u64>(),
+                deadline,
                 validation: initial_game_validation(l2_block_number),
                 status,
                 proposal_status: claim_data.status,
@@ -1088,9 +1121,10 @@ impl Game {
         self.should_attempt_to_claim_bond = false;
     }
 
-    fn requires_validation(&self) -> bool {
+    fn requires_validation(&self, now_ts: u64) -> bool {
         self.status == GameStatus::IN_PROGRESS &&
             self.proposal_status == ProposalStatus::Unchallenged &&
+            self.deadline > now_ts &&
             self.validation.is_unavailable()
     }
 }
@@ -1131,6 +1165,7 @@ enum GameSyncAction {
 struct L1SyncSnapshot {
     confirmed_number: u64,
     pinned_block: BlockId,
+    confirmed_timestamp: u64,
     latest_timestamp: u64,
 }
 
@@ -1313,6 +1348,15 @@ mod tests {
         }
     }
 
+    fn test_snapshot(pinned_block: BlockId, timestamp: u64) -> L1SyncSnapshot {
+        L1SyncSnapshot {
+            confirmed_number: 0,
+            pinned_block,
+            confirmed_timestamp: timestamp,
+            latest_timestamp: timestamp,
+        }
+    }
+
     fn test_game(validation: GameValidation) -> Game {
         Game {
             index: U256::ZERO,
@@ -1354,7 +1398,11 @@ mod tests {
             asserter.push_success(&true.abi_encode());
             asserter.push_success(&U256::from(BOND_DISTRIBUTION_MODE_UNDECIDED).abi_encode());
             let action = challenger
-                .sync_game(test_game(GameValidation::Valid), BlockId::latest(), 200, signer)
+                .sync_game(
+                    test_game(GameValidation::Valid),
+                    test_snapshot(BlockId::latest(), 200),
+                    signer,
+                )
                 .await
                 .unwrap();
             match action {
@@ -1391,8 +1439,7 @@ mod tests {
         let action = challenger
             .sync_game(
                 test_game(GameValidation::Valid),
-                BlockId::latest(),
-                200,
+                test_snapshot(BlockId::latest(), 200),
                 challenger.signer.address(),
             )
             .await
@@ -1428,11 +1475,7 @@ mod tests {
         );
     }
 
-    fn push_discovered_game_request_aware(
-        mock: &RequestAwareMock,
-        address: Address,
-        parent_index: u32,
-    ) {
+    fn push_game_identity(mock: &RequestAwareMock, address: Address) {
         mock.push_success(
             eth_call_key(Address::ZERO, "gameAtIndex(uint256)"),
             &(0u32, 0u64, address).abi_encode(),
@@ -1442,9 +1485,14 @@ mod tests {
             eth_call_key(address, "wasRespectedGameTypeWhenCreated()"),
             &true.abi_encode(),
         );
-        mock.push_success(eth_call_key(address, "l2BlockNumber()"), &U256::from(7).abi_encode());
-        mock.push_success(eth_call_key(address, "rootClaim()"), &B256::ZERO.abi_encode());
-        mock.push_success(eth_call_key(address, "l1Head()"), &B256::repeat_byte(0x55).abi_encode());
+    }
+
+    fn push_unchallenged_game_state(
+        mock: &RequestAwareMock,
+        address: Address,
+        parent_index: u32,
+        deadline: u64,
+    ) {
         mock.push_success(
             eth_call_key(address, "claimData()"),
             &ClaimData {
@@ -1453,11 +1501,23 @@ mod tests {
                 prover: Address::ZERO,
                 claim: B256::ZERO,
                 status: ProposalStatus::Unchallenged,
-                deadline: 100,
+                deadline,
             }
             .abi_encode(),
         );
         mock.push_success(eth_call_key(address, "status()"), &GameStatus::IN_PROGRESS.abi_encode());
+    }
+
+    fn push_discovered_game_request_aware(
+        mock: &RequestAwareMock,
+        address: Address,
+        parent_index: u32,
+    ) {
+        push_game_identity(mock, address);
+        push_unchallenged_game_state(mock, address, parent_index, 100);
+        mock.push_success(eth_call_key(address, "l2BlockNumber()"), &U256::from(7).abi_encode());
+        mock.push_success(eth_call_key(address, "rootClaim()"), &B256::ZERO.abi_encode());
+        mock.push_success(eth_call_key(address, "l1Head()"), &B256::repeat_byte(0x55).abi_encode());
     }
 
     fn test_challenger(l1_asserter: &Asserter) -> OPSuccinctChallenger<L1Provider> {
@@ -1544,8 +1604,7 @@ mod tests {
         match challenger
             .sync_game(
                 game,
-                BlockId::hash(B256::repeat_byte(0x11)),
-                now_timestamp,
+                test_snapshot(BlockId::hash(B256::repeat_byte(0x11)), now_timestamp),
                 challenger.signer.address(),
             )
             .await
@@ -1726,6 +1785,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sync_skips_games_already_expired_on_discovery() {
+        let (challenger, validator, mock) = challenger_with_request_aware_validator([]);
+        let recorder = metrics_exporter_prometheus::PrometheusBuilder::new().build_recorder();
+        let _guard = metrics::set_default_local_recorder(&recorder);
+        metrics::counter!(EXPIRED_UNVERIFIABLE_GAMES).absolute(0);
+
+        let mut block: Block = Block::default();
+        block.header.number = 10;
+        block.header.timestamp = 101;
+        block.header.hash = B256::repeat_byte(0x10);
+        mock.push_success("eth_getBlockByNumber", &Some(block));
+        mock.push_success(eth_call_key(Address::ZERO, "gameCount()"), &U256::from(1).abi_encode());
+        let address = Address::repeat_byte(0x11);
+        push_game_identity(&mock, address);
+        push_unchallenged_game_state(&mock, address, u32::MAX, 100);
+
+        challenger.sync_state().await.unwrap();
+
+        let state = challenger.state.lock().await;
+        assert_eq!(state.cursor, Some(U256::ZERO));
+        assert!(state.pending_discoveries.is_empty(), "expired discovery should complete");
+        assert!(state.games.is_empty());
+        assert!(validator.requests.lock().unwrap().is_empty());
+        assert!(mock.responses.read().unwrap().values().all(|queue| queue.is_empty()));
+        assert!(recorder.handle().render().contains(&format!("{EXPIRED_UNVERIFIABLE_GAMES} 0\n")));
+    }
+
+    #[tokio::test]
     async fn invalid_validation_flags_challenge_while_valid_does_not() {
         for (validation, should_challenge) in [
             (GameValidation::Invalid(InvalidReason::OutputRootMismatch), true),
@@ -1745,19 +1832,106 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn expired_game_does_not_invoke_injected_validator() {
-        let (challenger, validator, l1_asserter) =
-            challenger_with_recording_validator([GameValidation::Invalid(
-                InvalidReason::OutputRootMismatch,
-            )]);
-        let game = test_game(GameValidation::Unavailable(UnavailableReason::ValidationPending));
+    async fn sync_evicts_expired_unchallenged_games_only_after_confirmation() {
+        let (mut challenger, validator, mock) = challenger_with_request_aware_validator([]);
+        challenger.config.sync_l1_confirmations = 5;
+        let recorder = metrics_exporter_prometheus::PrometheusBuilder::new().build_recorder();
+        let _guard = metrics::set_default_local_recorder(&recorder);
+        metrics::counter!(EXPIRED_UNVERIFIABLE_GAMES).absolute(0);
+        metrics::counter!(EXPIRED_INVALID_GAMES).absolute(0);
 
-        let game = sync_active_game(&challenger, &l1_asserter, game, 100).await;
+        let unavailable = GameValidation::Unavailable(UnavailableReason::ValidationPending);
+        let mut expiring = test_game(unavailable.clone());
+        expiring.address = Address::repeat_byte(0x11);
+        expiring.deadline = 112;
+        let mut challenged = test_game(unavailable);
+        challenged.index = U256::from(1);
+        challenged.address = Address::repeat_byte(0x22);
+        challenged.deadline = 124;
+        let mut valid = test_game(GameValidation::Valid);
+        valid.index = U256::from(2);
+        valid.address = Address::repeat_byte(0x33);
+        valid.deadline = expiring.deadline;
+        let mut invalid = test_game(GameValidation::Invalid(InvalidReason::OutputRootMismatch));
+        invalid.index = U256::from(3);
+        invalid.address = Address::repeat_byte(0x44);
+        invalid.deadline = expiring.deadline;
+        {
+            let mut state = challenger.state.lock().await;
+            state.cursor = Some(invalid.index);
+            state.games.insert(expiring.index, expiring.clone());
+            state.games.insert(challenged.index, challenged.clone());
+            state.games.insert(valid.index, valid.clone());
+            state.games.insert(invalid.index, invalid.clone());
+        }
 
-        assert!(matches!(game.validation, GameValidation::Unavailable(_)));
-        assert!(!game.should_attempt_to_challenge);
+        // Blocks 5 and 6 are at or before expiry. The late challenge lands in block 7.
+        for (latest_number, challenge_confirmed) in
+            [(10, false), (11, false), (15, true), (16, true)]
+        {
+            for number in [latest_number, latest_number - 5] {
+                let mut block: Block = Block::default();
+                block.header.number = number;
+                block.header.timestamp = 40 + 12 * number;
+                block.header.hash = B256::repeat_byte(number as u8);
+                mock.push_success("eth_getBlockByNumber", &Some(block));
+            }
+            mock.push_success(
+                eth_call_key(Address::ZERO, "gameCount()"),
+                &U256::from(4).abi_encode(),
+            );
+
+            for game in [&expiring, &challenged, &valid, &invalid] {
+                if game.index != challenged.index && latest_number == 16 {
+                    continue;
+                }
+                let was_challenged = game.index == challenged.index && challenge_confirmed;
+                let (status, countered_by, deadline) = if was_challenged {
+                    (ProposalStatus::Challenged, challenger.signer.address(), 300)
+                } else {
+                    (ProposalStatus::Unchallenged, Address::ZERO, game.deadline)
+                };
+                mock.push_success(
+                    eth_call_key(game.address, "status()"),
+                    &GameStatus::IN_PROGRESS.abi_encode(),
+                );
+                mock.push_success(
+                    eth_call_key(game.address, "claimData()"),
+                    &ClaimData {
+                        parentIndex: u32::MAX,
+                        counteredBy: countered_by,
+                        prover: Address::ZERO,
+                        claim: B256::ZERO,
+                        status,
+                        deadline,
+                    }
+                    .abi_encode(),
+                );
+            }
+
+            challenger.sync_state().await.unwrap();
+
+            let state = challenger.state.lock().await;
+            assert_eq!(state.games.contains_key(&expiring.index), !challenge_confirmed);
+            assert_eq!(state.games.contains_key(&valid.index), !challenge_confirmed);
+            assert_eq!(state.games.contains_key(&invalid.index), !challenge_confirmed);
+            let cached = state.games.get(&challenged.index).unwrap();
+            assert_eq!(cached.proposal_status == ProposalStatus::Challenged, challenge_confirmed);
+            assert!(!cached.should_attempt_to_challenge);
+
+            let sample = recorder.handle().render();
+            let expected_counter = u64::from(challenge_confirmed);
+            assert!(sample.contains(&format!("# TYPE {EXPIRED_UNVERIFIABLE_GAMES} counter\n")));
+            assert!(sample.contains(&format!("{EXPIRED_UNVERIFIABLE_GAMES} {expected_counter}\n")));
+            assert!(sample.contains(&format!("# TYPE {EXPIRED_INVALID_GAMES} counter\n")));
+            assert!(sample.contains(&format!("{EXPIRED_INVALID_GAMES} {expected_counter}\n")));
+            assert!(sample.contains("op_succinct_fp_challenger_unverifiable_games 0\n"));
+            assert!(sample
+                .contains("op_succinct_fp_challenger_nearest_unverifiable_deadline_seconds -1\n"));
+        }
+
         assert!(validator.requests.lock().unwrap().is_empty());
-        assert!(l1_asserter.read_q().is_empty());
+        assert!(mock.responses.read().unwrap().values().all(|queue| queue.is_empty()));
     }
 
     #[tokio::test]
@@ -1913,17 +2087,18 @@ mod tests {
     fn only_active_unchallenged_unavailable_games_require_validation() {
         let mut game = test_game(GameValidation::Unavailable(UnavailableReason::ValidationPending));
 
-        assert!(game.requires_validation());
+        assert!(game.requires_validation(99));
+        assert!(!game.requires_validation(100));
 
         game.proposal_status = ProposalStatus::Challenged;
-        assert!(!game.requires_validation());
+        assert!(!game.requires_validation(99));
 
         game.proposal_status = ProposalStatus::Unchallenged;
         game.status = GameStatus::CHALLENGER_WINS;
-        assert!(!game.requires_validation());
+        assert!(!game.requires_validation(99));
 
         game.status = GameStatus::IN_PROGRESS;
         game.validation = GameValidation::Valid;
-        assert!(!game.requires_validation());
+        assert!(!game.requires_validation(99));
     }
 }
