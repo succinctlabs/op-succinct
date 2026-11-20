@@ -255,14 +255,14 @@ pub(crate) async fn claim_credit_transaction<P: Provider + Clone>(
     Ok(call.gas(estimate).into_transaction_request())
 }
 
-/// Builds a close transaction using the sender's unadjusted gas estimate.
+/// Builds a close transaction with gas headroom for anchor changes after estimation.
 pub(crate) async fn close_game_transaction<P: Provider + Clone>(
     contract: &OPSuccinctFaultDisputeGame::OPSuccinctFaultDisputeGameInstance<P>,
     sender: Address,
 ) -> Result<TransactionRequest> {
     let call = contract.closeGame().from(sender);
     let estimate = call.estimate_gas().await.context("Failed to estimate closeGame gas")?;
-    Ok(call.gas(estimate).into_transaction_request())
+    Ok(call.gas(estimate.max(300_000)).into_transaction_request())
 }
 
 /// Extension trait for checking transaction error types.
@@ -330,7 +330,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn close_game_transaction_uses_estimate_and_propagates_failure() {
+    async fn close_game_transaction_applies_gas_floor_and_propagates_failure() {
         use alloy::transports::mock::MockTransport;
         use alloy_json_rpc::RequestPacket;
         use tower::Service;
@@ -358,11 +358,13 @@ mod tests {
         });
         let provider = RootProvider::new(RpcClient::new(transport, true));
         let contract = OPSuccinctFaultDisputeGame::new(target, provider);
-        for estimate in [100_000u64, 250_000] {
+        for (estimate, gas_limit) in
+            [(166_500u64, 300_000), (300_000, 300_000), (350_000, 350_000), (u64::MAX, u64::MAX)]
+        {
             asserter.push_success(&format!("{estimate:#x}"));
             let tx = close_game_transaction(&contract, sender).await.unwrap();
             assert_eq!(tx.from, Some(sender));
-            assert_eq!(tx.gas, Some(estimate));
+            assert_eq!(tx.gas, Some(gas_limit));
         }
         asserter.push_failure_msg("estimate RPC unavailable");
         let error = close_game_transaction(&contract, sender).await.unwrap_err();

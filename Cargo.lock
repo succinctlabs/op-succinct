@@ -7532,6 +7532,8 @@ dependencies = [
  "dotenv",
  "futures",
  "hex",
+ "metrics",
+ "metrics-exporter-prometheus 0.16.2",
  "op-alloy-network",
  "op-alloy-rpc-types",
  "op-succinct-bindings",
