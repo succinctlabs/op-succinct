@@ -3029,6 +3029,38 @@ mod challenger_sync {
     }
 
     #[tokio::test]
+    async fn test_resolved_unchallenged_game_records_expiry() -> Result<()> {
+        use fault_proof::prometheus::EXPIRED_INVALID_GAMES;
+
+        let (env, challenger, init_bond) = setup().await?;
+        let recorder = metrics_exporter_prometheus::PrometheusBuilder::new().build_recorder();
+        let _guard = metrics::set_default_local_recorder(&recorder);
+        metrics::counter!(EXPIRED_INVALID_GAMES).absolute(0);
+        let block = env.anvil.starting_l2_block_number + 1;
+        env.create_game(random_invalid_root(), block, M, init_bond).await?;
+        let (_, address) = env.last_game_info().await?;
+        challenger.sync_state().await?;
+        assert!(matches!(
+            cached_game(&challenger, 0).await?.validation,
+            GameValidation::Invalid(InvalidReason::OutputRootMismatch)
+        ));
+
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        assert!(env.resolve_game(address).await?.status());
+        let game = fault_proof::contract::OPSuccinctFaultDisputeGame::new(
+            address,
+            env.anvil.provider.clone(),
+        );
+        assert_eq!(game.status().call().await?, GameStatus::DEFENDER_WINS);
+        for _ in 0..2 {
+            challenger.sync_state().await?;
+            assert!(challenger.get_game(U256::ZERO).await.is_none());
+            assert!(recorder.handle().render().contains(&format!("{EXPIRED_INVALID_GAMES} 1\n")));
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test_expired_unchallenged_game_is_evicted() -> Result<()> {
         use crate::common::constants::MAX_CHALLENGE_DURATION;
 

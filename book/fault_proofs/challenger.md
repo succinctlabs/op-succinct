@@ -211,8 +211,11 @@ Only `Invalid` authorizes an automatic challenge based on output-root validation
 game is never treated as invalid: while its challenge window remains open, the challenger retries it
 on every polling cycle. Once a confirmed L1 block shows that the deadline has passed and the game is
 still unchallenged, the challenger removes the game from its cache. It logs the reason and increments
-the corresponding counter if validation was unavailable or found the claim invalid. Games already
-expired and unchallenged at discovery are skipped without recording an expiry event.
+the corresponding counter if validation was unavailable or found the claim invalid. This event is
+also recorded if another actor resolves the game after the deadline between synchronization cycles,
+provided no challenge or proof was submitted. Each tracked game records at most one expiry event.
+Games already expired or resolved at discovery do not record an expiry event. Games resolved before
+their deadline are also excluded.
 Challenges inherited from a parent game that resolved in favor of the challenger remain independent
 of this output-root classification.
 
@@ -227,10 +230,10 @@ The following metrics expose unavailable validation and isolated synchronization
   remains unavailable and whose challenge window is open at the latest L1 block.
 - `op_succinct_fp_challenger_nearest_unverifiable_deadline_seconds`: seconds until the nearest such
   deadline (`-1` when none).
-- `op_succinct_fp_challenger_expired_unverifiable_games_total`: unchallenged games evicted after the
-  deadline without a validation result.
-- `op_succinct_fp_challenger_expired_invalid_games_total`: invalid games evicted after the deadline
-  without a challenge.
+- `op_succinct_fp_challenger_expired_unverifiable_games_total`: tracked games that expired without a
+  validation result, challenge, or proof.
+- `op_succinct_fp_challenger_expired_invalid_games_total`: tracked invalid games that expired without
+  a challenge or proof.
 - `op_succinct_fp_challenger_sync_failures_total`: isolated discovery, refresh, and synchronization
   failures.
 - `op_succinct_fp_challenger_confirmed_l1_head`: L1 block number selected for the latest pinned sync

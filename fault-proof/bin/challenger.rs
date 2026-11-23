@@ -94,12 +94,12 @@ async fn main() -> Result<()> {
     ChallengerGauge::init_all();
     metrics::describe_counter!(
         EXPIRED_UNVERIFIABLE_GAMES,
-        "Total number of unchallenged games evicted after the deadline without a validation result"
+        "Total number of tracked games that expired without a validation result or on-chain response"
     );
     metrics::counter!(EXPIRED_UNVERIFIABLE_GAMES).absolute(0);
     metrics::describe_counter!(
         EXPIRED_INVALID_GAMES,
-        "Total number of invalid games evicted after the deadline without a challenge"
+        "Total number of tracked invalid games that expired without a challenge or proof"
     );
     metrics::counter!(EXPIRED_INVALID_GAMES).absolute(0);
 
