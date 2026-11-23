@@ -3083,6 +3083,77 @@ mod challenger_sync {
         Ok(())
     }
 
+    #[rstest]
+    #[case::tracked_before_expiry(false)]
+    #[case::discovered_after_expiry(true)]
+    #[tokio::test]
+    async fn test_creator_game_claims_refund_after_external_close(
+        #[case] discovered_after_expiry: bool,
+    ) -> Result<()> {
+        use crate::common::constants::PROPOSER_ADDRESS;
+        use alloy_provider::Provider;
+        use op_succinct_bindings::anchor_state_registry::AnchorStateRegistry;
+
+        let env = TestEnvironment::setup().await?;
+        let init_bond = env.factory()?.initBonds(TEST_GAME_TYPE).call().await?;
+        assert!(init_bond > U256::ZERO);
+        let block = env.anvil.starting_l2_block_number;
+        env.create_game(random_invalid_root(), block + 1, M, init_bond).await?;
+        let (_, parent) = env.last_game_info().await?;
+        env.create_game(random_invalid_root(), block + 2, 0, init_bond).await?;
+        let (_, child) = env.last_game_info().await?;
+        // Use the creator's key for the challenger so its creation bond is recoverable.
+        let challenger = crate::common::new_challenger(
+            &env.rpc_config,
+            env.private_keys.proposer,
+            &env.deployed.anchor_state_registry,
+            &env.deployed.factory,
+            env.game_type,
+            None,
+        )
+        .await?;
+        challenger.try_init().await?;
+        if !discovered_after_expiry {
+            challenger.sync_state().await?;
+            assert!(challenger.get_game(U256::from(1)).await.is_some());
+        }
+
+        env.challenge_game(parent).await?;
+        env.warp_time(MAX_PROVE_DURATION + 1).await?;
+        assert!(env.resolve_game(parent).await?.status());
+        for _ in 0..2 {
+            challenger.sync_state().await?;
+            let game = cached_game(&challenger, 1).await?;
+            assert!(!game.should_attempt_to_challenge);
+            assert!(!game.should_attempt_to_resolve);
+            assert!(!game.should_attempt_to_close_game);
+            assert!(!game.should_attempt_to_claim_bond);
+        }
+
+        // Resolution and closure happen outside the challenger; only claiming is automatic.
+        assert!(env.resolve_game(child).await?.status());
+        let blacklist = AnchorStateRegistry::blacklistDisputeGameCall { _disputeGame: child };
+        env.send_anchor_state_registry_tx(blacklist.abi_encode(), None).await?;
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+        assert!(env.close_game(child).await?.status());
+        assert_eq!(env.get_bond_distribution_mode(child).await?, 2); // REFUND
+        let binding = env.fault_dispute_game(child).await?;
+        assert_eq!(binding.credit(PROPOSER_ADDRESS).call().await?, init_bond);
+
+        challenger.sync_state().await?;
+        let game = cached_game(&challenger, 1).await?;
+        assert_eq!(game.status, GameStatus::CHALLENGER_WINS);
+        assert!(game.should_attempt_to_claim_bond);
+        assert!(!game.should_attempt_to_resolve);
+        assert!(!game.should_attempt_to_close_game);
+        challenger.handle_bond_claiming().await?;
+        assert_eq!(binding.credit(PROPOSER_ADDRESS).call().await?, U256::ZERO);
+        assert_eq!(env.anvil.provider.get_balance(child).await?, U256::ZERO);
+        challenger.sync_state().await?;
+        assert!(challenger.get_game(U256::from(1)).await.is_none());
+        Ok(())
+    }
+
     /// Verifies that child games with unresolved parents are NOT marked for resolution.
     ///
     /// Topology: M -> 0 (unresolved) -> 1 (challenged child)

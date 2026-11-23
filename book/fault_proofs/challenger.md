@@ -210,8 +210,11 @@ Output-root validation records one of three outcomes for each monitored game:
 Only `Invalid` authorizes an automatic challenge based on output-root validation. An `Unavailable`
 game is never treated as invalid: while its challenge window remains open, the challenger retries it
 on every polling cycle. Once a confirmed L1 block shows that the deadline has passed and the game is
-still unchallenged, the challenger removes the game from its cache. It logs the reason and increments
-the corresponding counter if validation was unavailable or found the claim invalid. This event is
+still unchallenged, validation stops. Games created by another signer are removed from the cache;
+games created by this signer remain tracked to preserve the existing claim path after another actor
+resolves and closes them. Resolved games still follow the existing eviction and settlement rules.
+The challenger logs the reason and increments the corresponding counter if validation was unavailable
+or found the claim invalid. This event is
 also recorded if another actor resolves the game after the deadline between synchronization cycles,
 provided no challenge or proof was submitted. Each tracked game records at most one expiry event.
 Games already expired or resolved at discovery do not record an expiry event. Games resolved before
@@ -251,7 +254,7 @@ The following metrics expose unavailable validation and isolated synchronization
 
 ### Game Resolution
 The challenger:
-- Tracks only games it countered
+- Resolves only games it countered
 - Resolves games after their deadline once the parent dispute is resolved and it is own game
 
 ### Bond Claiming

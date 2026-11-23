@@ -199,8 +199,8 @@ where
     ///      own game.
     ///    - Finalized UNDECIDED challenger-won games are marked for close.
     ///    - Closed challenger-won games are marked for bond claim if there is credit to claim.
-    ///    - Expired unchallenged games, closed challenger-won games with no remaining credit, and
-    ///      games that resolve as defender wins are evicted.
+    ///    - Expired unchallenged games created by other signers, closed challenger-won games with
+    ///      no remaining credit, and games that resolve as defender wins are evicted.
     pub async fn sync_state(&self) -> Result<()> {
         let _sync_guard = self.sync_lock.lock().await;
         let snapshot = self.l1_sync_snapshot().await?;
@@ -395,8 +395,10 @@ where
 
         let action = match status {
             GameStatus::IN_PROGRESS => {
+                // Keep the creator's games in case another actor resolves and closes them.
                 if game.proposal_status == ProposalStatus::Unchallenged &&
-                    snapshot.confirmed_timestamp > game.deadline
+                    snapshot.confirmed_timestamp > game.deadline &&
+                    game.creator != signer_address
                 {
                     GameSyncAction::Remove(game.index)
                 } else {
@@ -491,7 +493,7 @@ where
 
     /// Fetch game from the factory.
     ///
-    /// Skip unsupported games and unchallenged games already expired at discovery.
+    /// Skip unsupported games and expired unchallenged games created by another signer.
     async fn fetch_game(&self, index: U256, snapshot: L1SyncSnapshot) -> Result<()> {
         let pinned_block = snapshot.pinned_block;
         let game = self.factory.gameAtIndex(index).block(pinned_block).call().await?;
@@ -522,10 +524,12 @@ where
 
         let claim_data = contract.claimData().block(pinned_block).call().await?;
         let status = contract.status().block(pinned_block).call().await?;
+        let creator = contract.gameCreator().block(pinned_block).call().await?;
         let deadline = U256::from(claim_data.deadline).to::<u64>();
         if status == GameStatus::IN_PROGRESS &&
             claim_data.status == ProposalStatus::Unchallenged &&
-            snapshot.confirmed_timestamp > deadline
+            snapshot.confirmed_timestamp > deadline &&
+            creator != self.signer.address()
         {
             return Ok(());
         }
@@ -539,6 +543,7 @@ where
             Game {
                 index,
                 address: game_address,
+                creator,
                 parent_index: claim_data.parentIndex,
                 l2_block_number,
                 output_root,
@@ -1093,6 +1098,7 @@ where
 pub struct Game {
     pub index: U256,
     pub address: Address,
+    pub creator: Address,
     pub parent_index: u32,
     pub l2_block_number: U256,
     pub output_root: B256,
@@ -1397,6 +1403,7 @@ mod tests {
         Game {
             index: U256::ZERO,
             address: Address::ZERO,
+            creator: Address::ZERO,
             parent_index: u32::MAX,
             l2_block_number: U256::from(7),
             output_root: B256::ZERO,
@@ -1552,6 +1559,7 @@ mod tests {
     ) {
         push_game_identity(mock, address);
         push_unchallenged_game_state(mock, address, parent_index, 100);
+        mock.push_success(eth_call_key(address, "gameCreator()"), &Address::ZERO.abi_encode());
         mock.push_success(eth_call_key(address, "l2BlockNumber()"), &U256::from(7).abi_encode());
         mock.push_success(eth_call_key(address, "rootClaim()"), &B256::ZERO.abi_encode());
         mock.push_success(eth_call_key(address, "l1Head()"), &B256::repeat_byte(0x55).abi_encode());
@@ -1837,6 +1845,7 @@ mod tests {
         let address = Address::repeat_byte(0x11);
         push_game_identity(&mock, address);
         push_unchallenged_game_state(&mock, address, u32::MAX, 100);
+        mock.push_success(eth_call_key(address, "gameCreator()"), &Address::ZERO.abi_encode());
 
         challenger.sync_state().await.unwrap();
 
@@ -1865,6 +1874,161 @@ mod tests {
             assert_eq!(game.should_attempt_to_challenge, should_challenge);
             assert_eq!(validator.requests.lock().unwrap().len(), 1);
             assert!(l1_asserter.read_q().is_empty());
+        }
+    }
+
+    fn push_creator_discovery(mock: &RequestAwareMock, address: Address, creator: Address) {
+        push_game_identity(mock, address);
+        push_unchallenged_game_state(mock, address, u32::MAX, 100);
+        mock.push_success(eth_call_key(address, "gameCreator()"), &creator.abi_encode());
+        mock.push_success(eth_call_key(address, "l2BlockNumber()"), &U256::from(7).abi_encode());
+        mock.push_success(eth_call_key(address, "rootClaim()"), &B256::ZERO.abi_encode());
+        mock.push_success(eth_call_key(address, "l1Head()"), &B256::repeat_byte(0x55).abi_encode());
+    }
+
+    #[rstest::rstest]
+    #[case::tracked_before_expiry(50)]
+    #[case::discovered_after_expiry(101)]
+    #[tokio::test]
+    async fn creator_game_survives_expiry_for_existing_claim(#[case] discovered_at: u64) {
+        for (validation, unavailable_count, invalid_count) in [
+            (GameValidation::Valid, 0, 0),
+            (GameValidation::Invalid(InvalidReason::OutputRootMismatch), 0, 1),
+            (GameValidation::Unavailable(UnavailableReason::ValidationPending), 1, 0),
+        ] {
+            let (challenger, validator, mock) = challenger_with_request_aware_validator([]);
+            let signer = challenger.signer.address();
+            let address = Address::repeat_byte(0x11);
+            let recorder = metrics_exporter_prometheus::PrometheusBuilder::new().build_recorder();
+            let _guard = metrics::set_default_local_recorder(&recorder);
+            metrics::counter!(EXPIRED_UNVERIFIABLE_GAMES).absolute(0);
+            metrics::counter!(EXPIRED_INVALID_GAMES).absolute(0);
+            push_creator_discovery(&mock, address, signer);
+            challenger
+                .fetch_game(U256::ZERO, test_snapshot(BlockId::latest(), discovered_at))
+                .await
+                .unwrap();
+            let mut game = challenger
+                .state
+                .lock()
+                .await
+                .games
+                .get(&U256::ZERO)
+                .cloned()
+                .expect("creator game must be discovered even after expiry");
+            game.validation = validation.clone();
+
+            for timestamp in [101, 102] {
+                push_unchallenged_game_state(&mock, address, u32::MAX, 100);
+                let action = challenger
+                    .sync_game(game, test_snapshot(BlockId::latest(), timestamp), signer)
+                    .await
+                    .unwrap();
+                let GameSyncAction::Update(updated) = action else {
+                    panic!("creator game must survive expiry for existing claims")
+                };
+                assert!(!updated.should_attempt_to_challenge);
+                assert!(!updated.should_attempt_to_resolve);
+                assert!(!updated.should_attempt_to_close_game);
+                assert!(!updated.should_attempt_to_claim_bond);
+                game = updated;
+                let expected_unavailable = if discovered_at == 50 { unavailable_count } else { 0 };
+                let expected_invalid = if discovered_at == 50 { invalid_count } else { 0 };
+                let sample = recorder.handle().render();
+                assert!(sample
+                    .contains(&format!("{EXPIRED_UNVERIFIABLE_GAMES} {expected_unavailable}\n")));
+                assert!(sample.contains(&format!("{EXPIRED_INVALID_GAMES} {expected_invalid}\n")));
+            }
+
+            // Another actor has resolved and closed this game in REFUND mode.
+            for credit in [7u64, 0] {
+                mock.push_success(
+                    eth_call_key(address, "status()"),
+                    &GameStatus::CHALLENGER_WINS.abi_encode(),
+                );
+                mock.push_success(
+                    eth_call_key(address, "claimData()"),
+                    &ClaimData {
+                        parentIndex: u32::MAX,
+                        counteredBy: Address::ZERO,
+                        prover: Address::ZERO,
+                        claim: B256::ZERO,
+                        status: ProposalStatus::Resolved,
+                        deadline: 100,
+                    }
+                    .abi_encode(),
+                );
+                mock.push_success(
+                    eth_call_key(Address::ZERO, "isGameFinalized(address)"),
+                    &true.abi_encode(),
+                );
+                mock.push_success(
+                    eth_call_key(address, "bondDistributionMode()"),
+                    &U256::from(2).abi_encode(),
+                );
+                mock.push_success(
+                    eth_call_key(address, "credit(address)"),
+                    &U256::from(credit).abi_encode(),
+                );
+                let action = challenger
+                    .sync_game(game.clone(), test_snapshot(BlockId::latest(), 200), signer)
+                    .await
+                    .unwrap();
+                if credit == 0 {
+                    assert!(matches!(action, GameSyncAction::Remove(_)));
+                } else {
+                    let GameSyncAction::Update(updated) = action else {
+                        panic!("existing refund credit must remain claimable")
+                    };
+                    assert!(updated.should_attempt_to_claim_bond);
+                    assert!(!updated.should_attempt_to_resolve);
+                    assert!(!updated.should_attempt_to_close_game);
+                    game = updated;
+                }
+            }
+            assert!(validator.requests.lock().unwrap().is_empty());
+            assert!(mock.responses.read().unwrap().values().all(|queue| queue.is_empty()));
+        }
+    }
+
+    #[tokio::test]
+    async fn creator_game_preserves_existing_resolved_removal_policies() {
+        for status in [GameStatus::DEFENDER_WINS, GameStatus::CHALLENGER_WINS] {
+            let (challenger, _, mock) = challenger_with_request_aware_validator([]);
+            let signer = challenger.signer.address();
+            let address = Address::repeat_byte(0x11);
+            push_creator_discovery(&mock, address, signer);
+            challenger.fetch_game(U256::ZERO, test_snapshot(BlockId::latest(), 50)).await.unwrap();
+            let mut game = challenger.state.lock().await.games.get(&U256::ZERO).cloned().unwrap();
+            game.validation = GameValidation::Valid;
+            mock.push_success(eth_call_key(address, "status()"), &status.abi_encode());
+            mock.push_success(
+                eth_call_key(address, "claimData()"),
+                &ClaimData {
+                    parentIndex: u32::MAX,
+                    counteredBy: Address::ZERO,
+                    prover: Address::ZERO,
+                    claim: B256::ZERO,
+                    status: ProposalStatus::Resolved,
+                    deadline: 100,
+                }
+                .abi_encode(),
+            );
+            if status == GameStatus::CHALLENGER_WINS {
+                mock.push_success(
+                    eth_call_key(Address::ZERO, "isGameFinalized(address)"),
+                    &true.abi_encode(),
+                );
+                mock.push_success(
+                    eth_call_key(address, "bondDistributionMode()"),
+                    &U256::ZERO.abi_encode(),
+                );
+            }
+            let action = challenger
+                .sync_game(game, test_snapshot(BlockId::latest(), 200), signer)
+                .await
+                .unwrap();
+            assert!(matches!(action, GameSyncAction::Remove(_)));
         }
     }
 
