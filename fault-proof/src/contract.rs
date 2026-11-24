@@ -85,6 +85,9 @@ sol! {
         /// @notice Getter for the status of the game.
         function status() public view returns (GameStatus status_);
 
+        /// @notice Timestamp at which the game was resolved.
+        function resolvedAt() public view returns (uint64 resolvedAt_);
+
         /// @notice Getter for the claim data.
         function claimData() public view returns (ClaimData memory claimData_);
 

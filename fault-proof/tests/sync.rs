@@ -2645,9 +2645,7 @@ mod challenger_sync {
     use alloy_sol_types::{SolCall, SolValue};
     use anyhow::{Context, Result};
     use fault_proof::{
-        challenger::{
-            Game, GameValidation, InvalidReason, OPSuccinctChallenger, UnavailableReason,
-        },
+        challenger::{Game, GameValidation, InvalidReason, OPSuccinctChallenger},
         contract::{GameStatus, ProposalStatus, BOND_DISTRIBUTION_MODE_UNDECIDED},
     };
     use op_succinct_bindings::dispute_game_factory::DisputeGameFactory;
@@ -3031,7 +3029,39 @@ mod challenger_sync {
     }
 
     #[tokio::test]
-    async fn test_no_challenge_after_deadline() -> Result<()> {
+    async fn test_resolved_unchallenged_game_records_expiry() -> Result<()> {
+        use fault_proof::prometheus::EXPIRED_INVALID_GAMES;
+
+        let (env, challenger, init_bond) = setup().await?;
+        let recorder = metrics_exporter_prometheus::PrometheusBuilder::new().build_recorder();
+        let _guard = metrics::set_default_local_recorder(&recorder);
+        metrics::counter!(EXPIRED_INVALID_GAMES).absolute(0);
+        let block = env.anvil.starting_l2_block_number + 1;
+        env.create_game(random_invalid_root(), block, M, init_bond).await?;
+        let (_, address) = env.last_game_info().await?;
+        challenger.sync_state().await?;
+        assert!(matches!(
+            cached_game(&challenger, 0).await?.validation,
+            GameValidation::Invalid(InvalidReason::OutputRootMismatch)
+        ));
+
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        assert!(env.resolve_game(address).await?.status());
+        let game = fault_proof::contract::OPSuccinctFaultDisputeGame::new(
+            address,
+            env.anvil.provider.clone(),
+        );
+        assert_eq!(game.status().call().await?, GameStatus::DEFENDER_WINS);
+        for _ in 0..2 {
+            challenger.sync_state().await?;
+            assert!(challenger.get_game(U256::ZERO).await.is_none());
+            assert!(recorder.handle().render().contains(&format!("{EXPIRED_INVALID_GAMES} 1\n")));
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_expired_unchallenged_game_is_evicted() -> Result<()> {
         use crate::common::constants::MAX_CHALLENGE_DURATION;
 
         let (env, challenger, init_bond) = setup().await?;
@@ -3039,18 +3069,88 @@ mod challenger_sync {
         let starting_l2_block = env.anvil.starting_l2_block_number;
         let block = starting_l2_block + 1;
         env.create_game(random_invalid_root(), block, M, init_bond).await?;
+        challenger.sync_state().await?;
+        assert!(challenger.get_game(U256::ZERO).await.is_some());
 
         env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
-
         challenger.sync_state().await?;
 
-        let game = cached_game(&challenger, 0).await?;
-        assert_eq!(
-            game.validation,
-            GameValidation::Unavailable(UnavailableReason::ValidationPending)
+        assert!(
+            challenger.get_game(U256::ZERO).await.is_none(),
+            "Expired unchallenged game should be evicted"
         );
-        assert!(!game.should_attempt_to_challenge, "Should not challenge after deadline");
 
+        Ok(())
+    }
+
+    #[rstest]
+    #[case::tracked_before_expiry(false)]
+    #[case::discovered_after_expiry(true)]
+    #[tokio::test]
+    async fn test_creator_game_claims_refund_after_external_close(
+        #[case] discovered_after_expiry: bool,
+    ) -> Result<()> {
+        use crate::common::constants::PROPOSER_ADDRESS;
+        use alloy_provider::Provider;
+        use op_succinct_bindings::anchor_state_registry::AnchorStateRegistry;
+
+        let env = TestEnvironment::setup().await?;
+        let init_bond = env.factory()?.initBonds(TEST_GAME_TYPE).call().await?;
+        assert!(init_bond > U256::ZERO);
+        let block = env.anvil.starting_l2_block_number;
+        env.create_game(random_invalid_root(), block + 1, M, init_bond).await?;
+        let (_, parent) = env.last_game_info().await?;
+        env.create_game(random_invalid_root(), block + 2, 0, init_bond).await?;
+        let (_, child) = env.last_game_info().await?;
+        // Use the creator's key for the challenger so its creation bond is recoverable.
+        let challenger = crate::common::new_challenger(
+            &env.rpc_config,
+            env.private_keys.proposer,
+            &env.deployed.anchor_state_registry,
+            &env.deployed.factory,
+            env.game_type,
+            None,
+        )
+        .await?;
+        challenger.try_init().await?;
+        if !discovered_after_expiry {
+            challenger.sync_state().await?;
+            assert!(challenger.get_game(U256::from(1)).await.is_some());
+        }
+
+        env.challenge_game(parent).await?;
+        env.warp_time(MAX_PROVE_DURATION + 1).await?;
+        assert!(env.resolve_game(parent).await?.status());
+        for _ in 0..2 {
+            challenger.sync_state().await?;
+            let game = cached_game(&challenger, 1).await?;
+            assert!(!game.should_attempt_to_challenge);
+            assert!(!game.should_attempt_to_resolve);
+            assert!(!game.should_attempt_to_close_game);
+            assert!(!game.should_attempt_to_claim_bond);
+        }
+
+        // Resolution and closure happen outside the challenger; only claiming is automatic.
+        assert!(env.resolve_game(child).await?.status());
+        let blacklist = AnchorStateRegistry::blacklistDisputeGameCall { _disputeGame: child };
+        env.send_anchor_state_registry_tx(blacklist.abi_encode(), None).await?;
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+        assert!(env.close_game(child).await?.status());
+        assert_eq!(env.get_bond_distribution_mode(child).await?, 2); // REFUND
+        let binding = env.fault_dispute_game(child).await?;
+        assert_eq!(binding.credit(PROPOSER_ADDRESS).call().await?, init_bond);
+
+        challenger.sync_state().await?;
+        let game = cached_game(&challenger, 1).await?;
+        assert_eq!(game.status, GameStatus::CHALLENGER_WINS);
+        assert!(game.should_attempt_to_claim_bond);
+        assert!(!game.should_attempt_to_resolve);
+        assert!(!game.should_attempt_to_close_game);
+        challenger.handle_bond_claiming().await?;
+        assert_eq!(binding.credit(PROPOSER_ADDRESS).call().await?, U256::ZERO);
+        assert_eq!(env.anvil.provider.get_balance(child).await?, U256::ZERO);
+        challenger.sync_state().await?;
+        assert!(challenger.get_game(U256::from(1)).await.is_none());
         Ok(())
     }
 
@@ -3291,7 +3391,7 @@ mod challenger_sync {
 
     /// Verifies correct eviction when multiple games have different final states.
     ///
-    /// Topology: M -> 0 (DEFENDER_WINS), M -> 1 (CHALLENGER_WINS, claimed), M -> 2 (IN_PROGRESS)
+    /// Games 0 and 1 are resolved, game 2 expires unchallenged, and game 3 stays challengeable.
     #[tokio::test]
     async fn test_multi_branch_eviction() -> Result<()> {
         let (env, challenger, init_bond) = setup().await?;
@@ -3307,7 +3407,7 @@ mod challenger_sync {
         env.create_game(random_invalid_root(), starting_l2_block + 2, M, init_bond).await?;
         let (_, addr1) = env.last_game_info().await?;
 
-        // Game 2: valid, stays IN_PROGRESS
+        // Game 2: valid, expires unchallenged without resolving
         let root2 = env.compute_output_root_at_block(starting_l2_block + 3).await?;
         env.create_game(root2, starting_l2_block + 3, M, init_bond).await?;
 
@@ -3328,6 +3428,10 @@ mod challenger_sync {
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
         env.claim_bond(addr1, CHALLENGER_ADDRESS).await?;
 
+        // Game 3: valid and still within the challenge window.
+        let root3 = env.compute_output_root_at_block(starting_l2_block + 4).await?;
+        env.create_game(root3, starting_l2_block + 4, M, init_bond).await?;
+
         // Sync and verify eviction
         challenger.sync_state().await?;
 
@@ -3340,8 +3444,12 @@ mod challenger_sync {
             "CHALLENGER_WINS with claimed bond should be evicted"
         );
         assert!(
-            challenger.get_game(U256::from(2)).await.is_some(),
-            "IN_PROGRESS game should be retained"
+            challenger.get_game(U256::from(2)).await.is_none(),
+            "Expired unchallenged game should be evicted"
+        );
+        assert!(
+            challenger.get_game(U256::from(3)).await.is_some(),
+            "Challengeable game should remain cached"
         );
 
         Ok(())

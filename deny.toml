@@ -24,6 +24,7 @@ ignore = [
   { id = "RUSTSEC-2026-0391", reason = "zstd 0.13, through SP1 and sp1-cluster-artifact. Both use encode_all/decode_all with fresh contexts; the affected with_context API is unused. Remove when both upgrade to >=0.14.3." },
   { id = "RUSTSEC-2026-0398", reason = "zstd-safe 7.2, through zstd in SP1 and sp1-cluster-artifact. The affected seekable feature is disabled. Remove when zstd-safe reaches >=8.2.0." },
   { id = "RUSTSEC-2026-0403", reason = "zstd-safe 7.2, through zstd in SP1 and sp1-cluster-artifact. Decompression uses decode_all, whose read decoder is unaffected. Remove when zstd-safe reaches >=8.2.0." },
+  { id = "RUSTSEC-2026-0543", reason = "chrono is unmaintained with no patched version. It is used by validity, SP1, SQLx, gcloud-sdk and opentelemetry-stdout. Remove once these dependency paths migrate off chrono." },
 ]
 
 [licenses]
