@@ -2992,7 +2992,7 @@ dependencies = [
 [[package]]
 name = "canoe-bindings"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.4.2#e7ff01d67f255b0aff2da1293d47e95894a31bca"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=190213bf35431ced238d7ed6bc9080a01d573c83#190213bf35431ced238d7ed6bc9080a01d573c83"
 dependencies = [
  "alloy-sol-types",
  "serde",
@@ -3001,7 +3001,7 @@ dependencies = [
 [[package]]
 name = "canoe-provider"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.4.2#e7ff01d67f255b0aff2da1293d47e95894a31bca"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=190213bf35431ced238d7ed6bc9080a01d573c83#190213bf35431ced238d7ed6bc9080a01d573c83"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
@@ -3016,7 +3016,7 @@ dependencies = [
 [[package]]
 name = "canoe-sp1-cc-host"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.4.2#e7ff01d67f255b0aff2da1293d47e95894a31bca"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=190213bf35431ced238d7ed6bc9080a01d573c83#190213bf35431ced238d7ed6bc9080a01d573c83"
 dependencies = [
  "alloy-genesis",
  "alloy-primitives",
@@ -3041,7 +3041,7 @@ dependencies = [
 [[package]]
 name = "canoe-sp1-cc-verifier"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.4.2#e7ff01d67f255b0aff2da1293d47e95894a31bca"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=190213bf35431ced238d7ed6bc9080a01d573c83#190213bf35431ced238d7ed6bc9080a01d573c83"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
@@ -3059,7 +3059,7 @@ dependencies = [
 [[package]]
 name = "canoe-verifier"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.4.2#e7ff01d67f255b0aff2da1293d47e95894a31bca"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=190213bf35431ced238d7ed6bc9080a01d573c83#190213bf35431ced238d7ed6bc9080a01d573c83"
 dependencies = [
  "alloy-genesis",
  "alloy-primitives",
@@ -3075,7 +3075,7 @@ dependencies = [
 [[package]]
 name = "canoe-verifier-address-fetcher"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.4.2#e7ff01d67f255b0aff2da1293d47e95894a31bca"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=190213bf35431ced238d7ed6bc9080a01d573c83#190213bf35431ced238d7ed6bc9080a01d573c83"
 dependencies = [
  "alloy-primitives",
  "eigenda-cert",
@@ -4145,7 +4145,7 @@ dependencies = [
 [[package]]
 name = "eigenda-cert"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.4.2#e7ff01d67f255b0aff2da1293d47e95894a31bca"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=190213bf35431ced238d7ed6bc9080a01d573c83#190213bf35431ced238d7ed6bc9080a01d573c83"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -5088,7 +5088,7 @@ dependencies = [
 [[package]]
 name = "hokulea-client"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.4.2#e7ff01d67f255b0aff2da1293d47e95894a31bca"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=190213bf35431ced238d7ed6bc9080a01d573c83#190213bf35431ced238d7ed6bc9080a01d573c83"
 dependencies = [
  "alloy-consensus 2.3.0",
  "alloy-evm 0.38.0",
@@ -5110,7 +5110,7 @@ dependencies = [
 [[package]]
 name = "hokulea-client-bin"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.4.2#e7ff01d67f255b0aff2da1293d47e95894a31bca"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=190213bf35431ced238d7ed6bc9080a01d573c83#190213bf35431ced238d7ed6bc9080a01d573c83"
 dependencies = [
  "alloy-evm 0.38.0",
  "alloy-op-evm",
@@ -5131,7 +5131,7 @@ dependencies = [
 [[package]]
 name = "hokulea-compute-proof"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.4.2#e7ff01d67f255b0aff2da1293d47e95894a31bca"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=190213bf35431ced238d7ed6bc9080a01d573c83#190213bf35431ced238d7ed6bc9080a01d573c83"
 dependencies = [
  "alloy-primitives",
  "ark-bn254 0.5.0",
@@ -5146,7 +5146,7 @@ dependencies = [
 [[package]]
 name = "hokulea-eigenda"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.4.2#e7ff01d67f255b0aff2da1293d47e95894a31bca"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=190213bf35431ced238d7ed6bc9080a01d573c83#190213bf35431ced238d7ed6bc9080a01d573c83"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -5162,7 +5162,7 @@ dependencies = [
 [[package]]
 name = "hokulea-host-bin"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.4.2#e7ff01d67f255b0aff2da1293d47e95894a31bca"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=190213bf35431ced238d7ed6bc9080a01d573c83#190213bf35431ced238d7ed6bc9080a01d573c83"
 dependencies = [
  "alloy-op-evm",
  "alloy-primitives",
@@ -5190,7 +5190,7 @@ dependencies = [
 [[package]]
 name = "hokulea-proof"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.4.2#e7ff01d67f255b0aff2da1293d47e95894a31bca"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=190213bf35431ced238d7ed6bc9080a01d573c83#190213bf35431ced238d7ed6bc9080a01d573c83"
 dependencies = [
  "alloy-primitives",
  "ark-bn254 0.5.0",
@@ -5212,7 +5212,7 @@ dependencies = [
 [[package]]
 name = "hokulea-witgen"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.4.2#e7ff01d67f255b0aff2da1293d47e95894a31bca"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=190213bf35431ced238d7ed6bc9080a01d573c83#190213bf35431ced238d7ed6bc9080a01d573c83"
 dependencies = [
  "alloy-consensus 2.3.0",
  "alloy-primitives",
@@ -5232,7 +5232,7 @@ dependencies = [
 [[package]]
 name = "hokulea-zkvm-verification"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?tag=hokulea-client%2Fv1.4.2#e7ff01d67f255b0aff2da1293d47e95894a31bca"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=190213bf35431ced238d7ed6bc9080a01d573c83#190213bf35431ced238d7ed6bc9080a01d573c83"
 dependencies = [
  "canoe-verifier",
  "canoe-verifier-address-fetcher",
@@ -10627,7 +10627,7 @@ dependencies = [
 [[package]]
 name = "rsp-client-executor"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/rsp?tag=reth-2.2.0-sp1-6.10.0#5afe72eb12a2d6accd9d7fdff66785d91cbc8e72"
+source = "git+https://github.com/succinctlabs/rsp?rev=c97f16836ce18f5af84f07bb8f9397e081ba0fdf#c97f16836ce18f5af84f07bb8f9397e081ba0fdf"
 dependencies = [
  "alloy-consensus 2.3.0",
  "alloy-evm 0.34.0",
@@ -10661,7 +10661,7 @@ dependencies = [
 [[package]]
 name = "rsp-mpt"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/rsp?tag=reth-2.2.0-sp1-6.10.0#5afe72eb12a2d6accd9d7fdff66785d91cbc8e72"
+source = "git+https://github.com/succinctlabs/rsp?rev=c97f16836ce18f5af84f07bb8f9397e081ba0fdf#c97f16836ce18f5af84f07bb8f9397e081ba0fdf"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -10680,7 +10680,7 @@ dependencies = [
 [[package]]
 name = "rsp-primitives"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/rsp?tag=reth-2.2.0-sp1-6.10.0#5afe72eb12a2d6accd9d7fdff66785d91cbc8e72"
+source = "git+https://github.com/succinctlabs/rsp?rev=c97f16836ce18f5af84f07bb8f9397e081ba0fdf#c97f16836ce18f5af84f07bb8f9397e081ba0fdf"
 dependencies = [
  "alloy-eips 2.3.0",
  "alloy-genesis",
@@ -10697,7 +10697,7 @@ dependencies = [
 [[package]]
 name = "rsp-rpc-db"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/rsp?tag=reth-2.2.0-sp1-6.10.0#5afe72eb12a2d6accd9d7fdff66785d91cbc8e72"
+source = "git+https://github.com/succinctlabs/rsp?rev=c97f16836ce18f5af84f07bb8f9397e081ba0fdf#c97f16836ce18f5af84f07bb8f9397e081ba0fdf"
 dependencies = [
  "alloy-consensus 2.3.0",
  "alloy-primitives",
@@ -10721,7 +10721,7 @@ dependencies = [
 [[package]]
 name = "rsp-witness-db"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/rsp?tag=reth-2.2.0-sp1-6.10.0#5afe72eb12a2d6accd9d7fdff66785d91cbc8e72"
+source = "git+https://github.com/succinctlabs/rsp?rev=c97f16836ce18f5af84f07bb8f9397e081ba0fdf#c97f16836ce18f5af84f07bb8f9397e081ba0fdf"
 dependencies = [
  "alloy-primitives",
  "reth-storage-errors",
@@ -12067,7 +12067,7 @@ dependencies = [
 [[package]]
 name = "sp1-cc-client-executor"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1-contract-call.git?tag=reth-2.2.0-sp1-6.10.0#ee7506f2341206528d7bb5772bf3748a44bc2eda"
+source = "git+https://github.com/succinctlabs/sp1-contract-call.git?rev=d9e95cce7b5aa0ee821eca7861bae1ef1278faeb#d9e95cce7b5aa0ee821eca7861bae1ef1278faeb"
 dependencies = [
  "alloy-consensus 2.3.0",
  "alloy-eips 2.3.0",
@@ -12102,7 +12102,7 @@ dependencies = [
 [[package]]
 name = "sp1-cc-host-executor"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1-contract-call.git?tag=reth-2.2.0-sp1-6.10.0#ee7506f2341206528d7bb5772bf3748a44bc2eda"
+source = "git+https://github.com/succinctlabs/sp1-contract-call.git?rev=d9e95cce7b5aa0ee821eca7861bae1ef1278faeb#d9e95cce7b5aa0ee821eca7861bae1ef1278faeb"
 dependencies = [
  "alloy-consensus 2.3.0",
  "alloy-eips 2.3.0",
