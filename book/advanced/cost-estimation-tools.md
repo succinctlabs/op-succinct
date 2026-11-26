@@ -57,7 +57,7 @@ cargo run --bin cost-estimator -- \
     --l1-head <L1_HEAD_BLOCK_HASH>
 ```
 
-`--no-safe-head-split` uses fixed-size batches instead of SafeDB-aligned safe head boundaries. `--l1-head` uses the supplied L1 head hash instead of looking it up through SafeDB, and ignores `L1_BLOCK_TAG` / `L1_CONFIRMATIONS` for the estimator run.
+`--no-safe-head-split` uses fixed-size batches instead of SafeDB-aligned safe head boundaries. `--l1-head` uses the supplied L1 head hash instead of looking it up through SafeDB, and ignores `L1_BLOCK_TAG` / `L1_CONFIRMATIONS` / `L1_HEAD_BUFFER` for the estimator run.
 
 ### Output
 
