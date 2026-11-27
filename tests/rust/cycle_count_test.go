@@ -56,7 +56,7 @@ func runCycleCountDiff(ctx context.Context, t *testing.T, env []string) {
 	oldStats, err := os.ReadFile(filepath.Join(base, "scripts/prove/old_cycle_stats.json"))
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(root, "scripts/prove/old_cycle_stats.json"), oldStats, 0600))
-	run(root, "cycle_count_diff", "test_post_to_github")
+	run(root, "cycle_count_diff", "test_create_comparison_report")
 }
 
 func writeCycleCountTempFile(t *testing.T, path string, data []byte) {
