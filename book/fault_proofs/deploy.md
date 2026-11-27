@@ -23,7 +23,7 @@ The deployment script performs the following actions:
 | Parameter | Description |
 |-----------|-------------|
 | `L1_RPC` | L1 Archive Node. |
-| `L2_RPC` | L2 Execution Node (`op-geth`). |
+| `L2_RPC` | L2 Execution Node (`op-reth`). |
 | `L2_NODE_RPC` | L2 Rollup Node (`op-node`). |
 | `PRIVATE_KEY` | Private key for the account that will be deploying the contract. |
 | `ETHERSCAN_API_KEY` | Etherscan API key used for verifying the contract (optional). |
